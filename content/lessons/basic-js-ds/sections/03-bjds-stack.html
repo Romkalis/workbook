@@ -1,0 +1,27 @@
+<section id="bjds-stack">
+<h2>Stack: стек на массиве</h2>
+<p>Стек работает по правилу LIFO: последним пришёл — первым ушёл. Добавляем и забираем элементы с одного конца, «верхушки». У массива для этого уже есть быстрые методы: <code>push</code> и <code>pop</code> работают с концом за O(1), так что почти вся работа сделана за нас.</p>
+<pre><code>class Stack {
+  #items = [];
+
+  push(value) {
+    this.#items.push(value);
+  }
+
+  pop() {
+    return this.#items.pop();
+  }
+
+  peek() {
+    return this.#items[this.#items.length - 1];
+  }
+}
+
+module.exports = { Stack };</code></pre>
+<ul>
+<li><code>#items</code> — приватное поле. Снаружи нельзя случайно вызвать <code>stack.#items.shift()</code> и нарушить правило LIFO.</li>
+<li><code>pop()</code> на пустом массиве возвращает <code>undefined</code>, а тест ровно этого и ждёт. Отдельная проверка не нужна.</li>
+<li><code>peek()</code> читает последний элемент и не удаляет его. На пустом стеке <code>this.#items[-1]</code> тоже даёт <code>undefined</code>. Можно написать <code>this.#items.at(-1)</code>, результат тот же.</li>
+</ul>
+<p class="warn">Не используйте <code>unshift</code>/<code>shift</code> для «верхушки» в начале массива. Работать будет, но каждая операция сдвигает все элементы, и вместо O(1) получается O(n).</p>
+</section>

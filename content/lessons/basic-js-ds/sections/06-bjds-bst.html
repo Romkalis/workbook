@@ -1,0 +1,97 @@
+<section id="bjds-bst">
+<h2>Binary search tree: дерево поиска</h2>
+<p>У каждого узла есть <code>data</code>, <code>left</code> и <code>right</code>. Правило BST: всё, что меньше узла, лежит слева, всё, что больше, — справа. Узлы создаются классом <code>Node</code> из <code>extensions/list-tree.js</code>: раскомментируйте его импорт в заготовке. Здесь ловушки с прототипом нет: тесты дерева сравнивают <code>node.data</code>, а не узлы целиком.</p>
+<h3 id="bjds-bst-root-add">root() и add()</h3>
+<p>Обратите внимание: <code>root</code> — метод, а не свойство, тест вызывает <code>tree.root().data</code>. Поэтому сам корень храним в приватном поле <code>#root</code>, иначе имя поля и метода совпадёт.</p>
+<pre><code>const { Node } = require('../extensions/list-tree.js');
+
+class BinarySearchTree {
+  #root = null;
+
+  root() {
+    return this.#root;
+  }
+
+  add(data) {
+    const node = new Node(data);
+    if (!this.#root) {
+      this.#root = node;
+      return;
+    }
+    let current = this.#root;
+    while (true) {
+      if (data === current.data) return;
+      const side = data &lt; current.data ? 'left' : 'right';
+      if (!current[side]) {
+        current[side] = node;
+        return;
+      }
+      current = current[side];
+    }
+  }</code></pre>
+<p>Спускаемся от корня: меньше — налево, больше — направо, пока не найдём пустое место. Повтор значения просто игнорируем. Задание не говорит, что делать с дубликатами, а для <code>has</code> и <code>find</code> так проще всего.</p>
+<h3 id="bjds-bst-find">find(), has(), min(), max()</h3>
+<pre><code>  find(data) {
+    let current = this.#root;
+    while (current) {
+      if (data === current.data) return current;
+      current = data &lt; current.data ? current.left : current.right;
+    }
+    return null;
+  }
+
+  has(data) {
+    return this.find(data) !== null;
+  }
+
+  min() {
+    if (!this.#root) return null;
+    let current = this.#root;
+    while (current.left) current = current.left;
+    return current.data;
+  }
+
+  max() {
+    if (!this.#root) return null;
+    let current = this.#root;
+    while (current.right) current = current.right;
+    return current.data;
+  }</code></pre>
+<p><code>find</code> возвращает сам узел, а не значение: тест проверяет <code>tree.find(8).data</code>. <code>has</code> не дублирует обход, а переиспользует <code>find</code>. Минимум — самый левый узел, максимум — самый правый. Для пустого дерева оба возвращают <code>null</code>.</p>
+<h3 id="bjds-bst-remove">remove(): три случая</h3>
+<p>Удаление — главная сложность задания. Сначала находим узел, затем смотрим, сколько у него детей:</p>
+<ol>
+<li><strong>Нет детей (лист).</strong> Просто убираем: родитель получает <code>null</code>.</li>
+<li><strong>Один ребёнок.</strong> Ставим ребёнка на место удалённого узла.</li>
+<li><strong>Два ребёнка.</strong> Находим <em>преемника</em> — минимальный узел правого поддерева. Он больше всего слева и меньше всего справа, поэтому может встать на место удаляемого без нарушения правила. Копируем его значение в узел, а самого преемника удаляем из правого поддерева. У преемника нет левого ребёнка, так что это случай 1 или 2.</li>
+</ol>
+<pre><code>  remove(data) {
+    this.#root = removeNode(this.#root, data);
+  }
+}
+
+function removeNode(node, data) {
+  if (!node) return null;
+  if (data &lt; node.data) {
+    node.left = removeNode(node.left, data);
+    return node;
+  }
+  if (data &gt; node.data) {
+    node.right = removeNode(node.right, data);
+    return node;
+  }
+  if (!node.left) return node.right;
+  if (!node.right) return node.left;
+  let successor = node.right;
+  while (successor.left) successor = successor.left;
+  node.data = successor.data;
+  node.right = removeNode(node.right, successor.data);
+  return node;
+}
+
+module.exports = { BinarySearchTree };</code></pre>
+<p>Рекурсивная функция возвращает новый корень поддерева, и родитель записывает его себе: <code>node.left = removeNode(...)</code>. Поэтому не нужно отдельно хранить родителя, и удаление корня работает так же, как любого другого узла: <code>this.#root = removeNode(this.#root, data)</code>. Строки <code>if (!node.left) return node.right</code> закрывают сразу случаи 1 и 2: у листа оба ребёнка <code>null</code>, и вернётся <code>null</code>.</p>
+<figure class="dg"><div class="dg-title">Удаляем корень 9 (тест «remove &amp; has»)</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0">У 9 два ребёнка: 2 слева, 14 справа.</li><li class="card lit" style="--i:1">Преемник — самый левый в правом поддереве. В тесте после удаления 14 это 31.</li><li class="card lit" style="--i:2">В корень записывается 31, а узел 31 удаляется из правого поддерева.</li></ol><figcaption>Порядок узлов при обходе слева направо не меняется: удалённое значение просто пропадает из отсортированной последовательности. Преемник — следующее по величине значение после удаляемого.</figcaption></figure>
+<p>Функцию <code>removeNode</code> я вынес за класс, чтобы не появлялся лишний публичный метод. Можно сделать её приватным методом <code>#removeNode</code>, тестам это не важно.</p>
+<p class="note">Сложность: все операции идут по одной ветке, то есть O(h), где h — высота дерева. В сбалансированном дереве это O(log n). Но пример из README добавляет 1, 2, 3, 4, 5 по возрастанию, и дерево вытягивается в «палку» высотой n. Там каждая операция O(n). Подробнее в <a href="/lessons/data-structures-and-algorithms#ds-tree-kinds">уроке о деревьях</a>.</p>
+</section>

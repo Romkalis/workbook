@@ -1,0 +1,17 @@
+<section id="bjds-setup">
+<h2>Подготовка и запуск тестов</h2>
+<h3 id="bjds-fork">Форк, клон, установка</h3>
+<ol>
+<li>Поставьте Node.js 22 LTS или новее. В <code>package.json</code> указано <code>"engines": { "node": "&gt;=22" }</code>: тесты запускаются встроенным раннером <code>node --test</code>, Jest и Mocha не нужны. Если на проверке окажется функция, которой нет в Node 22, сдача может сломаться.</li>
+<li>Сделайте форк <code>AlreadyBored/basic-js-ds</code> в свой GitHub (кнопка Fork).</li>
+<li>Склонируйте <strong>свой</strong> форк: <code>git clone https://github.com/&lt;ваш-логин&gt;/basic-js-ds</code>.</li>
+<li><code>cd basic-js-ds</code>, затем <code>npm install</code>. Сторонних зависимостей в проекте нет, команда в основном проверяет версию Node.</li>
+<li><code>npm run test</code>. Это <code>node --test --test-reporter tap</code>: Node найдёт файлы в папке <code>test/</code> и выведет отчёт в формате TAP.</li>
+</ol>
+<h3 id="bjds-report">Как читать отчёт</h3>
+<p>Заготовки методов бросают <code>NotImplementedError</code>. Обёртка <code>test</code> из <code>lib/</code> ловит именно эту ошибку и помечает тест как <code>todo</code> с текстом «Pending: …». Поэтому в начале вы увидите много pending и ни одного fail. Как только вы удалили строку <code>throw new NotImplementedError(...)</code>, тест начинает проверяться по-настоящему и становится pass или fail.</p>
+<p>Внизу отчёта есть сводка: <code># pass</code>, <code># fail</code>, <code># todo</code>. Цель — ноль fail и ноль todo. Чтобы запустить один файл, передайте его путь: <code>node --test test/stack.test.js</code>.</p>
+<div class="note"><b>Лимит 30 секунд</b><p>Каждый тест должен укладываться в 30 секунд. Превысить лимит можно только бесконечным циклом. Чаще всего это <code>while</code>, в котором забыли сдвинуть указатель (<code>current = current.next</code>). Если отчёт завис, ищите такой цикл.</p></div>
+<h3 id="bjds-read-tests">Читайте тесты, а не только README</h3>
+<p>README описывает задачу словами, а тесты точно говорят, что считается правильным. Откройте <code>test/queue.test.js</code> и посмотрите, чем сравнивают результат. Там стоит <code>assert.deepStrictEqual</code>, и из-за этого меняется решение очереди (см. <a href="#bjds-queue-trap">ловушку</a>). Ещё из тестов видно, что пустой стек и пустая очередь должны вернуть <code>undefined</code>, а пустое дерево — <code>null</code> из <code>root()</code>, <code>min()</code> и <code>max()</code>.</p>
+</section>

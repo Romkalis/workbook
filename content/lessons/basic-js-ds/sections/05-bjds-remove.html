@@ -1,0 +1,22 @@
+<section id="bjds-remove">
+<h2>Remove from list: удалить все k</h2>
+<p>Дан односвязный список и число <code>k</code>. Нужно убрать все узлы со значением <code>k</code> и вернуть голову нового списка. Удалить узел из списка — значит перекинуть ссылку предыдущего узла через него: <code>prev.next = prev.next.next</code>.</p>
+<h3 id="bjds-dummy">Приём «фиктивная голова»</h3>
+<p>Сложный случай — когда <code>k</code> стоит в начале: у первого узла нет предыдущего, и голова меняется. Чтобы не писать для этого отдельную ветку, ставим перед списком фиктивный узел <code>dummy</code>. Теперь у каждого настоящего узла есть предыдущий, а ответ — <code>dummy.next</code>.</p>
+<pre><code>function removeKFromList(l, k) {
+  const dummy = { value: null, next: l };
+  let current = dummy;
+  while (current.next) {
+    if (current.next.value === k) {
+      current.next = current.next.next;
+    } else {
+      current = current.next;
+    }
+  }
+  return dummy.next;
+}
+
+module.exports = { removeKFromList };</code></pre>
+<figure class="dg"><div class="dg-title">l = 3 → 1 → 2 → 3 → 4 → 5, k = 3</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0">dummy → 3: следующий равен k, перекидываем dummy.next на 1. current остаётся на dummy.</li><li class="card lit" style="--i:1">Идём по 1 и 2: они не равны k, current сдвигается.</li><li class="card lit" style="--i:2">2 → 3: перекидываем на 4. Итог: dummy.next = 1 → 2 → 4 → 5.</li></ol><figcaption>current стоит на узле перед проверяемым. После удаления current не двигается: новый следующий узел тоже может оказаться равен k, как в списке 1 → 2 → 3 → 3 → 4.</figcaption></figure>
+<p>Две частые ошибки: сдвигать <code>current</code> сразу после удаления (тогда пропускается второе <code>k</code> подряд) и возвращать <code>l</code> вместо <code>dummy.next</code> (тогда возвращается удалённая голова). Время O(n), дополнительная память O(1). Список меняется на месте; тесты это допускают.</p>
+</section>

@@ -1,0 +1,49 @@
+<section id="bjds-queue">
+<h2>Queue: очередь на связном списке</h2>
+<p>Очередь работает по правилу FIFO: первым пришёл — первым ушёл. Добавляем в хвост, забираем из головы. Задание требует построить очередь на связном списке, а не на массиве: <code>getUnderlyingList()</code> должен вернуть сам список, то есть его первый узел.</p>
+<p>Чтобы обе операции были O(1), храним две ссылки: <code>head</code> на первый узел и <code>tail</code> на последний. Без <code>tail</code> для добавления пришлось бы каждый раз идти до конца списка, это O(n).</p>
+<figure class="dg"><div class="dg-title">enqueue(1), enqueue(2), enqueue(3), dequeue()</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0">Пусто: head = null, tail = null. Первый узел становится и головой, и хвостом.</li><li class="card lit" style="--i:1">1 → 2 → 3: новый узел цепляется к tail.next, затем tail сдвигается на него.</li><li class="card lit" style="--i:2">dequeue вернул 1: head сдвинулся на узел 2. Если очередь опустела, tail тоже обнуляем.</li></ol><figcaption>При добавлении меняется только хвост, при извлечении только голова. Особый случай один — пустая очередь: в ней обе ссылки равны null, и первый узел записывается сразу в обе.</figcaption></figure>
+<pre><code>class Queue {
+  #head = null;
+  #tail = null;
+
+  getUnderlyingList() {
+    return this.#head;
+  }
+
+  enqueue(value) {
+    const node = { value, next: null };
+    if (this.#tail) {
+      this.#tail.next = node;
+    } else {
+      this.#head = node;
+    }
+    this.#tail = node;
+  }
+
+  dequeue() {
+    if (!this.#head) return undefined;
+    const { value } = this.#head;
+    this.#head = this.#head.next;
+    if (!this.#head) this.#tail = null;
+    return value;
+  }
+}
+
+module.exports = { Queue };</code></pre>
+<p>Строка <code>if (!this.#head) this.#tail = null</code> выглядит лишней, но без неё после опустошения <code>tail</code> продолжит указывать на удалённый узел. Следующий <code>enqueue</code> прицепит новый элемент к нему, а <code>head</code> останется <code>null</code>, и элемент пропадёт.</p>
+<h3 id="bjds-queue-trap">Ловушка: ListNode и deepStrictEqual</h3>
+<p>В заготовке и README написано «используйте ListNode из extensions». Но тест сравнивает результат так:</p>
+<pre><code>assert.deepStrictEqual(queue.getUnderlyingList(), {
+  value: 1,
+  next: { value: 2, next: { value: 3, next: null } },
+});</code></pre>
+<p><code>deepStrictEqual</code> сравнивает не только поля, но и прототипы объектов. Узел, созданный через <code>new ListNode(1)</code>, имеет прототип <code>ListNode.prototype</code>, а литерал <code>{ value: 1, next: null }</code> — <code>Object.prototype</code>. Поля совпадают, а тест падает. Проверка в Node.js 22:</p>
+<pre><code>const assert = require('node:assert');
+class ListNode {
+  constructor(x) { this.value = x; this.next = null; }
+}
+assert.deepEqual(new ListNode(1), { value: 1, next: null });       // проходит
+assert.deepStrictEqual(new ListNode(1), { value: 1, next: null }); // AssertionError</code></pre>
+<p>Поэтому в решении выше узлы — обычные объекты <code>{ value, next: null }</code>. Форма у них та же, что у <code>ListNode</code>, так что требование «очередь на связном списке» выполнено. Тесты я проверял на копии их утверждений (версия репозитория от 28 июня 2026 года, коммит <code>a87c2a8</code>). Если к моменту вашей сдачи тесты изменились, перечитайте <code>test/queue.test.js</code>: возможно, там уже ждут именно <code>ListNode</code>.</p>
+</section>

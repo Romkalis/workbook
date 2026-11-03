@@ -1,0 +1,28 @@
+<section id="bjds-submit">
+<h2>Проверка перед сдачей</h2>
+<h3 id="bjds-checklist">Чек-лист</h3>
+<ul>
+<li><code>npm run test</code>: в сводке <code># fail 0</code> и <code># todo 0</code>. Ни одной строки <code>throw new NotImplementedError</code> не осталось.</li>
+<li>Node 22 или новее. Не используйте возможности, которых нет в Node 22.</li>
+<li>Экспорт не тронут: <code>module.exports = { Stack }</code> и так далее. Тесты импортируют классы именно по этим именам.</li>
+<li>Пустые случаи: <code>pop</code>, <code>peek</code>, <code>dequeue</code> → <code>undefined</code>; <code>root</code>, <code>min</code>, <code>max</code>, <code>find</code> → <code>null</code>.</li>
+<li>Ничего лишнего в консоли: отладочные <code>console.log</code> удалены.</li>
+<li>Изменения закоммичены и отправлены в <strong>ваш</strong> форк: <code>git push origin main</code>.</li>
+</ul>
+<h3 id="bjds-rs-app">Сдача в RS App</h3>
+<ol>
+<li>Откройте <a href="https://app.rs.school">app.rs.school</a> и войдите.</li>
+<li>Перейдите на страницу сдачи задач.</li>
+<li>Выберите задание BasicJS Data Structures.</li>
+<li>Нажмите кнопку отправки. Проверяющая система сама склонирует ваш форк и прогонит тесты.</li>
+</ol>
+<p>Если локально всё зелёное, а в RS App нет, сначала проверьте, что изменения действительно запушены в репозиторий с именем <code>basic-js-ds</code> в вашем аккаунте. Затем сравните версию Node и посмотрите, нет ли в решении долгого или бесконечного цикла.</p>
+<h3 id="bjds-extra">Если хочется больше практики</h3>
+<p>Задания, которые не проверяются тестами, но хорошо закрепляют материал (из общих знаний):</p>
+<ul>
+<li>Добавить в стек и очередь геттер <code>size</code> за O(1) — заведите счётчик.</li>
+<li>Написать в дереве обход <code>inOrder()</code>, который возвращает отсортированный массив значений.</li>
+<li>Переписать <code>add</code> рекурсивно и сравнить, что читается проще.</li>
+<li>Написать <code>removeKFromList</code> рекурсивно: <code>l.next = removeKFromList(l.next, k)</code>. Почему на списке из 100 000 узлов эта версия может упасть?</li>
+</ul>
+</section>
