@@ -1,0 +1,61 @@
+<section id="cc-task">
+<h2>Задание Clean Code S1E1: план работы</h2>
+<p>Дано маленькое <a href="https://github.com/rolling-scopes-school/clean-code-s1e1">TODO-приложение</a>: <code>index.html</code>, <code>style.css</code>, <code>app.js</code>. Нужно отрефакторить его по гайду так, чтобы приложение работало и выглядело как раньше. Максимум 45 баллов: 15 правил начального уровня по 2 балла и 3 продвинутых по 5.</p>
+<div class="warn"><b>Ноль баллов, если нарушено хоть одно требование</b><ul>
+<li>Личный <strong>публичный</strong> репозиторий <code>clean-code-s1e1</code>: форк или новый репозиторий с копией файлов. Во втором случае первый коммит — <code>init: …</code>.</li>
+<li>Работа в ветке <code>clean-code-s1e1</code>, созданной от <code>main</code>. Сама <code>main</code> не меняется.</li>
+<li>Один коммит — одно правило гайда, сообщение называет его. Совмещать можно, только если выполнение одного правила автоматически выполняет другое и их не разделить. Тогда в сообщении перечислены оба.</li>
+<li><strong>Никакого Prettier</strong> и других автоформаттеров.</li>
+<li>Функциональность сохранена (или исправлена, если была сломана).</li>
+<li>PR из <code>clean-code-s1e1</code> в <code>main</code> <strong>вашего</strong> репозитория, открыт, оформлен по правилам. Сдаётся ссылка на PR.</li>
+</ul></div>
+<h3 id="cc-task-fork-trap">Ловушка форка</h3>
+<p>Если вы сделали форк, GitHub при создании PR по умолчанию предложит влить его в <code>main</code> <em>исходного</em> репозитория rolling-scopes-school. Обязательно переключите base repository на свой. PR в чужой репозиторий — ошибка, которую видят все.</p>
+<h3 id="cc-task-steps">Пошагово</h3>
+<ol>
+<li>Форк или новый репозиторий, затем <code>git clone</code>, затем <code>git switch -c clean-code-s1e1</code>.</li>
+<li>Откройте <code>index.html</code> в браузере и пройдите весь список функций (ниже). Сделайте скриншот «до», чтобы потом сравнить внешний вид.</li>
+<li>Берите правила по одному. Правка, проверка в браузере, коммит. Не копите десять правил, чтобы потом раскладывать их по коммитам.</li>
+<li>После каждого переименования классов или id ищите старое имя <strong>во всех трёх файлах</strong>, включая <code>app.js</code>.</li>
+<li>В конце — финальная проверка функциональности, деплой на gh-pages (необязательно, но проверяющим удобнее), PR с описанием и самооценкой.</li>
+</ol>
+<h3 id="cc-task-commits">Пример последовательности коммитов</h3>
+<p>Гайд разрешает два стиля сообщений, оба на английском. Выберите один и держитесь его:</p>
+<pre><code>fix(basic-2.2): add html5 doctype
+refactor(basic-1.2): use lowercase for tags, attributes and colors
+refactor(basic-1.3): use double quotes in html and css
+refactor(basic-2.4): remove type attribute from link and script
+refactor(basic-2.3): replace named character reference with symbol
+refactor(basic-1.1): use two spaces for indentation
+refactor(basic-2.1): put block and list elements on new lines
+refactor(basic-3.5): indent rules inside media query
+refactor(basic-3.6): add space after colon in css properties
+refactor(basic-3.7): add semicolon after each css property
+refactor(basic-3.8): put each selector and property on new line
+refactor(extended-1.1): use semantic tags for page layout
+fix(extended-1.2): add alt text to images
+refactor(extended-2.1, basic-3.1): rename classes according to bem
+refactor(basic-3.2, basic-3.3): use meaningful and concise ids
+refactor(basic-3.4): replace tag selectors with classes</code></pre>
+<p>Второй стиль: <code>fix: add html5 doctype according to rule 2.2 in html-and-css.md</code>. Порядок выбран так, чтобы механические правки шли раньше переименований: когда вы дойдёте до БЭМ, код уже отформатирован, и diff переименования не утонет в пробелах.</p>
+<h3 id="cc-task-js">Что сломается при переименовании</h3>
+<p><code>app.js</code> завязан на имена из разметки. Разберитесь с ними до того, как менять HTML и CSS:</p>
+<ul>
+<li><code>getElementById("new-task")</code>, <code>"incompleteTasks"</code>, <code>"completed-tasks"</code> — id в разном стиле, после переименования их надо поменять и здесь.</li>
+<li><code>querySelector(".edit")</code>, <code>"button.edit"</code>, <code>"button.delete"</code> — классы кнопок.</li>
+<li><code>classList.contains("editMode")</code> и <code>classList.toggle("editMode")</code> — режим редактирования. В CSS от него зависит <code>ul li.editMode label</code>. Пропустите одно место — режим редактирования перестанет работать.</li>
+<li><code>className = 'task'</code>, <code>"edit"</code>, <code>"delete"</code> в <code>createNewTaskElement</code>. Новые задачи создаются из JS, и если не обновить классы здесь, новые элементы будут выглядеть иначе, чем исходные.</li>
+<li><code>getElementsByTagName("button")[0]</code> — кнопка «Add» найдена как «первая кнопка на странице». Если при переделке семантики перед ней появится другая кнопка, привязка молча уедет. Надёжнее дать кнопке класс и искать по нему.</li>
+</ul>
+<p>Любопытная деталь: обработчик <code>addTask</code> навешан дважды, через <code>onclick</code> и через <code>addEventListener</code>. Задача не дублируется только потому, что первый вызов очищает поле, а второй выходит на проверке <code>if (!taskInput.value) return</code>. Это скрытая связь, которая сломается от безобидной правки. Можно исправить отдельным коммитом <code>fix: remove duplicate click handler</code>: правки JS заданием не запрещены, функциональность разрешено чинить.</p>
+<h3 id="cc-task-check">Чек-лист функциональности</h3>
+<ul>
+<li>Добавить задачу в «Todo».</li>
+<li>Отредактировать задачу в «Todo» и в «Completed» (Edit → Save).</li>
+<li>Удалить задачу из обоих списков.</li>
+<li>Отметить чекбокс — задача переезжает в «Completed»; снять — возвращается в «Todo».</li>
+<li>Внешний вид не изменился (мелкие сдвиги отступов из-за замены тегов не штрафуются, PerfectPixel не нужен).</li>
+<li>У всех нужных картинок есть <code>alt</code>; анимация кнопки удаления работает.</li>
+</ul>
+<p class="note">Шрифт <code>fantasy</code> из приложения в Linux может выглядеть иначе. Критерии прямо разрешают заменить его на похожий без штрафа. И главное правило проверки из задания: «Будьте снисходительны. Все спорные вопросы решаются в пользу большего балла».</p>
+</section>

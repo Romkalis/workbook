@@ -1,0 +1,28 @@
+<section id="cc-git">
+<h2>Коммиты и pull request</h2>
+<h3 id="cc-commit-content">Один коммит — одно законченное изменение</h3>
+<p>Коммит содержит одно из трёх: законченную функциональность или документацию, законченное исправление ошибки или законченный рефакторинг. Проверка простая: изменения коммита описываются одним предложением с одним сказуемым. Если в описании появилось «и», скорее всего, это два коммита.</p>
+<p>Зачем это нужно. Ментор просматривает список коммитов и проверяет логику каждого отдельно, а не всё приложение разом. Если один коммит оказался ошибочным, его можно откатить (<code>git revert</code>), не задев остальное.</p>
+<h3 id="cc-conventional">Сообщение коммита: Conventional Commits</h3>
+<p>Формат <code>тип: описание</code>, на английском, в повелительном наклонении и настоящем времени: <code>add feature</code>, а не <code>added feature</code> или <code>adds feature</code>. Удобная проверка: сообщение должно продолжать фразу «If applied, this commit will…».</p>
+<div class="tbl"><table><thead><tr><th scope="col">Тип</th><th scope="col">Когда</th><th scope="col">Пример</th></tr></thead><tbody>
+<tr><td><code>init</code></td><td>начало проекта или задания</td><td><code>init: start clean-code task</code></td></tr>
+<tr><td><code>feat</code></td><td>новая функциональность</td><td><code>feat: add search box</code></td></tr>
+<tr><td><code>fix</code></td><td>исправление ошибки</td><td><code>fix: adjust social links for mobile</code></td></tr>
+<tr><td><code>refactor</code></td><td>структура, форматирование, переименования без изменения поведения</td><td><code>refactor: rename vars for better readability</code></td></tr>
+<tr><td><code>docs</code></td><td>README и документация</td><td><code>docs: update readme</code></td></tr>
+</tbody></table></div>
+<p class="note">Тип <code>init</code> — соглашение RS School. В самой спецификации Conventional Commits обязательны только <code>feat</code> и <code>fix</code>, остальные типы команда выбирает сама. Часто встречаются ещё <code>style</code>, <code>test</code>, <code>chore</code> (из общих знаний).</p>
+<p>У типа может быть область в скобках: <code>fix(basic-2.2): add html5 doctype</code>. В задании S1E1 так указывают номер правила гайда.</p>
+<h3 id="cc-pr">Описание pull request</h3>
+<p>PR — место для обсуждения кода, а не монолог студента или ментора. В описании RS School ждёт:</p>
+<ol>
+<li>ссылку на задание;</li>
+<li>скриншот результата, вставленный картинкой;</li>
+<li>ссылку на задеплоенную версию (gh-pages или Netlify; имя сайта на Netlify — <code>логин-github-название-задания</code>);</li>
+<li>дату выполнения и дедлайн;</li>
+<li>самооценку с баллами по пунктам критериев;</li>
+<li>желательно — ссылку на видео самопроверки.</li>
+</ol>
+<p>В PR не должно быть закомментированного кода, лишних и сгенерированных файлов, папки <code>node_modules</code>. Для этого есть <code>.gitignore</code>.</p>
+</section>

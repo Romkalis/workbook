@@ -1,0 +1,33 @@
+<section id="cc-advanced">
+<h2>Продвинутый уровень: семантика, alt, БЭМ</h2>
+<p>Три правила из <code>html-and-css-extended.md</code>, по 5 баллов каждое.</p>
+<h3 id="cc-semantics">1.1. Семантика</h3>
+<p>Используйте теги по назначению: <code>h1</code>–<code>h6</code> для заголовков, <code>p</code> для абзацев, <code>a</code> для ссылок, <code>button</code> для действий, <code>header</code>, <code>main</code>, <code>section</code>, <code>article</code>, <code>aside</code> для областей страницы. Это нужно не для красоты:</p>
+<ul>
+<li>программа экранного доступа объявляет «ссылка», «кнопка», «заголовок 2-го уровня» и даёт прыгать по ним с клавиатуры;</li>
+<li>поисковики лучше понимают, где на странице главное;</li>
+<li>код читается легче: <code>&lt;nav&gt;</code> понятнее, чем <code>&lt;div class="nav"&gt;</code>.</li>
+</ul>
+<pre><code>&lt;!-- Плохо: не фокусируется с клавиатуры, не объявляется как ссылка --&gt;
+&lt;div onclick="goToRecommendations();"&gt;All recommendations&lt;/div&gt;
+
+&lt;!-- Хорошо --&gt;
+&lt;a href="recommendations/"&gt;All recommendations&lt;/a&gt;</code></pre>
+<p>В TODO-приложении обёртки <code>div</code> напрашиваются на замену: верхний блок с картинкой и ссылкой — это <code>header</code> или <code>section</code>, основная часть — <code>main</code>, у списка «Todo» и «Completed» — по <code>section</code> с заголовком. Заголовки там <code>h3</code> без <code>h1</code> и <code>h2</code>; из общих знаний, порядок уровней тоже часть семантики.</p>
+<h3 id="cc-alt">1.2. Альтернатива для медиа</h3>
+<p>У каждой картинки есть <code>alt</code>. Для смысловой — описание того, что на ней: <code>alt="Eisenhower matrix"</code>. Для декоративной — пустой <code>alt=""</code>, тогда экранный диктор её пропустит. Без атрибута вовсе диктор может прочитать имя файла. У видео — субтитры через <code>&lt;track kind="captions"&gt;</code>.</p>
+<p>Тонкость из общих знаний: в приложении кнопка удаления содержит только картинку-корзину. Если дать картинке <code>alt=""</code>, у кнопки не останется названия вообще. Здесь <code>alt</code> должен называть действие: <code>alt="Delete"</code>, тогда кнопка будет объявлена как «Delete, кнопка».</p>
+<h3 id="cc-bem">2.1. БЭМ</h3>
+<p>БЭМ — Блок, Элемент, Модификатор. Методология из Яндекса для именования классов. Интерфейс делится на независимые <strong>блоки</strong> (<code>menu</code>), у блока есть <strong>элементы</strong>, которые без него не существуют (<code>menu__item</code>), а у тех и других — <strong>модификаторы</strong> состояния или вида (<code>menu__item_active</code>).</p>
+<figure class="dg"><div class="dg-title">Из чего складывается имя класса</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0">Блок: task — самостоятельная часть интерфейса, можно перенести в другое место.</li><li class="card lit" style="--i:1">Элемент: task__label, task__edit — часть блока, отделена двумя подчёркиваниями.</li><li class="card lit" style="--i:2">Модификатор: task_edit-mode, task__label_done — состояние, отделено одним подчёркиванием.</li></ol><figcaption>Имя класса читается слева направо: какой блок, какая его часть, в каком состоянии. Поэтому селекторы плоские, без вложенности, и не зависят от тегов: стиль .task__label сработает и на label, и на span.</figcaption></figure>
+<pre><code>&lt;li class="task task_edit-mode"&gt;
+  &lt;input class="task__checkbox" type="checkbox"&gt;
+  &lt;label class="task__label"&gt;Go Shopping&lt;/label&gt;
+  &lt;input class="task__input" type="text" value="Go Shopping"&gt;
+  &lt;button class="task__button task__button_edit"&gt;Save&lt;/button&gt;
+&lt;/li&gt;</code></pre>
+<pre><code>.task__label { … }
+.task_edit-mode .task__label { display: none; }</code></pre>
+<p>Модификатор пишется <em>вместе</em> с базовым классом: <code>class="task task_edit-mode"</code>, а не один <code>task_edit-mode</code>. Элемент элемента не бывает: не <code>task__row__button</code>, а <code>task__button</code>. В исходном приложении класс <code>task</code> висит и на <code>label</code>, и на <code>input</code>, а режим редактирования задан классом <code>editMode</code> в camelCase. Это хороший кандидат на переделку по БЭМ.</p>
+<p class="note">Правило 3.1 начального уровня разрешает «дефис или БЭМ». Если вы делаете продвинутое правило 2.1, БЭМ автоматически закрывает и 3.1. Гайд разрешает такое пересечение в одном коммите, если в сообщении названы оба правила.</p>
+</section>

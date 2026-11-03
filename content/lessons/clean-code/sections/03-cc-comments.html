@@ -1,0 +1,32 @@
+<section id="cc-comments">
+<h2>Комментарии, имена и мелочи оформления</h2>
+<h3 id="cc-comments-why">Комментарий объясняет «почему»</h3>
+<p>Лучший комментарий — тот, который не понадобился: имя переменной и функции уже всё сказали. Если код можно сделать понятнее, переименовав или разбив на функции, делайте это вместо комментария. Комментарий нужен там, где из кода не видно причины решения.</p>
+<pre><code>// Плохо: повторяет имя
+const MAIN_TEXT_COLOUR = '#000000'; // цвет основного текста
+
+// Хорошо (пример из Lodash): объясняет, почему код выглядит странно
+function addSetEntry(set, value) {
+  // Don't return `set.add`, as this call chain doesn't work in Internet Explorer 11
+  set.add(value);
+  return set;
+}</code></pre>
+<p>В TODO-приложении из задания много комментариев первого типа: <code>var label = document.createElement("label"); //label</code>. Такие комментарии ничего не добавляют и устаревают при первой правке кода.</p>
+<h3 id="cc-todo">TODO</h3>
+<p>Запланированную, но не срочную правку отмечают комментарием с префиксом <code>TODO:</code>. Используйте только этот формат, тогда все такие места находятся одним поиском, и редактор их подсвечивает.</p>
+<pre><code>// TODO: move this magic number (15 rows) to the configuration file
+for (let i = 0; i &lt; 15; i++) {
+  table.append(document.createElement('tr'));
+}</code></pre>
+<p>Из общих знаний: TODO не должен жить в коде годами. Хорошая практика — ссылка на задачу в трекере: <code>// TODO(#42): …</code>.</p>
+<h3 id="cc-whitespace">Пробелы в конце строк и имена файлов</h3>
+<p>Пробелы в конце строки ничего не значат, но git видит их как изменение. В diff появляются строки, где «ничего не поменялось», и ревьюеру приходится их разглядывать. В VS Code включите настройку <code>files.trimTrailingWhitespace</code>, и редактор будет убирать их при сохранении.</p>
+<p>Имена файлов — в одном стиле на весь проект, обычно <code>kebab-case</code>: <code>image-slider.js</code>, <code>right-arrow.svg</code>. Раскладывать файлы можно по типам (<code>/js</code>, <code>/styles</code>, <code>/assets</code>) или по компонентам (всё про слайдер в одной папке). Главное — выбрать одно и придерживаться.</p>
+<h3 id="cc-naming">Имена в JavaScript — из общих знаний</h3>
+<ul>
+<li>Переменные и функции — <code>camelCase</code>, классы — <code>PascalCase</code>, константы-настройки — <code>UPPER_SNAKE_CASE</code>.</li>
+<li>Функция называется глаголом: <code>createTask</code>, <code>isWeekend</code>. Булево значение отвечает на вопрос «да/нет»: <code>isDone</code>, <code>hasError</code>.</li>
+<li>Без шифров и сокращений: <code>incompleteTaskHolder</code> лучше <code>ith</code>, а класс <code>.aaa</code> из задания не говорит ничего.</li>
+<li>Одно понятие — одно слово. Если в одном месте «task», не называйте то же самое в другом «item».</li>
+</ul>
+</section>
