@@ -1,0 +1,36 @@
+<section id="ts-classes">
+<h2>Классы в TypeScript</h2>
+<p>Здесь implements означает «класс обязан реализовать перечисленные операции», а extends — «класс наследует реализацию». Public, protected и private управляют доступом при проверке TypeScript. Поле с # — отдельный механизм JavaScript, работающий и при выполнении.</p>
+<p>Класс остаётся JavaScript-конструктором с прототипом. TypeScript добавляет описание полей, доступность членов и проверку контрактов. Класс существует как значение для new и как тип его экземпляров.</p><h3 id="ts-class-members">Поля, конструктор, implements и static</h3><pre><code>interface Describable { describe(): string }
+class Lesson implements Describable {
+  static category = &quot;Обучение&quot;;
+  readonly id: number;
+  public title: string;
+  private visits = 0;
+  constructor(id: number, title: string) {
+    this.id = id;
+    this.title = title;
+  }
+  describe(): string {
+    this.visits += 1;
+    return `${this.title}: ${this.visits}`;
+  }
+}
+const lesson = new Lesson(1, &quot;TS&quot;);
+console.log(Lesson.category, lesson.describe());
+</code></pre><p><code>implements</code> проверяет форму экземпляра, но не создаёт методы и не наследует реализацию. Типы параметров метода всё равно нужно объявить. <code>static</code> относится к самому классу, а не экземпляру. При strictPropertyInitialization поле должно быть инициализировано сразу или в конструкторе; optional-поле или тип с undefined явно допускает отсутствие.</p><h3 id="ts-class-inheritance">public, protected, private и абстрактные классы</h3><pre><code>abstract class Material {
+  constructor(protected title: string) {}
+  abstract read(): string;
+  get label(): string { return this.title; }
+}
+class Article extends Material {
+  #opened = 0;
+  override read(): string {
+    this.#opened += 1;
+    return `${this.title}: ${this.#opened}`;
+  }
+}
+const article = new Article(&quot;TypeScript&quot;);
+console.log(article.label, article.read());
+</code></pre><p><code>public</code> доступен снаружи (это значение по умолчанию), <code>protected</code> — в классе и наследниках, <code>private</code> — внутри объявившего класса. TS-модификатор private проверяется компилятором; JS-поле <code>#opened</code> обеспечивает приватность и при выполнении. <code>protected title</code> в параметре конструктора — сокращённое объявление и присваивание поля.</p><p>Абстрактный класс нельзя непосредственно создать через new; наследник реализует абстрактные члены. <code>extends</code> наследует реализацию, а <code>implements</code> только проверяет контракт. В собственном конструкторе наследника перед обращением к this вызывают super. <code>override</code> явно помечает переопределение; флаг noImplicitOverride требует такие отметки. Геттер читают как свойство.</p><details class="q"><summary>Интерфейс и абстрактный класс взаимозаменяемы?</summary><div class="a"><p>Не полностью. Интерфейс стирается и не хранит реализацию. Абстрактный класс может содержать реализацию и состояние и участвует в цепочке наследования.</p></div></details>
+</section>

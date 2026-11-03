@@ -1,0 +1,38 @@
+<section id="jwt-storage">
+<h2>Где хранить токен на клиенте</h2>
+<p>Сервер отдал токен. Теперь клиент должен его где-то сохранить и прикладывать к запросам. Основных вариантов два.</p>
+<h3 id="jwt-storage-local">localStorage и заголовок Authorization</h3>
+<pre><code>// после входа
+localStorage.setItem('token', data.token);
+
+// при каждом запросе
+fetch('/api/user/profile', {
+  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+});</code></pre>
+<p>Просто и понятно. Минус: любой JavaScript на странице может прочитать <code>localStorage</code>. Если злоумышленник сумеет внедрить свой скрипт (такая атака называется <strong>XSS</strong>), он украдёт токен.</p>
+<h3 id="jwt-storage-cookie">httpOnly cookie</h3>
+<pre><code>// на сервере при входе вместо res.json({ token })
+res.cookie('token', token, {
+  httpOnly: true,                                  // JavaScript страницы cookie не видит
+  secure: process.env.NODE_ENV === 'production',   // только по HTTPS
+  sameSite: 'strict',                              // не отправлять с чужих сайтов
+  maxAge: 24 * 60 * 60 * 1000,                     // сутки, как у токена
+});
+res.json({ ok: true });</code></pre>
+<p>Браузер сам прикладывает cookie к запросам, а скрипты на странице прочитать её не могут. Это безопаснее при XSS. Но middleware теперь должен брать токен не из заголовка, а из cookie. Вот что нужно изменить, <em>этого шага в исходном материале нет</em>:</p>
+<pre><code>// app.js
+app.use(require('cookie-parser')());
+
+// middleware/auth.js — вместо разбора заголовка
+const token = req.cookies.token;
+if (!token) return res.status(401).json({ message: 'Токен не предоставлен' });</code></pre>
+<p>Если фронтенд и сервер живут на разных адресах, понадобится настройка CORS с <code>credentials: true</code> на сервере и <code>credentials: 'include'</code> в <code>fetch</code>. Cookie отправляются автоматически, поэтому появляется риск другой атаки, <strong>CSRF</strong>: чужой сайт заставляет браузер отправить запрос с вашей cookie. <code>sameSite: 'strict'</code> во многом его закрывает.</p>
+<div class="tbl"><table>
+<thead><tr><th></th><th>localStorage</th><th>httpOnly cookie</th></tr></thead>
+<tbody>
+<tr><td>Сложность</td><td>Минимальная</td><td>Нужны cookie-parser, CORS с credentials</td></tr>
+<tr><td>Кража через XSS</td><td>Токен можно украсть</td><td>Токен не прочитать</td></tr>
+<tr><td>CSRF</td><td>Не страшен: заголовок сам не отправляется</td><td>Нужна защита (sameSite)</td></tr>
+</tbody></table></div>
+<p>Для учебного проекта начните с localStorage и заголовка: так проще увидеть, что происходит. В рабочем проекте чаще выбирают httpOnly cookie.</p>
+</section>

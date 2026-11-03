@@ -1,0 +1,44 @@
+<section id="advanced-tsconfig">
+<h2>tsconfig: проект, файлы и настройки</h2>
+<p>Файл <code>tsconfig.json</code> сообщает компилятору, какие файлы проверять и с какими правилами. Опция — отдельная настройка, например strict. Исходники — файлы, которые мы пишем; выходные файлы — результат работы компилятора или сборщика. Ниже — конфигурация отдельного браузерного проекта с Webpack, а не замена конфига этого учебника на Next.js.</p>
+<h3 id="advanced-tsconfig-example">Конфигурация для учебного Webpack-проекта</h3>
+<pre><code>{
+  &quot;compilerOptions&quot;: {
+    &quot;target&quot;: &quot;ES2020&quot;,
+    &quot;lib&quot;: [
+      &quot;ES2020&quot;,
+      &quot;DOM&quot;,
+      &quot;DOM.Iterable&quot;
+    ],
+    &quot;module&quot;: &quot;ESNext&quot;,
+    &quot;moduleResolution&quot;: &quot;Bundler&quot;,
+    &quot;strict&quot;: true,
+    &quot;noImplicitAny&quot;: true,
+    &quot;noUncheckedIndexedAccess&quot;: true,
+    &quot;exactOptionalPropertyTypes&quot;: true,
+    &quot;noEmitOnError&quot;: true,
+    &quot;sourceMap&quot;: true
+  },
+  &quot;include&quot;: [
+    &quot;src/**/*.ts&quot;
+  ],
+  &quot;exclude&quot;: [
+    &quot;node_modules&quot;,
+    &quot;dist&quot;
+  ]
+}
+</code></pre>
+<p>Include выбирает начальные файлы, exclude исключает их из этого отбора; импортированный файл всё равно может попасть в проект. Files перечисляет файлы явно. Extends позволяет наследовать базовую конфигурацию; относительные пути разрешаются относительно файла, в котором записаны. Настройки массивов не следует считать автоматически объединёнными.</p>
+<h3 id="advanced-compiler-options">Что за что отвечает</h3>
+<div class="tbl"><table><thead><tr><th scope="col">Опция</th><th scope="col">Смысл и ограничение</th></tr></thead><tbody><tr><td>target</td><td>Версия синтаксиса выпускаемого JS. Не добавляет реализации отсутствующих API — полифиллы</td></tr><tr><td>lib</td><td>Декларации доступных API; DOM описывает браузерные объекты, но не создаёт их в Node.js</td></tr><tr><td>module</td><td>Формат модульного кода: как обрабатываются import и export</td></tr><tr><td>moduleResolution</td><td>Как компилятор ищет зависимости под выбранное окружение</td></tr><tr><td>strict / noImplicitAny</td><td>Семейство строгих проверок / запрет неявного any</td></tr><tr><td>rootDir / outDir</td><td>Корневая папка исходников / папка результата; rootDir сам не выбирает файлы для проверки</td></tr><tr><td>noEmit / noEmitOnError</td><td>Не выпускать вообще / не выпускать при ошибках</td></tr><tr><td>sourceMap</td><td>Связь выпущенного JS с исходниками для отладки</td></tr><tr><td>declaration / emitDeclarationOnly</td><td>Выпуск .d.ts для потребителей библиотеки</td></tr><tr><td>types / skipLibCheck</td><td>Какие пакеты описаний @types подключать / пропуск проверки файлов описаний .d.ts</td></tr></tbody></table></div>
+<p>Не включайте skipLibCheck, чтобы прятать ошибки собственного кода. Дополнительные проверки noUnusedLocals, noUnusedParameters, noImplicitReturns помогают выявлять забытые ветки и лишние объявления, но не являются полным анализом корректности программы.</p>
+<h3 id="advanced-config-diagnostics">Как увидеть реальную конфигурацию</h3>
+<p>Эти команды понадобятся после создания файлов и установки TypeScript в разделе Webpack. Выполняйте их в терминале из папки проекта, где лежит tsconfig.json. Утилита npx запускает локально установленный tsc; --project указывает нужный конфигурационный файл.</p>
+
+<pre><code>npx tsc --project tsconfig.json --showConfig
+npx tsc --project tsconfig.json --noEmit
+npx tsc --project tsconfig.json --listFilesOnly
+npx tsc --project tsconfig.json --explainFiles
+</code></pre>
+<p>ShowConfig полезен при extends, listFilesOnly показывает фактические входные файлы, explainFiles объясняет причину их включения. Передача имени файла напрямую может обойти ожидаемые настройки проекта; проверяйте через --project.</p>
+</section>

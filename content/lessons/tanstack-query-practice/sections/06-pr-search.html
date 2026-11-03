@@ -1,0 +1,63 @@
+<section id="pr-search">
+<h2>Разбор 4. useSearchResults: бесконечная прокрутка</h2>
+<p>Поиск игр: результаты подгружаются страницами, пока пользователь листает вниз. Для этого есть <code>useInfiniteQuery</code>.</p>
+<h3 id="pr-search-infinite">Как работает useInfiniteQuery</h3>
+<p>Обычный <code>useQuery</code> хранит один ответ. <code>useInfiniteQuery</code> хранит список страниц: в <code>data.pages</code> лежит массив ответов, по одному на загруженную страницу. Чтобы получить следующую, вызывают <code>fetchNextPage()</code>.</p>
+<p>Две обязательные настройки:</p>
+<ul>
+<li><code>initialPageParam</code> — номер (или курсор) первой страницы;</li>
+<li><code>getNextPageParam(lastPage, allPages)</code> — по уже загруженному решает, какой номер запросить дальше. Вернуть <code>undefined</code> значит «страниц больше нет», и <code>hasNextPage</code> станет false.</li>
+</ul>
+<pre><code>const EMPTY_ITEMS = [];
+
+export function useSearchResults({ debouncedSearchQuery, appliedProviderIds, appliedCategoryIds, isPreQuery }) {
+  const { data, hasNextPage, isFetchingNextPage, fetchNextPage, ...rest } = useInfiniteQuery({
+    queryKey: ['gamesSearch', debouncedSearchQuery, appliedProviderIds, appliedCategoryIds], // ← ключ руками
+    queryFn: ({ pageParam, signal }) =&gt;
+      searchGames(debouncedSearchQuery, appliedProviderIds, appliedCategoryIds, pageParam, signal),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) =&gt; {
+      if (lastPage.data.items.length === 0) return undefined;
+      const loaded = allPages.reduce((sum, page) =&gt; sum + page.data.items.length, 0);
+      return loaded &lt; lastPage.data.total ? allPages.length + 1 : undefined;
+    },
+    enabled: !isPreQuery,
+    placeholderData: keepPreviousData,
+    staleTime: SEARCH_STALE_TIME_MS,
+    gcTime: SEARCH_GC_TIME_MS,
+  });
+
+  const allSearchGames = useMemo(() =&gt; {
+    const items = data?.pages.flatMap((page) =&gt; page.data.items) ?? EMPTY_ITEMS;
+    const seen = new Set();
+    return mapToPreview(items).filter((game) =&gt; {
+      if (seen.has(game.id)) return false; // такая игра уже была на прошлой странице
+      seen.add(game.id);
+      return true;
+    });
+  }, [data]);
+
+  return { allSearchGames, hasNextPage, isFetchingNextPage, fetchNextPage, ...rest };
+}</code></pre>
+<h3 id="pr-search-next">Правильный признак конца списка</h3>
+<p><code>getNextPageParam</code> не просто смотрит, пустая ли последняя страница. Он складывает, сколько элементов уже загружено, и сравнивает с <code>total</code>, который присылает сервер. Если загружено меньше, просит следующую страницу. Так конец списка определяется верно, даже если сервер иногда присылает неполные страницы. Мы проверили эту логику на библиотеке: при пяти элементах по два на странице загрузились ровно три страницы, и <code>hasNextPage</code> стал false.</p>
+<h3 id="pr-search-placeholder">keepPreviousData: поиск без мигания</h3>
+<p>Пользователь меняет фильтр — меняется ключ — для библиотеки это совершенно новый запрос, у которого данных ещё нет. Без настройки список на время загрузки станет пустым и снова заполнится: экран мигает на каждый символ.</p>
+<p><code>placeholderData: keepPreviousData</code> подставляет данные прошлого запроса, пока грузится новый. По сути это функция <code>(previousData) =&gt; previousData</code>, которую библиотека экспортирует готовой. Её передают, а не вызывают: <code>keepPreviousData</code>, без скобок.</p>
+<p>Чтобы отличить старые данные от новых, есть флаг <code>isPlaceholderData</code>. Можно слегка затемнить список, пока он true, вместо того чтобы показывать скелетон.</p>
+<h3 id="pr-search-dedupe">Зачем убирать повторы</h3>
+<p>Пока пользователь листает, данные на сервере могут измениться: появилась новая игра, и все остальные сдвинулись на одну позицию. Тогда последняя игра второй страницы окажется и первой на третьей. Бесконечная прокрутка по номерам страниц не гарантирует, что страницы не пересекутся. Поэтому повторы отсекают по <code>id</code> через <code>Set</code>.</p>
+<p>Без этого в списке появятся две одинаковые карточки, а React ещё и предупредит о повторяющихся <code>key</code>.</p>
+<h3 id="pr-search-fix">Что исправить</h3>
+<p>Только ключ: он снова набран руками. Добавляем его в фабрику в ветку <code>games</code>:</p>
+<pre><code>// queryKeys.ts
+games: {
+  all: () =&gt; ['games'] as const,
+  search: (query: string, providerIds: string[], categoryIds: string[]) =&gt;
+    ['games', 'search', query, providerIds, categoryIds] as const,
+},
+
+// в хуке
+queryKey: queryKeys.games.search(debouncedSearchQuery, appliedProviderIds, appliedCategoryIds),</code></pre>
+<p>Теперь <code>invalidateQueries({ queryKey: queryKeys.games.all() })</code> обновит заодно и результаты поиска. Остальной код не трогаем: он написан правильно. Не переписывайте то, что работает.</p>
+</section>

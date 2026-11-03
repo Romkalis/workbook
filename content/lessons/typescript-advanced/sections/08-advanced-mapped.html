@@ -1,0 +1,17 @@
+<section id="advanced-mapped">
+<h2>Mapped types: преобразование каждого свойства</h2>
+<p>Mapped type, или отображаемый тип, описывает преобразование каждого свойства. Запись <code>[K in keyof T]</code> читается как «для каждого ключа K исходного типа T». Это цикл на уровне типов, а не выполнение JS. Partial и Readonly построены на такой идее.</p>
+<h3 id="advanced-mapped-modifiers">Изменение readonly и необязательных свойств</h3>
+<p>У Settings два ключа — title и enabled. Тип Flags заменит типы обоих свойств на boolean. Тип Editable сохранит типы string и boolean, но разрешит запись в title и потребует обязательное enabled.</p>
+
+<pre><code>type Flags&lt;T&gt; = { [K in keyof T]: boolean };
+type Editable&lt;T&gt; = { -readonly [K in keyof T]-?: T[K] };
+interface Settings { readonly title: string; enabled?: boolean }
+const flags: Flags&lt;Settings&gt; = { title: true, enabled: false };
+const editable: Editable&lt;Settings&gt; = { title: &quot;TS&quot;, enabled: true };
+editable.title = &quot;Patterns&quot;;
+console.log(flags.title, editable.title);
+</code></pre>
+<p>Минус перед readonly или ? снимает модификатор, плюс добавляет; без знака добавление является обычным поведением. Простое отображение по keyof сохраняет существующие модификаторы, если явно не поменять их.</p>
+<p>Переименовывать ключи тоже можно. К этому <a href="#advanced-key-remapping">примеру с getTitle и getId</a> перейдём после условных типов и шаблонных строк: сначала разберём все части его записи.</p>
+</section>

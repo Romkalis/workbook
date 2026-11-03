@@ -1,0 +1,75 @@
+<section id="navigation">
+  <h2>Навигация: от Enter до начала рендеринга
+    <span class="src">Chrome «Inside look» часть 2</span>
+  </h2>
+<p>Навигация — переход к документу по адресу. DNS помогает найти сетевой адрес сервера по доменному имени; HTTP описывает обмен запросом и ответом. Кэш — сохранённый результат, который иногда можно использовать повторно. IPC означает обмен сообщениями между процессами браузера.</p>
+  <p>Навигацией называется всё, что браузер делает, пока не передаст полученный HTML на рендеринг. Начинается она в browser process.</p>
+
+  <h3 id="prostaya-navigaciya-po-shagam">Простая навигация по шагам</h3>
+  <ol class="plain">
+    <li><strong>Обработка ввода.</strong> UI-поток решает, это поисковый запрос или URL, и куда идти: в поисковик или на сайт.</li>
+    <li><strong>Старт навигации.</strong> UI-поток отдаёт запрос сетевому потоку. Тот делает DNS-запрос и устанавливает TLS-соединение. Если сервер отвечает редиректом (например, 301), сетевой поток сообщает об этом UI-потоку и запускается новый запрос.</li>
+    <li><strong>Чтение ответа.</strong> По первым байтам и заголовку Content-Type определяется тип данных. Заголовок может быть неверным или отсутствовать, поэтому делается MIME sniffing. HTML уходит на рендеринг, архив или другой файл уходит в менеджер загрузок. Здесь же проходят проверка Safe Browsing (не известный ли это вредоносный сайт) и CORB (чтобы чувствительные кросс-сайтовые данные не попали в renderer).</li>
+    <li><strong>Поиск renderer-процесса.</strong> Чтобы не терять время, UI-поток ещё на втором шаге начинает искать или запускать renderer параллельно с сетевым запросом. К приходу данных процесс уже ждёт. Если случился кросс-сайтовый редирект, подготовленный процесс может не пригодиться.</li>
+    <li><strong>Commit navigation.</strong> Browser process по IPC говорит renderer-у зафиксировать навигацию и передаёт поток данных. После подтверждения обновляются адресная строка, индикатор безопасности и история сессии, и начинается загрузка документа.</li>
+  </ol>
+  <figure class="tl">
+    <div class="tl-scroll"><div class="seq">
+      <div class="seq-head">
+        <div class="life">UI-поток<small>browser process</small></div>
+        <div class="life">Сетевой поток<small>browser process</small></div>
+        <div class="life">Сервер<small>в интернете</small></div>
+        <div class="life">Renderer<small>процесс вкладки</small></div>
+      </div>
+      <div class="seq-body">
+        <div class="sq self" style="--r:0;--a:12.5"><b class="n">1</b>URL или поиск?</div>
+        <div class="sq msg" style="--r:1;--a:12.5;--b:37.5"><span><b class="n">2</b>запрос</span></div>
+        <div class="sq msg par" style="--r:2;--a:12.5;--b:87.5"><span><b class="n">4</b>заранее готовим renderer, пока идёт запрос</span></div>
+        <div class="sq msg" style="--r:3;--a:37.5;--b:62.5"><span>DNS · TLS · HTTP</span></div>
+        <div class="sq msg rev" style="--r:4;--a:37.5;--b:62.5"><span>ответ: HTML или 301</span></div>
+        <div class="sq self" style="--r:5;--a:37.5"><b class="n">3</b>MIME · Safe Browsing · CORB</div>
+        <div class="sq msg rev" style="--r:6;--a:12.5;--b:37.5"><span>данные готовы</span></div>
+        <div class="sq msg" style="--r:7;--a:12.5;--b:87.5"><span><b class="n">5</b>commit navigation (IPC) и поток данных</span></div>
+        <div class="sq msg rev" style="--r:8;--a:12.5;--b:87.5"><span>подтверждение: адресная строка и история обновляются</span></div>
+        <div class="sq self" style="--r:9;--a:87.5">парсинг HTML → DOM</div>
+        <div class="seq-veil" aria-hidden="true"><i class="vhead"></i></div>
+      </div>
+    </div></div>
+    <figcaption>Стрелки идут сверху вниз по шагам, цифры совпадают с пунктами списка выше. Пунктир (шаг 4) стартует рано и идёт параллельно сети, чтобы к приходу данных renderer уже ждал. Если вместо HTML придёт редирект 301, запрос уйдёт на новый адрес. Наведите курсор, чтобы остановить анимацию.</figcaption>
+  </figure>
+
+  <p><strong>Завершение загрузки.</strong> Renderer продолжает грузить ресурсы и рисовать страницу. Когда на всех фреймах отработали обработчики <code>onload</code>, он шлёт IPC в browser process, и спиннер на вкладке останавливается. «Завершил» здесь условно: клиентский JS может подгружать что-то ещё и после этого.</p>
+
+  <figure class="tl">
+    <div class="tl-scroll"><div class="tl-body">
+      <div class="tl-lane"><b class="tl-name">UI-поток<br>(browser)</b><div class="tl-track">
+        <i class="blk" style="--s:0;--w:9" title="UI-поток решает: URL или поисковый запрос">ввод</i>
+        <i class="blk par" style="--s:10;--w:42" title="renderer запускается заранее, параллельно сетевому запросу">готовим renderer</i>
+        <i class="blk" style="--s:66;--w:9" title="IPC: зафиксировать навигацию в renderer">commit</i>
+      </div></div>
+      <div class="tl-lane"><b class="tl-name">Сетевой поток<br>(browser)</b><div class="tl-track">
+        <i class="blk" style="--s:10;--w:12" title="поиск IP-адреса">DNS</i>
+        <i class="blk" style="--s:22;--w:13" title="установка защищённого соединения">TLS</i>
+        <i class="blk" style="--s:35;--w:17" title="HTTP-запрос и получение ответа">запрос и ответ</i>
+        <i class="blk" style="--s:52;--w:13" title="MIME sniffing, Safe Browsing, CORB">проверки</i>
+      </div></div>
+      <div class="tl-lane"><b class="tl-name">Renderer</b><div class="tl-track">
+        <i class="blk" style="--s:76;--w:24" title="HTML-парсер строит DOM">парсинг → DOM</i>
+      </div></div>
+      <div class="tl-headwrap" aria-hidden="true"><i class="head"></i></div>
+    </div></div>
+    <figcaption>Шкала условная, время идёт слева направо. Пунктир это работа, которая идёт параллельно, а не друг за другом. Наведите курсор на схему, чтобы остановить анимацию.</figcaption>
+  </figure>
+
+  <h3 id="perehod-na-drugoy-sayt">Переход на другой сайт</h3>
+  <p>Перед новой навигацией browser process спрашивает текущий renderer, нет ли обработчика <code>beforeunload</code> (это тот самый диалог «Покинуть сайт?»). Раз JS-код живёт в renderer, браузеру может потребоваться обработать это событие перед переходом; обработчик не даёт странице безусловного права запретить уход.</p>
+  <div class="warn">
+    <b>Ловушка</b>
+    <p>Не вешайте <code>beforeunload</code> безусловно. Обработчик должен отработать до начала навигации, и это прямая задержка. Нужен он только когда пользователь может потерять введённые данные.</p>
+  </div>
+  <p>Если уходим на другой сайт, для него берётся новый renderer, а старый остаётся жить, чтобы обработать <code>unload</code>.</p>
+
+  <h3 id="service-worker-i-navigation-preload">Service Worker и Navigation Preload</h3>
+  <p><strong>Service worker</strong> — ваш JS-код, который стоит между страницей и сетью, как посредник. На каждый запрос он решает: отдать ответ из кэша или сходить в сеть. Так работают сайты, которые открываются без интернета. Сам воркер выполняется в renderer-процессе. Откуда браузер знает, что у сайта есть воркер? При регистрации запоминается его область — <strong>scope</strong>, набор адресов, за которые он отвечает. При каждом переходе сетевой поток сверяет адрес со scope и, если воркер есть, запускает его.</p>
+  <p>Если воркер всё равно решит идти в сеть, получится лишний круг browser ↔ renderer. <strong>Navigation Preload</strong> убирает эту задержку: сетевой запрос стартует параллельно с запуском воркера, а сервер видит специальный заголовок и может, например, отдать только свежие данные вместо целого документа.</p>
+</section>

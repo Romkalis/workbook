@@ -1,0 +1,50 @@
+<section id="rq-usequery">
+<h2>useQuery: читаем данные</h2>
+<p><code>useQuery</code> принимает объект настроек. Обязательны два поля: <code>queryKey</code> (адрес в кеше) и <code>queryFn</code> (функция, которая сходит за данными и вернёт Promise).</p>
+<pre><code>const { data, error, isPending, isLoading, isFetching, isError, refetch } = useQuery({
+  queryKey: ['games', categoryId],
+  queryFn: () =&gt; fetchGames(categoryId),
+  staleTime: 5 * 60 * 1000,  // 5 минут
+  enabled: !!categoryId,     // не запускать, пока categoryId нет
+});</code></pre>
+<h3 id="rq-usequery-fetch">queryFn и fetch: проверяйте response.ok</h3>
+<p>Библиотека узнаёт об ошибке только одним способом: Promise из <code>queryFn</code> отклонился (функция выбросила ошибку). Встроенный <code>fetch</code> не выбрасывает ошибку на ответы 404 или 500, для него это обычный ответ. Поэтому проверку нужно написать самим:</p>
+<pre><code>async function fetchGames(categoryId) {
+  const res = await fetch(`/api/games?category=${categoryId}`);
+  if (!res.ok) {
+    throw new Error(`Ошибка ${res.status}`);
+  }
+  return res.json();
+}</code></pre>
+<p>Без этой проверки тело ответа с ошибкой (например, <code>{ message: 'boom' }</code>) попадёт в <code>data</code>, и компонент попробует показать его как список игр. Мы проверили это на библиотеке: при ответе 500 запрос считается успешным. Axios и похожие клиенты сами выбрасывают ошибку на статусы 4xx и 5xx.</p>
+<h3 id="rq-usequery-status">Статусы: isPending, isLoading, isFetching</h3>
+<p>Эти три флага чаще всего путают. Разница в том, есть ли уже данные в кеше и идёт ли сейчас запрос.</p>
+<div class="tbl"><table>
+<thead><tr><th>Флаг</th><th>Когда true</th><th>Что показать</th></tr></thead>
+<tbody>
+<tr><td><code>isPending</code></td><td>Данных ещё нет совсем (запрос мог даже не начаться, например при <code>enabled: false</code>)</td><td>Заглушку</td></tr>
+<tr><td><code>isLoading</code></td><td>Данных нет <strong>и</strong> запрос идёт прямо сейчас. Это первая загрузка</td><td>Скелетон</td></tr>
+<tr><td><code>isFetching</code></td><td>Идёт любой запрос, в том числе фоновое обновление, когда данные уже на экране</td><td>Маленький индикатор, данные не прятать</td></tr>
+<tr><td><code>isError</code></td><td>Последний запрос закончился ошибкой, сама ошибка лежит в <code>error</code></td><td>Сообщение об ошибке</td></tr>
+<tr><td><code>isSuccess</code></td><td>Данные получены</td><td>Данные</td></tr>
+</tbody></table></div>
+<figure class="dg">
+<p class="dg-title">Первая загрузка и фоновое обновление</p>
+<ul class="seqlist n3" aria-hidden="true">
+<li class="card lit" style="--i:0"><span class="hd">1. Первый запрос</span><span class="ln">data: undefined · isLoading: true · isFetching: true</span></li>
+<li class="card lit" style="--i:1"><span class="hd">2. Ответ пришёл</span><span class="ln">data: [...] · isLoading: false · isFetching: false</span></li>
+<li class="card lit" style="--i:2"><span class="hd">3. Фоновое обновление</span><span class="ln">data: [...] · isLoading: false · isFetching: true</span></li>
+</ul>
+<figcaption>Шаги идут по порядку. На первом шаге данных нет, поэтому <code>isLoading</code> и <code>isFetching</code> оба true. На третьем данные уже есть, и библиотека обновляет их в фоне: <code>isLoading</code> остаётся false, а <code>isFetching</code> снова true. Значения записаны с настоящего прогона библиотеки.</figcaption>
+</figure>
+<p>Практический вывод: скелетон рисуйте по <code>isLoading</code>, а не по <code>isFetching</code>. Иначе каждый фоновый запрос будет прятать уже показанный список, и экран начнёт мигать.</p>
+<pre><code>if (isLoading) return &lt;Skeleton /&gt;;
+if (isError) return &lt;p&gt;Не удалось загрузить: {error.message}&lt;/p&gt;;
+return (
+  &lt;&gt;
+    {isFetching &amp;&amp; &lt;small&gt;Обновляем…&lt;/small&gt;}
+    &lt;GamesGrid games={data} /&gt;
+  &lt;/&gt;
+);</code></pre>
+<div class="note"><b>Уточнение к конспекту</b><p>В пятой версии <code>isLoading</code> вычисляется как <code>isPending &amp;&amp; isFetching</code>. Если запрос выключен через <code>enabled: false</code>, то <code>isPending</code> будет true, а <code>isLoading</code> — false: данных нет, но и загрузки нет.</p></div>
+</section>

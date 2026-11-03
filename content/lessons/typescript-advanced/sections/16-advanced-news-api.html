@@ -1,0 +1,28 @@
+<section id="advanced-news-api">
+<h2>Практика RS School: News API</h2>
+<p>Обязательная практика — <a href="https://github.com/rolling-scopes-school/tasks/blob/master/tasks/migration-newip-to-ts.md">News API</a> и <b>[St2] TS Advanced</b> в RS-App → Auto Test. Задание требует миграции приложения, Webpack и ESLint, использования enum, interface/type, generics, union, модификаторов доступа и utility types. Any запрещён, strict и noImplicitAny обязательны.</p>
+<p>В задании указаны адаптивность 320–1920 px, оформление footer, Chrome, требования к PR/коммитам и публикации. Для репозитория и сроков следуйте документу и правилам текущего потока. Встроенный тест учебника не заменяет ни проект, ни Auto Test.</p>
+<h3 id="advanced-news-data">Модель ответа и состояния</h3>
+<pre><code>enum Status { Loading = &quot;loading&quot;, Ready = &quot;ready&quot;, Error = &quot;error&quot; }
+interface Article { id: string; title: string; description: string | null }
+type State&lt;T&gt; =
+  | { status: Status.Loading }
+  | { status: Status.Ready; data: readonly T[] }
+  | { status: Status.Error; message: string };
+type Card = Readonly&lt;Pick&lt;Article, &quot;id&quot; | &quot;title&quot;&gt;&gt;;
+type Patch = Partial&lt;Pick&lt;Article, &quot;title&quot; | &quot;description&quot;&gt;&gt;;
+class Model&lt;T&gt; {
+  private state: State&lt;T&gt; = { status: Status.Loading };
+  public setData(data: readonly T[]): void { this.state = { status: Status.Ready, data }; }
+  public read(): State&lt;T&gt; { return this.state; }
+}
+const model = new Model&lt;Card&gt;();
+model.setData([{ id: &quot;a1&quot;, title: &quot;TS&quot; }]);
+const patch: Patch = { title: &quot;TypeScript&quot; };
+console.log(model.read().status, patch.title);
+</code></pre>
+<p>Это внутренняя модель приложения: мы заранее выбрали удобные поля и названия. Она не является точной копией ответа News API: собственный id формируется на границе приложения. Отдельный DTO должен соответствовать проверенному ответу. Применение utility types должно иметь смысл; простое объявление неиспользуемого типа не демонстрирует решённую задачу.</p>
+<h3 id="advanced-news-checklist">План самопроверки проекта</h3>
+<ul><li>Приложение запускается, сборка и ESLint завершаются без ошибок.</li><li>Контракты данных и функций согласованы, any и неявные пробелы не скрыты утверждениями.</li><li>Состояния загрузки, пустого результата и ошибки показываются осмысленно.</li><li>API-ответ проверяется до передачи в модель; null и отсутствующие поля обработаны.</li><li>Выбор источника и загрузка новостей работают после миграции.</li><li>Применены требуемые языковые конструкции; причины их выбора можно объяснить.</li><li>Макет проверен на границах ширины задания, оформление и материалы PR сверены с ним.</li></ul><p>Совет из общих знаний: для локальной проверки сохраните примеры ответов сервера — с данными, с пустым списком и с ошибкой. Такие заранее подготовленные данные называют фикстурами. Generic-функция загрузки должна получать валидатор, если обещает подтверждённый T. Наличие интерфейса DTO не делает сетевой JSON доверенным.</p>
+<p>В документе задания есть промежуточный сервер (proxy) и адреса, возвращающие заранее подготовленные данные вместо реальных новостей (mock-endpoints) для разработки. Их текущая доступность и условия API здесь не проверялись: используйте актуальные указания задания и не встраивайте личный ключ в учебные примеры. Реальная миграция отдельного News API-приложения в рамках добавления этого урока не выполнялась.</p>
+</section>

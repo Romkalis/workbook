@@ -1,0 +1,28 @@
+<section id="adapter">
+<h2>Adapter — Адаптер</h2>
+<p><b>Структурный паттерн.</b> Старый сервис отдаёт длительность урока в секундах, а клиент ожидает метод minutes. Менять старый сервис или весь клиент не хочется.</p>
+<div class="note"><b>Простыми словами</b><p>Переходник для розетки: ни вилку прибора, ни розетку в стене менять не нужно, между ними ставится прослойка. Адаптер так же «переводит» один интерфейс в другой, когда готовый код ждёт одно, а библиотека даёт другое.</p></div>
+<h3 id="adapter-roles">Участники и направление вызовов</h3>
+<p>Клиент зависит от целевого контракта Duration. LegacyDuration — адаптируемый объект. DurationAdapter реализует нужный интерфейс и переводит вызов и единицы измерения.</p>
+<h3 id="adapter-example">Пример на TypeScript</h3>
+<pre><code>interface Duration { minutes(): number }
+class LegacyDuration {
+  getSeconds(): number { return 540; }
+}
+class DurationAdapter implements Duration {
+  constructor(private legacy: LegacyDuration) {}
+  minutes(): number { return this.legacy.getSeconds() / 60; }
+}
+function label(duration: Duration): string {
+  return `${duration.minutes()} мин`;
+}
+const adapted = new DurationAdapter(new LegacyDuration());
+console.log(label(adapted)); // 9 мин
+</code></pre>
+<p>Клиент увидел 9 минут, хотя исходный объект продолжает отдавать секунды. Преобразованы и имя метода, и смысл результата.</p>
+<h3 id="adapter-tradeoffs">Когда применять и что учитывать</h3>
+<p>Применяйте на границе несовместимых API. Проверьте форматы, единицы, ошибки и синхронность: адаптер не может незаметно превратить сетевой Promise в готовое число. Если интерфейсы уже совместимы и меняется только поведение, это задача другой обёртки. Простая композиция обычно удобнее наследования от чужой библиотеки.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/adapter">Adapter — Адаптер</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>Цепочка вызовов: клиент вызывает minutes у адаптера → адаптер вызывает getSeconds у старого объекта → делит секунды на 60 → возвращает минуты. Перевод единиц находится на границе между двумя API, а не разбросан по клиентскому коду.</p>
+</section>

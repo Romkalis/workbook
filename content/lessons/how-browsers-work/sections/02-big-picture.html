@@ -1,0 +1,21 @@
+<section id="big-picture">
+  <h2>Путь от URL до пикселей</h2>
+<p>Читайте стрелки как передачу результата: HTML становится деревом узлов, стили задают внешний вид, расчёт раскладки определяет геометрию. Это учебная модель. Браузер может выполнять части работы постепенно, параллельно и повторно — не обязательно ждать полного завершения всей загрузки.</p>
+  <p>Если держать в голове только одну схему, пусть будет эта. Каждая стадия берёт результат предыдущей и строит из него новую структуру данных.</p>
+  <figure class="flow">
+    <ol class="flow-row">
+      <li class="st" style="--i:0"><span class="num">1</span><b>Запрос</b><div class="art art-net" aria-hidden="true"><i></i><i></i><i></i></div><span class="desc">DNS, TLS, HTTP, ответ с HTML</span></li>
+      <li class="st" style="--i:1"><span class="num">2</span><b>Парсинг</b><div class="art art-tree" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="desc">байты → токены → узлы → DOM; CSS → CSSOM</span></li>
+      <li class="st" style="--i:2"><span class="num">3</span><b>Стили</b><div class="art art-css" aria-hidden="true"><i></i><i></i><i></i></div><span class="desc">какие правила применяются к каждому узлу</span></li>
+      <li class="st" style="--i:3"><span class="num">4</span><b>Layout</b><div class="art art-box" aria-hidden="true"><i></i><i></i><i></i></div><span class="desc">размеры и координаты каждого блока</span></li>
+      <li class="st" style="--i:4"><span class="num">5</span><b>Paint</b><div class="art art-layers" aria-hidden="true"><i></i><i></i><i></i></div><span class="desc">список команд рисования в нужном порядке</span></li>
+      <li class="st" style="--i:5"><span class="num">6</span><b>Composite</b><div class="art art-tiles" aria-hidden="true"><i></i><i></i><i></i><i></i></div><span class="desc">растеризация слоёв и сборка кадра на GPU</span></li>
+    </ol>
+  </figure>
+  <p class="tl-hint" style="font-size:14px;color:var(--muted);margin-top:-8px">Подсветка идёт по стадиям по кругу. Наведите курсор на схему, чтобы остановить.</p>
+  <p>Две важные мысли сразу:</p>
+  <ul>
+    <li><strong>Процесс инкрементальный.</strong> Браузер не ждёт, пока придёт весь HTML. Он строит DOM по мере поступления данных и старается показать что-нибудь как можно раньше.</li>
+    <li><strong>Если что-то в начале цепочки изменилось, всё после него надо пересчитывать.</strong> Изменили геометрию, значит нужны layout, paint и composite. Изменили только цвет, layout не нужен. Именно на этом построены почти все советы по оптимизации.</li>
+  </ul>
+</section>

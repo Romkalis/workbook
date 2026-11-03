@@ -1,0 +1,22 @@
+<section id="ts-inference">
+<h2>Вывод типов и литеральные типы</h2>
+<p>Вывод типа можно увидеть, наведя курсор на переменную в редакторе. «Расширение литерала» означает переход от одного значения, например типа <code>"read"</code>, к более широкому string, разрешающему другие строки. Колбэк — функция, которую передают другой функции для вызова позже или во время обработки элементов.</p>
+<p>Type inference означает, что компилятор восстанавливает тип по значению и контексту. Аннотация полезна на границе функции или структуры данных; дублировать очевидный тип каждого числа обычно не нужно.</p><h3 id="ts-widening">Почему let и const выводятся по-разному</h3><pre><code>let mode = &quot;read&quot;; // string: переменную можно переназначить
+const fixed = &quot;read&quot;; // литеральный тип &quot;read&quot;
+const settings = { mode: &quot;read&quot; }; // mode: string
+settings.mode = &quot;write&quot;;
+type Mode = &quot;read&quot; | &quot;write&quot;;
+function describe(mode: Mode): string {
+  return mode === &quot;read&quot; ? &quot;Чтение&quot; : &quot;Запись&quot;;
+}
+console.log(describe(fixed), settings.mode);
+if (false) {
+  // @ts-expect-error: произвольная строка шире Mode
+  describe(mode);
+}
+</code></pre><p>Литеральный тип разрешает одно значение, например <code>"read"</code> или <code>200</code>. Union литералов описывает ограниченный набор состояний. <code>const</code> запрещает переназначить переменную, но свойства её объекта могут изменяться, поэтому <code>settings.mode</code> расширяется до string.</p><h3 id="ts-context">Контекстная типизация</h3><pre><code>const lengths = [&quot;type&quot;, &quot;interface&quot;].map(word =&gt; word.length);
+const values = [1, &quot;two&quot;]; // (string | number)[]
+console.log(lengths, values);
+// word получил string из типа массива, а результат map — number[]
+</code></pre><p>В колбэке не нужно снова писать тип <code>word</code>: его даёт сигнатура <code>map</code>. Если вывести желаемое ограничение нельзя, укажите его: <code>let result: string | undefined</code>. При чтении чужого кода начните с параметров и возвращаемого типа, затем проследите ветвления и посмотрите подсказку редактора в каждой ветке.</p>
+</section>

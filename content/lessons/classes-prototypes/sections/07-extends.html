@@ -1,0 +1,54 @@
+<section id="extends">
+  <h2><code>extends</code>, переопределение и <code>super</code><span class="src">Источники: JavaScript.info, MDN</span></h2>
+  <p>При объявлении <code>class Child extends Parent</code> настраиваются две связи: экземпляры-потомки ищут методы через <code>Child.prototype → Parent.prototype</code>, а сам класс-потомок наследует статические члены от класса-родителя.</p>
+  <pre><code>class Animal {
+  static category() {
+    return 'животное';
+  }
+  speak() {
+    return 'звук';
+  }
+}
+class Dog extends Animal {
+  speak() {
+    return `${super.speak()}: гав`;
+  }
+}
+
+const dog = new Dog();
+dog.speak(); // 'звук: гав'
+Dog.category(); // 'животное'
+Object.getPrototypeOf(Dog.prototype) === Animal.prototype; // true
+Object.getPrototypeOf(Dog) === Animal; // true</code></pre>
+  <h3 id="pereopredelenie-metoda">Переопределение метода</h3>
+  <p>Если метод определён в потомке, поиск остановится на нём и версия родителя будет затенена. Вызов <code>super.speak()</code> позволяет расширить поведение родителя, не копируя его реализацию. Ключевое слово <code>super</code> не является отдельным объектом; это специальная форма доступа к родительской реализации. Когда разные классы по-разному отвечают на один и тот же вызов <code>speak()</code>, это пример полиморфизма.</p>
+  <h3 id="super-v-strelochnyh-funkciyah">Почему стрелка может использовать <code>super</code></h3>
+  <p>Стрелочная функция не создаёт собственный <code>this</code> и не имеет собственного доступа к <code>super</code>: она берёт их из окружающего метода класса. Поэтому стрелка, созданная внутри метода, может вызвать родительский метод. Обычная вложенная функция не наследует такой доступ к <code>super</code>.</p>
+  <pre><code>class Parent {
+  greet() { return 'Привет'; }
+}
+class Child extends Parent {
+  makeCallback() {
+    return () =&gt; super.greet();
+  }
+}
+
+new Child().makeCallback()(); // 'Привет'</code></pre>
+  <h3 id="nasledovanie-ne-vsegda-nuzhno">Когда наследование не нужно</h3>
+  <p>Не создавайте наследование только ради повторного использования пары методов. Наследник должен корректно подходить везде, где ожидается базовый класс. Если отношение скорее «имеет», чем «является», часто лучше композиция: объект хранит другой объект и передаёт ему работу.</p>
+  <pre><code>class Logger {
+  log(message) {
+    return `[app] ${message}`;
+  }
+}
+class Service {
+  constructor(logger) {
+    this.logger = logger;
+  }
+  start() {
+    return this.logger.log('сервис запущен');
+  }
+}
+
+new Service(new Logger()).start(); // '[app] сервис запущен'</code></pre>
+</section>

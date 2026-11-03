@@ -1,0 +1,39 @@
+<section id="rq-v5">
+<h2>Чем v5 отличается от v4</h2>
+<p>В интернете много статей про четвёртую версию. Код оттуда в пятой часто не работает. Вот главные отличия.</p>
+<div class="tbl"><table>
+<thead><tr><th>v4</th><th>v5</th></tr></thead>
+<tbody>
+<tr><td><code>useQuery(key, fn, options)</code></td><td><code>useQuery({ queryKey, queryFn, ...options })</code> — только объект</td></tr>
+<tr><td><code>cacheTime</code></td><td><code>gcTime</code> (garbage collection time — время до удаления)</td></tr>
+<tr><td><code>status: 'loading'</code>, <code>isLoading</code> у мутаций</td><td><code>status: 'pending'</code>, <code>isPending</code></td></tr>
+<tr><td><code>onSuccess</code>, <code>onError</code> в <code>useQuery</code></td><td>Убраны (у <code>useMutation</code> остались)</td></tr>
+<tr><td><code>keepPreviousData: true</code></td><td><code>placeholderData: keepPreviousData</code></td></tr>
+<tr><td><code>useInfiniteQuery</code> без начальной страницы</td><td>Обязательный <code>initialPageParam</code></td></tr>
+</tbody></table></div>
+<h3 id="rq-v5-callbacks">Почему убрали onSuccess у useQuery</h3>
+<p>Колбэк срабатывал на каждый успешный запрос, включая фоновые. Если в нём показывали уведомление, оно выскакивало снова и снова. А если один запрос использовали три компонента, колбэк вызывался трижды.</p>
+<p>Для реакции на ошибку в компоненте подойдёт <code>useEffect</code>:</p>
+<pre><code>const { isError } = useQuery({ queryKey: ['games'], queryFn: fetchGames });
+
+useEffect(() =&gt; {
+  if (isError) showToast('Ошибка загрузки');
+}, [isError]);</code></pre>
+<p>Если уведомление об ошибке нужно для всех запросов сразу, его задают один раз при создании клиента. Этого способа нет в материалах курса, он из документации TanStack Query:</p>
+<pre><code>import { QueryCache, QueryClient } from '@tanstack/react-query';
+
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error) =&gt; showToast(`Ошибка: ${error.message}`),
+  }),
+});</code></pre>
+<h3 id="rq-v5-placeholder">keepPreviousData</h3>
+<p>Когда меняется номер страницы, меняется ключ, и по новому ключу данных ещё нет. Без настройки список на мгновение исчезнет. <code>placeholderData: keepPreviousData</code> оставляет на экране прошлую страницу, пока грузится новая. Подробно разобрано в уроке «TanStack Query на реальном коде».</p>
+<pre><code>import { keepPreviousData, useQuery } from '@tanstack/react-query';
+
+useQuery({
+  queryKey: ['games', { page }],
+  queryFn: () =&gt; fetchGames(page),
+  placeholderData: keepPreviousData,
+});</code></pre>
+</section>

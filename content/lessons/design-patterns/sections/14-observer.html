@@ -1,0 +1,33 @@
+<section id="observer">
+<h2>Observer — Наблюдатель</h2>
+<p><b>Поведенческий паттерн.</b> После завершения урока нужно уведомить прогресс и статистику. Источник события не должен зависеть от каждого конкретного получателя.</p>
+<div class="note"><b>Простыми словами</b><p>Подписка на канал: автор не знает каждого подписчика лично, он просто публикует видео, и все подписчики получают уведомление. Наблюдатель позволяет объекту оповещать список подписчиков, ничего о них не зная.</p></div>
+<h3 id="observer-roles">Участники и направление вызовов</h3>
+<p>Publisher хранит подписчиков общего контракта, здесь функций. Subscribe регистрирует обработчик и возвращает отписку. Emit уведомляет текущих слушателей. Каждый подписчик самостоятельно решает, что делать с данными.</p>
+<h3 id="observer-example">Пример на TypeScript</h3>
+<pre><code>class Publisher&lt;T&gt; {
+  private listeners = new Set&lt;(event: T) =&gt; void&gt;();
+  subscribe(listener: (event: T) =&gt; void): () =&gt; void {
+    this.listeners.add(listener);
+    return () =&gt; { this.listeners.delete(listener); };
+  }
+  emit(event: T): void {
+    for (const listener of [...this.listeners]) listener(event);
+  }
+}
+const completed = new Publisher&lt;string&gt;();
+const log: string[] = [];
+const stop = completed.subscribe(title =&gt; log.push(`progress:${title}`));
+completed.subscribe(title =&gt; log.push(`stats:${title}`));
+completed.emit(&quot;TS&quot;);
+stop();
+completed.emit(&quot;Patterns&quot;);
+console.log(log.join(&quot;, &quot;)); // progress:TS, stats:TS, stats:Patterns
+</code></pre>
+<p>После отписки progress больше не получает события, а stats продолжает. Копия множества задаёт правило текущей рассылки: изменение подписок внутри слушателя не меняет уже выбранный список.</p>
+<h3 id="observer-tradeoffs">Когда применять и что учитывать</h3>
+<p>Нужен для отношения «одно событие — несколько независимых реакций». Отписывайтесь при завершении жизненного цикла слушателя. В этом примере вызовы синхронные: исключение одного слушателя прервёт рассылку, а Promise не будет автоматически ожидаться. Дополнение из общих знаний: брокерный publish/subscribe может отделять стороны через общую шину; классический Observer связывает их механизмом подписки у издателя.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/observer">Observer — Наблюдатель</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>Подписка означает регистрацию функции на будущие уведомления. Stop — обычная функция отписки, её нужно вызвать. Само получение stop не удаляет слушатель. В emit список слушателей копируется, после чего функции вызываются по очереди.</p>
+</section>

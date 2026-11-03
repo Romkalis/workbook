@@ -1,0 +1,32 @@
+<section id="testing-async">
+<h2>Асинхронность: дождитесь результата</h2>
+<p>Runner должен знать, когда закончилась проверка. Возвращайте Promise из теста или используйте async/await. Иначе тест может завершиться раньше, чем выполнится утверждение; позже возникнет необработанная ошибка или ложный успех.</p>
+<h3 id="testing-promises">Успех и отклонение Promise</h3>
+<pre><code>import test from 'node:test';
+import assert from 'node:assert/strict';
+
+async function loadTitle(id, fetchMovie) {
+  const movie = await fetchMovie(id);
+  if (typeof movie.title !== 'string') {
+    throw new TypeError('Ответ не содержит название');
+  }
+  return movie.title;
+}
+test('возвращает название загруженного фильма', async () =&gt; {
+  const fetchMovie = async id =&gt; ({ id, title: 'Солярис' });
+  const title = await loadTitle(7, fetchMovie);
+  assert.equal(title, 'Солярис');
+});
+test('передаёт ошибку загрузки вызывающему коду', async () =&gt; {
+  const error = new Error('Нет сети');
+  const fetchMovie = async () =&gt; { throw error; };
+  await assert.rejects(() =&gt; loadTitle(7, fetchMovie), error);
+});
+test('отклоняет ответ без названия', async () =&gt; {
+  await assert.rejects(() =&gt; loadTitle(7, async () =&gt; ({})), TypeError);
+});</code></pre>
+<p>Настоящая сеть здесь не используется: мы проверяем реакцию loadTitle на управляемую зависимость. Ошибку асинхронной функции проверяет <code>rejects</code>, а не <code>throws</code>. Перед await не забывайте, что сама проверка тоже возвращает Promise.</p>
+<h3 id="testing-time">Время и ожидание — из общих знаний</h3>
+<p>Не делайте фиксированную паузу «на всякий случай»: на быстрой машине она тратит время, на медленной всё равно может оказаться короткой. Ждите конкретное событие или проверяемое состояние. Для debounce и таймеров можно использовать управляемые часы runner, но их API зависит от инструмента; после теста часы нужно восстанавливать.</p>
+<p>В браузерных тестах автоматическое ожидание элементов помогает синхронизации, но не исправляет гонки приложения. Если два запроса могут завершиться в обратном порядке, отдельно проверьте, что UI показывает актуальный результат.</p>
+</section>

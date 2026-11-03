@@ -1,0 +1,34 @@
+<section id="abstract-factory">
+<h2>Abstract Factory — Абстрактная фабрика</h2>
+<p><b>Порождающий паттерн.</b> Нужно создавать согласованное семейство элементов оформления: заголовок и метку одной темы. Не хотим случайно смешивать части разных семейств.</p>
+<div class="note"><b>Простыми словами</b><p>Мебельный гарнитур: стол, стул и шкаф одного стиля. Выбрали «фабрику» стиля «лофт» — и все предметы будут из лофта, случайно не попадётся стул в стиле барокко. Абстрактная фабрика создаёт целый набор согласованных объектов, а вы меняете набор целиком, подменив одну фабрику.</p></div>
+<h3 id="abstract-factory-roles">Участники и направление вызовов</h3>
+<p>Контракт ThemeFactory объявляет создание каждого вида продукта. LightTheme и DarkTheme — конкретные фабрики семейств. Preview зависит от фабрики и контрактов продуктов, не от их конкретных классов.</p>
+<h3 id="abstract-factory-example">Пример на TypeScript</h3>
+<pre><code>interface Title { render(): string }
+interface Badge { render(): string }
+interface ThemeFactory {
+  createTitle(): Title;
+  createBadge(): Badge;
+}
+class LightTheme implements ThemeFactory {
+  createTitle(): Title { return { render: () =&gt; &quot;light:title&quot; }; }
+  createBadge(): Badge { return { render: () =&gt; &quot;light:badge&quot; }; }
+}
+class DarkTheme implements ThemeFactory {
+  createTitle(): Title { return { render: () =&gt; &quot;dark:title&quot; }; }
+  createBadge(): Badge { return { render: () =&gt; &quot;dark:badge&quot; }; }
+}
+function preview(factory: ThemeFactory): string {
+  return [factory.createTitle().render(), factory.createBadge().render()].join(&quot; + &quot;);
+}
+console.log(preview(new LightTheme()));
+console.log(preview(new DarkTheme()));
+</code></pre>
+<p>Подмена фабрики меняет сразу оба продукта: получим light:title + light:badge либо dark:title + dark:badge. В примере продукты — объекты с методами; отдельный класс для каждого не обязателен.</p>
+<h3 id="abstract-factory-tradeoffs">Когда применять и что учитывать</h3>
+<p>Удобна, если важна совместимость нескольких продуктов. Новое семейство добавляется отдельной фабрикой; новый вид продукта потребует изменить контракт и все фабрики. Обещание «любые изменения без правок» неверно. Для одной изменяемой сущности Abstract Factory может быть избыточной.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/abstract-factory">Abstract Factory — Абстрактная фабрика</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>У одной фабрики несколько методов создания. Передав DarkTheme в preview, мы получаем и заголовок, и метку тёмного семейства. Интерфейс фабрики описывает именно семейство: заменить один продукт и заменить всю фабрику — разные изменения.</p>
+</section>

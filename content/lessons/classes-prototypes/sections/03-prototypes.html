@@ -1,0 +1,56 @@
+<section id="prototypes">
+  <h2>Прототипы и цепочка поиска<span class="src">Источники: JavaScript.info, MDN</span></h2>
+<p>У слова «прототип» здесь два похожих обозначения. <code>[[Prototype]]</code> — внутренняя ссылка уже созданного объекта. <code>User.prototype</code> — обычное свойство конструктора User: объект, который используется как прототип при new User. Начните с экземпляра и проследите одну стрелку: экземпляр → User.prototype.</p>
+  <p>У большинства объектов есть внутренняя ссылка <code>[[Prototype]]</code>: она указывает на другой объект или на <code>null</code>. Эту ссылку нельзя прочитать напрямую, но получить её можно через <code>Object.getPrototypeOf</code>. Свойства по ней движок ищет только при чтении: сначала в самом объекте, затем в прототипе, затем в следующем объекте цепочки.</p>
+  <pre><code>const animal = {
+  eats: true,
+  describe() { return `${this.name} ест`; },
+};
+const rabbit = Object.create(animal);
+rabbit.name = 'Кролик';
+
+rabbit.eats;                              // true — найдено в animal
+rabbit.describe();                        // 'Кролик ест'
+Object.getPrototypeOf(rabbit) === animal; // true
+Object.hasOwn(rabbit, 'eats');             // false</code></pre>
+  <p>Унаследованный метод вызывается с объектом перед точкой в качестве <code>this</code>. Поэтому <code>describe</code> читает <code>rabbit.name</code>, хотя сам метод находится в <code>animal</code>. Запись <code>rabbit.eats = false</code> создаст или изменит свойство у <code>rabbit</code>, а не перепишет значение у прототипа.</p>
+  <h3 id="prototype-i-prototip">Два значения слова «прототип»</h3>
+  <p>У объекта есть внутренняя ссылка на прототип. А у функции-конструктора свойство <code>prototype</code> — обычный объект, который станет прототипом экземпляров, созданных этой функцией через <code>new</code>. Это связанные, но не одинаковые вещи.</p>
+  <pre><code>function User(name) {
+  this.name = name;
+}
+User.prototype.sayHi = function () {
+  return `Привет, ${this.name}`;
+};
+
+const user = new User('Оля');
+Object.getPrototypeOf(user) === User.prototype; // true
+user.sayHi(); // 'Привет, Оля'</code></pre>
+  <h3 id="sozdanie-tsepochki">Создание цепочки</h3>
+  <p><code>Object.create(proto)</code> создаёт объект, у которого <code>proto</code> сразу назначен прототипом. Это простой способ делегировать поиск свойств другому объекту. Для новых объектов предпочтительнее задать прототип при создании, а не менять его позже: <code>Object.setPrototypeOf</code> существует, но динамическая смена прототипа может ухудшить производительность.</p>
+  <p>Прототипом может быть только объект или <code>null</code>. Например, <code>Object.create(null)</code> создаёт объект без прототипа:</p>
+  <pre><code>const dictionary = Object.create(null);
+dictionary.apple = 'яблоко';
+Object.getPrototypeOf(dictionary); // null
+Object.hasOwn(dictionary, 'apple'); // true
+dictionary.toString; // undefined: Object.prototype не унаследован</code></pre>
+  <p>У такого объекта нет унаследованных методов вроде <code>toString</code>. Для проверки собственных свойств используйте <code>Object.hasOwn</code>, а не метод, которого у объекта может не быть. Аргумент <code>proto</code> для <code>Object.create</code> обязателен: вызов без него завершится ошибкой.</p>
+  <div class="warn">
+    <b>Не путайте с <code>__proto__</code></b>
+    <p><code>[[Prototype]]</code> — внутренняя ссылка объекта, а <code>__proto__</code> — исторический геттер/сеттер для чтения и изменения этой ссылки. Это не то же самое, что <code>Constructor.prototype</code>. Через <code>__proto__</code> нельзя назначить примитив или создать цикл: недопустимое значение не станет прототипом, а цикл вызовет <code>TypeError</code>. В новом коде используйте <code>Object.getPrototypeOf</code> для чтения и <code>Object.create</code> для создания.</p>
+  </div>
+  <h3 id="metody-prototipa">Методы проверки прототипа и свойств</h3>
+  <p><code>Object.getPrototypeOf(object)</code> возвращает прототип объекта. <code>animal.isPrototypeOf(rabbit)</code> отвечает на вопрос «есть ли <code>animal</code> где-то в цепочке прототипов <code>rabbit</code>?». А <code>propertyIsEnumerable(key)</code> проверяет, есть ли у объекта собственное свойство с таким ключом и видно ли оно при переборе, например в <code>Object.keys</code>.</p>
+  <pre><code>const animal = { eats: true };
+const rabbit = Object.create(animal);
+rabbit.name = 'Кролик';
+
+Object.getPrototypeOf(rabbit) === animal; // true
+animal.isPrototypeOf(rabbit);             // true
+rabbit.propertyIsEnumerable('name');       // true
+rabbit.propertyIsEnumerable('eats');       // false: свойство унаследовано</code></pre>
+  <h3 id="izmenenie-vstroennyh-prototipov">Почему не стоит менять встроенные прототипы</h3>
+  <p>Не добавляйте свои методы в <code>Array.prototype</code>, <code>Object.prototype</code> и другие встроенные прототипы в обычном коде. Такое изменение затрагивает все объекты соответствующего типа, может конфликтовать с библиотеками и неожиданно менять перебор свойств. Исключение — корректный <strong>polyfill</strong> (полифилл): реализация метода или другой возможности, уже описанной в стандарте JavaScript, для среды, где эта возможность ещё не поддерживается. Полифилл должен следовать спецификации и проверять, что встроенной реализации действительно не существует.</p>
+
+<p>«Перечисляемое» свойство — свойство, у которого включён специальный признак enumerable. Например, Object.keys показывает только собственные перечисляемые строковые ключи. Наличие свойства и попадание в такой список — разные проверки.</p>
+</section>

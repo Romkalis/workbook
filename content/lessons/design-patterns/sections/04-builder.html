@@ -1,0 +1,36 @@
+<section id="builder">
+<h2>Builder — Строитель</h2>
+<p><b>Порождающий паттерн.</b> Сложный план занятия собирается по шагам. Длинный позиционный конструктор плохо читается, а промежуточный результат ещё не готов к использованию.</p>
+<div class="note"><b>Простыми словами</b><p>Заказ бургера по шагам: булка, котлета, сыр, соус — а в конце кассир отдаёт готовый бургер. Строитель собирает сложный объект за несколько понятных вызовов вместо одного конструктора с десятью аргументами, в которых легко перепутать порядок.</p></div>
+<h3 id="builder-roles">Участники и направление вызовов</h3>
+<p>Builder хранит состояние сборки и предоставляет шаги. Build возвращает готовый продукт. Необязательный Director задаёт повторяемый порядок шагов; здесь эту роль играет makeIntro.</p>
+<h3 id="builder-example">Пример на TypeScript</h3>
+<pre><code>type Plan = { title: string; topics: string[] };
+class PlanBuilder {
+  private title = &quot;&quot;;
+  private topics: string[] = [];
+  named(title: string): this { this.title = title; return this; }
+  add(topic: string): this { this.topics.push(topic); return this; }
+  build(): Plan {
+    if (!this.title.trim()) throw new Error(&quot;Нужен заголовок&quot;);
+    const plan = { title: this.title, topics: [...this.topics] };
+    this.title = &quot;&quot;;
+    this.topics = [];
+    return plan;
+  }
+}
+function makeIntro(builder: PlanBuilder): Plan {
+  return builder.named(&quot;Паттерны&quot;).add(&quot;Задача&quot;).add(&quot;Пример&quot;).build();
+}
+const builder = new PlanBuilder();
+const plan = makeIntro(builder);
+const next = builder.named(&quot;Повторение&quot;).add(&quot;Тест&quot;).build();
+console.log(plan.topics.join(&quot;, &quot;), next.topics.join(&quot;, &quot;));
+</code></pre>
+<p>После первого build получим «Задача, Пример», после второго — «Тест». Массив скопирован, а строитель сброшен: предыдущий продукт не меняется от следующей сборки.</p>
+<h3 id="builder-tradeoffs">Когда применять и что учитывать</h3>
+<p>Нужен при действительно многошаговом создании и разных представлениях продукта. Обязательно определите правила повторного использования и момент проверки обязательных полей. Цепочка методов сама по себе не доказывает Builder. Для двух независимых параметров объект настроек проще.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/builder">Builder — Строитель</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>Цепочка named(...).add(...).build() — последовательные вызовы одного строителя. Возврат this позволяет сразу вызвать следующий шаг. Только build выдаёт готовый Plan; при пустом заголовке он бросает ошибку. Director — необязательный организатор повторяемой последовательности шагов.</p>
+</section>

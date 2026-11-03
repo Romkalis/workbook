@@ -1,0 +1,52 @@
+<section id="advanced-webpack">
+<h2>Сборка TypeScript с Webpack</h2>
+<p>Проверка типов, преобразование синтаксиса и сборка зависимостей — разные шаги. Tsc проверяет типы и может выпускать JS; Webpack находит модули, связанные импортами, и собирает их в выходной файл — bundle. Ts-loader — подключаемый обработчик файлов .ts, который передаёт их TypeScript в процессе сборки. Babel или SWC могут стирать типы без полной проверки, поэтому отдельный typecheck нельзя забывать.</p>
+<h3 id="advanced-webpack-install">Отдельный проект и зависимости</h3>
+<p>Создайте отдельную пустую папку, откройте её в редакторе и терминале. Все пути в следующих шагах считаются от этой папки. npm init создаст package.json — описание проекта; npm install добавит инструменты разработки. Перед созданием файлов src/math.ts и src/index.ts создайте папку src.</p>
+
+<p>В новой папке с установленным Node.js выполните команды ниже. В примере согласованы TypeScript 5.9.3, Webpack 5, webpack-cli 6 и ts-loader 9. Локальные примеры и сборка проверены в Node.js 22.23.2; требования других версий инструментов сверяйте с их документацией.</p>
+<pre><code>npm init -y
+npm install --save-dev typescript@5.9.3 webpack@5 webpack-cli@6 ts-loader@9
+</code></pre>
+<p>Создайте в корне <code>tsconfig.json</code> и скопируйте <a href="#advanced-tsconfig-example">конфигурацию из раздела о tsconfig</a>. Создайте <code>webpack.config.cjs</code>; расширение .cjs оставляет конфигурацию CommonJS независимо от поля type в package.json.</p>
+<pre><code>const path = require(&quot;node:path&quot;);
+module.exports = {
+  mode: &quot;development&quot;,
+  entry: &quot;./src/index.ts&quot;,
+  devtool: &quot;source-map&quot;,
+  module: {
+    rules: [{ test: /\.tsx?$/, use: &quot;ts-loader&quot;, exclude: /node_modules/ }]
+  },
+  resolve: { extensions: [&quot;.ts&quot;, &quot;.tsx&quot;, &quot;.js&quot;] },
+  output: { filename: &quot;bundle.js&quot;, path: path.resolve(__dirname, &quot;dist&quot;), clean: true }
+};
+</code></pre>
+<p>Создайте <code>src/math.ts</code>:</p>
+<pre><code>export function double(value: number): number {
+  return value * 2;
+}
+</code></pre>
+<p>Создайте <code>src/index.ts</code>:</p>
+<pre><code>import { double } from &quot;./math&quot;;
+const result: number = double(21);
+console.log(`Ответ: ${result}`);
+</code></pre>
+<h3 id="advanced-webpack-scripts">Команды проверки и сборки</h3>
+<p>Откройте package.json, созданный npm init. Добавьте в него поле scripts из примера; если scripts уже есть, замените или дополните только это поле. Остальные поля package.json сохраняйте:</p>
+<pre><code>{
+  &quot;scripts&quot;: {
+    &quot;typecheck&quot;: &quot;tsc --project tsconfig.json --noEmit&quot;,
+    &quot;build&quot;: &quot;webpack --config webpack.config.cjs&quot;,
+    &quot;lint&quot;: &quot;eslint src&quot;
+  }
+}
+</code></pre>
+<pre><code>npm run typecheck
+npm run build
+node dist/bundle.js
+</code></pre>
+<p>После typecheck ошибки типов отсутствуют; после build появляется папка dist с bundle.js и bundle.js.map. Последняя команда запускает bundle.js в Node и печатает «Ответ: 42». Файл .map — карта исходников (source map): она помогает отладчику сопоставить JavaScript с исходным TypeScript. Для браузера подключите <code>dist/bundle.js</code> обычным тегом <code>&lt;script&gt;</code> в HTML. Наш пример не трогает DOM, поэтому работает и в Node.</p><p>Почему в tsconfig нет <code>noEmit</code>? Эта настройка запрещает компилятору создавать JavaScript. А ts-loader внутри Webpack как раз должен получить от TypeScript готовый JS, иначе собирать будет нечего. Команда проверки типов передаёт <code>--noEmit</code> отдельно, только для себя, и на сборку это не влияет.</p>
+<div class="note"><p>Режим <code>transpileOnly: true</code> ускоряет преобразование, пропуская полную проверку типов. Если используете его, запускайте typecheck отдельно — в том числе в CI, то есть автоматической проверке проекта при отправке изменений. Изоляционная трансформация одного файла и isolatedModules не доказывают согласованность типов всего проекта. Source maps помогают отладке, но не исправляют ошибки типов.</p>
+</div>
+<p>Для выпуска приложения пользователям (production) выбирайте mode production и отдельно проверяйте политику публикации source maps. Практический совет из общих знаний: сохраняйте package-lock.json — файл с точными версиями установленных зависимостей — вместе с проектом и запускайте проверку типов до публикации, чтобы локальный быстрый режим не стал единственной проверкой.</p>
+</section>

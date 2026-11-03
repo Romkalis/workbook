@@ -1,0 +1,45 @@
+<section id="pr-live">
+<h2>Разбор 3. useLiveBalanceSync: кеш обновляется событием</h2>
+<p>Сервер сам присылает событие «баланс изменился» по каналу SSE (как он устроен, разберём в разделе про способы доставки данных). Хук ловит событие и записывает новый баланс прямо в кеш. Запроса к серверу нет, а экран обновляется мгновенно.</p>
+<pre><code>export function useLiveBalanceSync() {
+  const queryClient = useQueryClient();
+  const { subscribe } = useSSE();
+
+  const handleBalanceUpdate = useCallback((event) =&gt; {
+    // (1) меняем баланс в кеше пользователя
+    queryClient.setQueryData(queryKeys.auth.me(), (oldData) =&gt; {
+      if (!oldData) return oldData;
+      if (event.type !== 'balance_changed') return oldData;
+      const newBalance = parseFloat(event.payload.balance);
+      return { ...oldData, balance: { ...oldData.balance, realAmount: newBalance } };
+    });
+
+    // (2) иногда тут же перезапрашиваем того же пользователя
+    if (event.type === 'balance_changed') {
+      const me = queryClient.getQueryData(queryKeys.auth.me());
+      if (me &amp;&amp; !me.hasActivity) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.auth.me() });
+      }
+    }
+
+    // (3) так же правим кеш кошелька...
+    queryClient.setQueryData(walletQueryKey, (oldWallet) =&gt; { /* ... */ return updatedWallet; });
+    // ...и помечаем его устаревшим, не запрашивая сейчас
+    queryClient.invalidateQueries({ queryKey: walletQueryKey, refetchType: 'none' });
+  }, [queryClient]);
+
+  useEffect(() =&gt; {
+    const unsubscribe = subscribe(handleBalanceUpdate);
+    return unsubscribe; // отписка, когда компонент исчезает
+  }, [subscribe, handleBalanceUpdate]);
+}</code></pre>
+<h3 id="pr-live-updater">Функция вместо значения в setQueryData</h3>
+<p><code>setQueryData(key, (oldData) =&gt; newData)</code> получает текущие данные из кеша и возвращает новые. Это надёжнее, чем прочитать данные, поменять их и записать обратно: между чтением и записью кеш мог измениться.</p>
+<p>Обратите внимание: функция не меняет <code>oldData</code>, а создаёт новый объект через <code>{ ...oldData }</code>. Это обязательно. Если изменить старый объект на месте, библиотека и React не заметят изменения, и экран не обновится.</p>
+<h3 id="pr-live-none">refetchType: 'none' для кошелька</h3>
+<p>Кошелёк уже поправлен по данным события. Перезапрашивать его прямо сейчас незачем. Но событие могло принести не все поля, поэтому кеш помечается устаревшим: при следующем обращении к кошельку библиотека всё равно сходит на сервер за полной версией. Редкая, но разумная настройка.</p>
+<h3 id="pr-live-question">Обсудить: запрос сразу после ручной правки</h3>
+<p>В блоке (2) после правки баланса в кеше пользователя для того же ключа вызывается <code>invalidateQueries</code>, причём без <code>refetchType: 'none'</code>. Значит, запрос уйдёт немедленно, и его ответ заменит то, что мы только что записали.</p>
+<p>Если сервер к этому моменту уже знает новый баланс, ничего страшного: просто лишний запрос. Если не успел, баланс на экране на мгновение «откатится» к старому, а потом снова обновится. Почему здесь иначе, чем с кошельком, по коду не понять. Возможно, при первой активности у пользователя меняются и другие поля, и их нужно подтянуть. Тогда это стоит пояснить комментарием. Похожие блоки, написанные по-разному без объяснения, — частый признак случайности, а не замысла.</p>
+<div class="note"><b>Вывод</b><p>TanStack Query — не только «сходить за данными». Это полноценный кеш, которым можно управлять напрямую: <code>setQueryData</code>, <code>getQueryData</code> и разные режимы <code>invalidateQueries</code>.</p></div>
+</section>

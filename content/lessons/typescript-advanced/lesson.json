@@ -1,0 +1,15 @@
+{
+  "slug": "typescript-advanced",
+  "title": "TypeScript Advanced",
+  "stage": 2,
+  "order": 7,
+  "kicker": "RS School · Stage 2",
+  "heading": "TypeScript Advanced: проверки данных, преобразования типов и сборка",
+  "lead": "Учимся проверять данные до использования, получать новые типы из существующих и читать сложные объявления по шагам. Настраиваем TypeScript, Webpack и ESLint и готовимся к переносу News API с JavaScript на TypeScript.",
+  "chips": [
+    "~8 часов на модуль",
+    "25 проверенных TS-примеров",
+    "Webpack и ESLint: рабочая сборка",
+    "42 вопроса с объяснениями"
+  ]
+}

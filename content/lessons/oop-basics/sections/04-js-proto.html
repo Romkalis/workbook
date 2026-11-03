@@ -1,0 +1,62 @@
+<section id="js-proto">
+  <h2>Прототипы в JavaScript<span class="src">Источники: MDN, Eloquent JavaScript, freeCodeCamp</span></h2>
+  <p>У каждого объекта в JavaScript есть «запасной» объект — <strong>прототип</strong>. Когда вы пишете <code>anna.sayHi()</code>, JavaScript сначала ищет <code>sayHi</code> в самой <code>anna</code>. Не нашёл — идёт в её прототип, потом в прототип прототипа, и так до конца цепочки (там стоит <code>null</code>). Поэтому метод не нужно копировать в каждый объект: он лежит в прототипе один раз, а все объекты находят его там. Такой поиск по цепочке называют прототипным делегированием.</p>
+  <p>Классы работают на тех же прототипах. Методы, которые вы пишете в теле класса, попадают в объект <code>ИмяКласса.prototype</code>, и все экземпляры ищут их там. Но класс — не просто другая запись старой функции-конструктора. У него есть свои правила: его нельзя вызвать без <code>new</code>, код внутри всегда работает в строгом режиме (<code>"use strict"</code>), и только у классов есть приватные поля <code>#поле</code>.</p>
+
+  <pre><code>class Person { sayHi() { /* ... */ } }
+
+typeof Person;                          // 'function'
+Person.prototype.constructor === Person; // true
+
+const p = new Person();
+Object.getPrototypeOf(p) === Person.prototype; // true
+Object.hasOwn(p, 'sayHi');   // false: у самого p метода нет
+'sayHi' in p;                // true: нашёлся по цепочке</code></pre>
+
+  <h3 id="to-zhe-samoe-bez-class">То же самое без class</h3>
+  <p>До ES6 писали так. Читать такой код вы будете часто, в старых проектах и в учебниках, поэтому понимать его нужно.</p>
+  <pre><code>function Person(name) {
+  this.name = name;
+}
+Person.prototype.sayHi = function () {
+  return 'Привет, ' + this.name;
+};
+
+function Student(name, year) {
+  Person.call(this, name);        // аналог super()
+  this.year = year;
+}
+Student.prototype =
+  Object.create(Person.prototype); // наследование
+Student.prototype.constructor = Student;
+Student.prototype.introduceSelf = function () {
+  return `${this.sayHi()}, я на ${this.year} курсе`;
+};
+
+const s = new Student('Маша', 2);
+s.introduceSelf(); // 'Привет, Маша, я на 2 курсе'
+s instanceof Person; // true</code></pre>
+  <p>Ещё один способ: создать объект и явно сказать, какой у него прототип. Это и есть чистое делегирование без классов:</p>
+  <pre><code>const proto = {
+  greet() { return 'Привет, ' + this.name; }
+};
+const o = Object.create(proto);
+o.name = 'Лена';
+o.greet(); // 'Привет, Лена'</code></pre>
+
+  <div class="warn">
+    <b>Классы в JS не копируют методы</b>
+    <p>Метод не копируется в каждый экземпляр, он один на всех в прототипе. Это экономит память, а ещё метод можно подменить сразу для всех объектов.</p>
+    <p>Обратная сторона — «потерянный» <code>this</code>. Внутри метода <code>this</code> — это объект слева от точки при вызове. Если вызвать метод без точки (например, передать его как колбэк), объекта слева нет, и <code>this</code> становится <code>undefined</code>:</p>
+    <pre><code>class Counter { count = 0; inc() { this.count++; } }
+const c = new Counter();
+const f = c.inc;   // взяли метод без объекта
+f();               // TypeError: Cannot read properties of undefined
+setTimeout(c.inc); // this уже не c: в браузере это window, счётчик c не растёт
+
+setTimeout(() =&gt; c.inc()); // так работает: вызов снова «через точку»
+setTimeout(c.inc.bind(c)); // и так: bind навсегда привязал this к c</code></pre>
+    <p>Это самая частая ошибка в ООП-коде на JavaScript.</p>
+  </div>
+  <p>Цепочку прототипов для иерархии классов мы разберём в разделе про наследование, там есть схема.</p>
+</section>

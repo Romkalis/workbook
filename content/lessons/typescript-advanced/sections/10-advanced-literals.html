@@ -1,0 +1,58 @@
+<section id="advanced-literals">
+<h2>Литеральные и template literal types</h2>
+<p>Литеральный тип допускает одно конкретное значение: например, <code>"grid"</code>, <code>42</code> или <code>true</code>. Объединение <code>"grid" | "list"</code> разрешает только две указанные строки. Шаблонный литеральный тип строит строки из других строковых типов. Он описывает допустимые имена, но не проверяет внешнюю строку автоматически.</p>
+<h3 id="advanced-literal-values">Узкие значения и проверка конфигурации</h3>
+<pre><code>type Mode = &quot;grid&quot; | &quot;list&quot;;
+const config = { mode: &quot;grid&quot;, size: 10 } satisfies { mode: Mode; size: number };
+const statuses = [&quot;loading&quot;, &quot;ready&quot;, &quot;error&quot;] as const;
+type Status = typeof statuses[number];
+const status: Status = &quot;ready&quot;;
+console.log(config.mode, status);
+</code></pre>
+<p>Const-переменная не делает все свойства объекта литеральными. As const сохраняет литералы и readonly для литеральной структуры; satisfies проверяет совместимость, сохраняя полезную конкретику вывода. Ни то ни другое не заменяет runtime-валидацию.</p>
+<h3 id="advanced-template-events">Сборка имён и строковые преобразования</h3>
+<pre><code>type Field = &quot;title&quot; | &quot;author&quot;;
+type Action = &quot;changed&quot; | &quot;cleared&quot;;
+type EventName = `${Field}:${Action}`;
+type Loud = Uppercase&lt;EventName&gt;;
+type Getter = `get${Capitalize&lt;Field&gt;}`;
+const event: EventName = &quot;title:changed&quot;;
+const loud: Loud = &quot;AUTHOR:CLEARED&quot;;
+const getter: Getter = &quot;getTitle&quot;;
+console.log(event, loud, getter);
+if (false) {
+  // @ts-expect-error: поле date не входит в Field
+  const wrong: EventName = &quot;date:changed&quot;;
+}
+</code></pre>
+<p>Union в каждой подстановке создаёт комбинации: здесь два поля и два действия дают четыре строки. Большие наборы быстро разрастаются. Uppercase/Lowercase меняют регистр всего литерала, Capitalize/Uncapitalize — первого символа. Совпадение имени события ещё не связывает его с данными: для этого нужен дополнительный контракт.</p>
+<h3 id="advanced-key-remapping">Переименование и фильтрация ключей через as</h3>
+<pre><code>type Getters&lt;T&gt; = {
+  [K in keyof T as K extends string ? `get${Capitalize&lt;K&gt;}` : never]: () =&gt; T[K]
+};
+type WithoutId&lt;T&gt; = { [K in keyof T as Exclude&lt;K, &quot;id&quot;&gt;]: T[K] };
+interface Article { id: string; title: string }
+const getters: Getters&lt;Article&gt; = {
+  getId: () =&gt; &quot;a1&quot;, getTitle: () =&gt; &quot;TS&quot;
+};
+const publicFields: WithoutId&lt;Article&gt; = { title: &quot;TS&quot; };
+console.log(getters.getTitle(), publicFields.title);
+</code></pre>
+<p>Прочитаем Getters для Article. Ключ "title" проходит проверку K extends string; Capitalize превращает его в "Title", а шаблонная строка добавляет get. Получается метод <code>getTitle: () =&gt; string</code>. Для "id" аналогично получается getId. As в этой записи задаёт новое имя ключа, а не утверждает тип значения. Never в позиции ключа убирает его из результата. Ограничение K extends string исключает числовые и символьные ключи, к которым нельзя применить Capitalize. Если преобразование становится труднее читать, чем сам контракт, дайте ему понятное имя или оставьте явное объявление.</p>
+<h3 id="advanced-typed-event-map">Связать имя события с типом данных</h3>
+<pre><code>type Changes&lt;T&gt; = {
+  [K in keyof T as K extends string ? `${K}Changed` : never]: T[K]
+};
+type Events = Changes&lt;{ title: string; count: number }&gt;;
+function send&lt;K extends keyof Events&gt;(name: K, value: Events[K]): string {
+  return `${name}: ${String(value)}`;
+}
+console.log(send(&quot;countChanged&quot;, 2));
+if (false) {
+  // @ts-expect-error: countChanged ожидает число
+  send(&quot;countChanged&quot;, &quot;two&quot;);
+}
+</code></pre>
+<p>В Events ключ <code>countChanged</code> связан с number, а <code>titleChanged</code> — со string. В send параметр K выбирает имя события, и <code>Events[K]</code> получает соответствующий тип данных. Поэтому число 2 подходит для countChanged, а строка "two" — нет.</p>
+
+</section>

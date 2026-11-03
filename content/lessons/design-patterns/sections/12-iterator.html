@@ -1,0 +1,32 @@
+<section id="iterator">
+<h2>Iterator — Итератор</h2>
+<p><b>Поведенческий паттерн.</b> Клиент хочет поочерёдно читать элементы каталога, не зная, как они хранятся. Несколько обходов должны иметь независимые позиции.</p>
+<div class="note"><b>Простыми словами</b><p>Кнопка «следующий трек» в плеере: вы листаете песни и не знаете, лежат они в массиве, в базе или приходят из сети. Итератор даёт один способ перебрать элементы по одному, скрывая, как они хранятся.</p></div>
+<h3 id="iterator-roles">Участники и направление вызовов</h3>
+<p>Коллекция предоставляет новый итератор для каждого обхода. Итератор хранит позицию. В JavaScript iterable реализует Symbol.iterator, а iterator — next с результатом value/done; генератор помогает связать эти роли.</p>
+<h3 id="iterator-example">Пример на TypeScript</h3>
+<pre><code>class ReadingList implements Iterable&lt;string&gt; {
+  constructor(private titles: readonly string[]) {}
+  *[Symbol.iterator](): IterableIterator&lt;string&gt; {
+    for (const title of this.titles) yield title;
+  }
+}
+const list = new ReadingList([&quot;TS&quot;, &quot;Patterns&quot;]);
+const first = list[Symbol.iterator]();
+const second = list[Symbol.iterator]();
+console.log(first.next().value, first.next().value); // TS Patterns
+console.log(second.next().value); // TS
+const exhausted = first.next();
+console.log(exhausted.done, [...list].join(&quot;, &quot;)); // true TS, Patterns
+</code></pre>
+<p>Первый обход закончился, второй остался на первом элементе. Для for...of и spread нужен iterable; наличие одного метода next ещё не гарантирует совместимость с ними.</p>
+<h3 id="iterator-tradeoffs">Когда применять и что учитывать</h3>
+<p>Полезен, когда обход нужно отделить от представления или вычислять значения по мере запроса. Определите поведение при изменении коллекции во время обхода. Генератор — объект с состоянием: уже исчерпанный экземпляр сам не начнётся заново. Дополнение о протоколах JS сверено с MDN; сам паттерн разобран в материале модуля.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/iterator">Iterator — Итератор</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>Четыре слова, которые легко перепутать:</p><ul><li><strong>Iterable</strong> («перебираемое») — то, что можно перебрать в <code>for...of</code>: массив, строка, <code>Map</code>. Технически это объект с методом <code>[Symbol.iterator]()</code>.</li><li><strong>Iterator</strong> — «закладка» конкретного перебора. Помнит, где остановились, и по вызову <code>next()</code> выдаёт следующий элемент.</li><li><code>next()</code> возвращает <code>{ value, done }</code>: <code>value</code> — сам элемент, <code>done: true</code> — элементы кончились.</li><li><strong>Генератор</strong> — функция со звёздочкой <code>function*</code>. Доходит до <code>yield</code>, отдаёт значение и замирает до следующего <code>next()</code>. Самый простой способ написать свой итератор.</li></ul>
+<pre><code>const it = [10, 20][Symbol.iterator]();
+it.next(); // { value: 10, done: false }
+it.next(); // { value: 20, done: false }
+it.next(); // { value: undefined, done: true }</code></pre>
+</section>

@@ -1,0 +1,45 @@
+<section id="pr-keys">
+<h2>Фабрика ключей: все ключи в одном файле</h2>
+<p>Эта тема всплывает в трёх разборах из четырёх, поэтому начнём с неё.</p>
+<p>Ключ используется в двух местах: когда данные читают (<code>useQuery</code>) и когда их обновляют (<code>invalidateQueries</code>, <code>setQueryData</code>). Если ключи в этих местах не совпадут, обновление молча не сработает.</p>
+<pre><code>// файл A
+useQuery({ queryKey: ['favorites', userId], queryFn: fetchFavorites });
+
+// файл B, полгода спустя
+queryClient.invalidateQueries({ queryKey: ['favorite', userId] }); // опечатка: нет буквы s</code></pre>
+<p>Ошибки не будет. Просто избранное перестанет обновляться, и искать причину придётся долго.</p>
+<h3 id="pr-keys-factory">Решение: объект с функциями</h3>
+<p><strong>Фабрика ключей</strong> — обычный объект, где каждый ключ создаёт функция. Ключи больше не набирают руками, их получают вызовом.</p>
+<pre><code>// queryKeys.ts
+export const queryKeys = {
+  auth: {
+    all: () =&gt; ['auth'] as const,
+    me: () =&gt; ['auth', 'me'] as const,
+  },
+  games: {
+    all: () =&gt; ['games'] as const,
+    hall: (hallType: string) =&gt; ['games', 'hall', hallType] as const,
+    category: (hallType: string, categoryId: string) =&gt;
+      ['games', 'hall', hallType, 'category', categoryId] as const,
+  },
+};
+
+// использование
+useQuery({ queryKey: queryKeys.games.hall('main'), queryFn: ... });</code></pre>
+<p><code>as const</code> говорит TypeScript, что это не «какой-то массив строк», а именно <code>['auth', 'me']</code>. Тогда редактор подсказывает ключи, а опечатка в имени функции сразу подсвечивается как ошибка.</p>
+<h3 id="pr-keys-why">Что это даёт</h3>
+<ul>
+<li><strong>Нет опечаток.</strong> Строки пишутся один раз, в одном файле.</li>
+<li><strong>Обновление целой ветки.</strong> Ключи сравниваются по началу, поэтому <code>invalidateQueries({ queryKey: queryKeys.games.all() })</code> обновит и <code>hall('main')</code>, и <code>category('main', 'puzzle')</code>, и любой ключ, который начинается с <code>'games'</code>.</li>
+<li><strong>Всё видно сразу.</strong> Чтобы понять, что вообще кешируется в приложении, достаточно открыть один файл.</li>
+</ul>
+<figure class="dg">
+<p class="dg-title">Одна инвалидация — вся ветка</p>
+<ul class="seqlist n3" aria-hidden="true">
+<li class="card lit" style="--i:0"><span class="hd">['games']</span><span class="ln">invalidateQueries(queryKeys.games.all())</span></li>
+<li class="card lit" style="--i:1"><span class="hd">['games', 'hall', 'main']</span><span class="ln">тоже помечен устаревшим</span></li>
+<li class="card lit" style="--i:2"><span class="hd">['games', 'hall', 'main', 'category', 'puzzle']</span><span class="ln">и этот тоже</span></li>
+</ul>
+<figcaption>Вызов с коротким ключом <code>['games']</code> затрагивает все ключи, которые с него начинаются. Чем длиннее ключ, тем уже ветка, которую он задевает.</figcaption>
+</figure>
+</section>

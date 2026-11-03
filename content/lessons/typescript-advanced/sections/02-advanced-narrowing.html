@@ -1,0 +1,40 @@
+<section id="advanced-narrowing">
+<h2>Встроенные type guards и анализ потока</h2>
+<p>Type guard, или проверка типа, помогает уточнить, какое значение перед нами. Например, переменная имеет тип <code>string | number</code>. После проверки <code>typeof value === "string"</code> внутри этой ветки можно вызывать строковые методы. Такое уточнение называется сужением типа (narrowing). Компилятор учитывает условия, выход из функции через return и новые присваивания.</p>
+<h3 id="advanced-typeof-equality">typeof и равенство</h3>
+<pre><code>function text(value: string | number | null): string {
+  if (value === null) return &quot;нет значения&quot;;
+  return typeof value === &quot;number&quot; ? value.toFixed(1) : value.toUpperCase();
+}
+function common(a: string | number, b: string | boolean): string {
+  if (a === b) return a.toUpperCase(); // общий возможный тип — string
+  return &quot;разные&quot;;
+}
+console.log(text(2), text(null), common(&quot;ts&quot;, &quot;ts&quot;));
+</code></pre>
+<p>В <code>text(2)</code> выбирается числовая ветка и получается <code>"2.0"</code>; для null функция сразу возвращает <code>"нет значения"</code>. Теперь <code>common</code>. <code>a</code> бывает строкой или числом, <code>b</code> — строкой или boolean. Если <code>a === b</code>, значения одинаковые, а значит, и типы одинаковые. Общий тип у них только один — <code>string</code>. TypeScript делает тот же вывод, поэтому внутри <code>if</code> у <code>a</code> можно вызвать <code>toUpperCase()</code>. typeof полезен для примитивов, но <code>typeof null</code> равно <code>"object"</code>; для объекта сначала исключайте null. Проверка <code>value != null</code> намеренно исключает и null, и undefined; строгое сравнение исключает только указанное значение.</p>
+<h3 id="advanced-truthiness">Проверка if (value): пустое значение тоже может быть данными</h3>
+<pre><code>function length(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  return value.length;
+}
+console.log(length(&quot;&quot;), length(undefined)); // 0 undefined
+</code></pre>
+<p>JavaScript преобразует условие if в boolean. Такая проверка называется truthiness — проверкой того, считается ли значение истинным. Условие <code>if (value)</code> отсекает не только отсутствие, но и пустую строку, ноль, false и другие falsy-значения. Выбирайте проверку по смыслу данных. Для пустого текста длина 0 может быть корректным результатом.</p>
+<h3 id="advanced-instanceof-in">instanceof, in и размеченный union</h3>
+<pre><code>class Video { constructor(readonly minutes: number) {} }
+function duration(value: Video | { words: number }): number {
+  if (value instanceof Video) return value.minutes;
+  return Math.ceil(value.words / 200);
+}
+type Result = { kind: &quot;ok&quot;; title: string } | { kind: &quot;error&quot;; message: string };
+function render(result: Result): string {
+  if (&quot;message&quot; in result) return result.message;
+  return result.title;
+}
+console.log(duration(new Video(5)), render({ kind: &quot;ok&quot;, title: &quot;TS&quot; }));
+</code></pre>
+<p>instanceof использует существующий конструктор, а не interface: интерфейсы стираются. In проверяет наличие свойства, но ещё не его содержимое; если свойство необязательное, его наличие не всегда позволяет однозначно выбрать один вариант объединения. Для сложных состояний удобно общее поле kind с литеральными значениями.</p>
+<p>В примере <code>duration(new Video(5))</code> возвращает 5. В render проверка <code>"message" in result</code> выбирает вариант ошибки; вместо неё здесь можно проверить <code>result.kind === "error"</code>. Общее поле kind называется дискриминантом: его конкретное значение показывает, с каким вариантом мы работаем.</p>
+
+</section>

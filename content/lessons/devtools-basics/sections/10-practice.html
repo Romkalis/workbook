@@ -1,0 +1,99 @@
+<section id="practice">
+  <h2>Практика и тест в RS-App</h2>
+  <p>В RS APP откройте <strong>Auto Test</strong> и найдите тест <strong>«[St1] DevTools Test»</strong>. Он проверяет модуль, так что лучше пройти его после того, как попробуете всё руками. Чтобы было на чём тренироваться, ниже небольшая демо-страница, на ней построены все скриншоты в этом конспекте.</p>
+
+  <h3 id="kak-zapustit-demo">Как запустить демо</h3>
+  <p>Создайте отдельную папку, сохраните в ней три файла из примера и откройте терминал именно в этой папке. Если установлен Python 3, запустите <code>python3 -m http.server 8000</code>, затем откройте <code>http://localhost:8000</code> в Chrome. Localhost — ваш компьютер; сервер делает файлы доступными браузеру по HTTP. Откройте DevTools до перезагрузки, чтобы записались запросы. Если используете другой сервер, смотрите адрес, который он напечатал: у npx serve порт может отличаться.</p>
+  <details class="q"><summary>index.html</summary><div class="a"><pre><code>&lt;!doctype html&gt;
+&lt;html lang="ru"&gt;
+&lt;head&gt;
+  &lt;meta charset="utf-8"&gt;
+  &lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;
+  &lt;title&gt;Демо для DevTools&lt;/title&gt;
+  &lt;link rel="stylesheet" href="style.css"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;header class="top"&gt;
+    &lt;h1 id="title"&gt;Демо для DevTools&lt;/h1&gt;
+    &lt;p class="hint"&gt;Страница для тренировки: список, кнопки и немного кода.&lt;/p&gt;
+  &lt;/header&gt;
+  &lt;main&gt;
+    &lt;ul id="fruits" class="list"&gt;
+      &lt;li class="item"&gt;Яблоко&lt;/li&gt;
+      &lt;li class="item active"&gt;Банан&lt;/li&gt;
+      &lt;li class="item"&gt;Вишня&lt;/li&gt;
+    &lt;/ul&gt;
+    &lt;div class="calc"&gt;
+      &lt;input id="a" value="5" aria-label="Первое число"&gt;
+      &lt;span&gt;+&lt;/span&gt;
+      &lt;input id="b" value="1" aria-label="Второе число"&gt;
+      &lt;button id="sum"&gt;Сложить&lt;/button&gt;
+      &lt;output id="result"&gt;&lt;/output&gt;
+    &lt;/div&gt;
+    &lt;button id="load" class="btn"&gt;Получить данные&lt;/button&gt;
+    &lt;img src="missing.png" alt="" width="1" height="1"&gt;
+  &lt;/main&gt;
+  &lt;script src="app.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre></div></details>
+  <details class="q"><summary>app.js</summary><div class="a"><pre><code>console.log('Hello, Console!');
+console.warn('Внимание: это предупреждение');
+console.error('Ошибка: это сообщение об ошибке');
+console.table([
+  { name: 'Анна', age: 30 },
+  { name: 'Олег', age: 25 }
+]);
+console.group('Фрукты');
+console.log('Яблоко');
+console.log('Банан');
+console.groupEnd();
+
+localStorage.setItem('theme', 'dark');
+localStorage.setItem('lang', 'ru');
+localStorage.setItem('visits', '3');
+localStorage.setItem('user', JSON.stringify({ name: 'Анна', role: 'student' }));
+
+function addNumbers() {
+  var addend1 = document.getElementById('a').value;
+  var addend2 = document.getElementById('b').value;
+  var sum = addend1 + addend2;
+  document.getElementById('result').textContent = '= ' + sum;
+  return sum;
+}
+document.getElementById('sum').addEventListener('click', addNumbers);
+
+document.getElementById('load').addEventListener('click', function () {
+  fetch('data.json')
+    .then(function (r) { return r.json(); })
+    .then(function (data) { console.log('Получено:', data); });
+});</code></pre></div></details>
+  <details class="q"><summary>style.css и data.json</summary><div class="a"><pre><code>/* style.css */
+body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; background: #fff; color: #222; }
+.top { border-bottom: 1px solid #ddd; margin-bottom: 16px; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+.hint { color: #666; margin: 0 0 12px; }
+.list { padding: 0; list-style: none; display: flex; gap: 8px; }
+.item { padding: 8px 14px; border: 1px solid #bbb; border-radius: 6px; }
+.item:hover { background: #eef6ff; }
+.item.active { background: #0b6; color: #fff; border-color: #0b6; }
+.calc { display: flex; gap: 8px; align-items: center; margin: 16px 0; }
+.calc input { width: 48px; padding: 6px; }
+.btn, #sum { padding: 8px 14px; border-radius: 6px; border: 1px solid #06c; background: #06c; color: #fff; cursor: pointer; }
+
+/* data.json */
+{"course":"RS School","module":"Chrome DevTools","hours":2,"tabs":["Elements","Console","Sources","Network","Application"]}</code></pre></div></details>
+
+  <h3 id="pyat-mini-kvestov">Пять мини-квестов</h3>
+  <p>Делайте по порядку и проверяйте себя: если квест получился, вы умеете то, что проверяет тест.</p>
+  <ol>
+    <li><strong>Elements.</strong> Найдите через инструмент выбора заголовок <code>h1</code> и поменяйте текст двойным кликом. Выделите «Банан» и снимите у него класс <code>active</code> через <code>.cls</code>. Включите на «Яблоке» состояние <code>:hover</code> через <code>:hov</code> и убедитесь, что цвет фона поменялся. Затем в Computed найдите, из какого правила пришёл <code>border-radius</code>, и перейдите по ссылке.</li>
+    <li><strong>Console.</strong> Откройте консоль до перезагрузки, обновите страницу. Оставьте только предупреждения, затем только ошибки. Найдите сообщение 404 и перейдите по его источнику. Включите Keep log и обновите страницу ещё раз: старые сообщения должны остаться. Введите в консоли <code>$0.textContent</code> при выделенном в Elements элементе.</li>
+    <li><strong>Sources.</strong> Откройте <code>app.js</code>, поставьте брейкпоинт на первую строку <code>addNumbers</code>, нажмите «Сложить» и пройдите три строки через Step over. Объясните, почему <code>sum</code> равно <code>"51"</code>, и исправьте через <code>Number(...)</code> прямо в редакторе. Затем поставьте брейкпоинт Event listener → Mouse → click и посмотрите, куда отладчик придёт.</li>
+    <li><strong>Network.</strong> Обновите страницу при открытой вкладке Network. Найдите <code>missing.png</code> и объясните статус. Нажмите «Получить данные», включите фильтр Fetch/XHR, откройте запрос <code>data.json</code> и посмотрите Preview, Response и Timing. Включите Slow 4G и повторите. Заблокируйте <code>style.css</code> через Request blocking.</li>
+    <li><strong>Application.</strong> Найдите в Local storage ключ <code>theme</code> и поменяйте значение на <code>light</code>. Добавьте новый ключ двойным кликом, удалите его, затем проверьте результат в консоли через <code>localStorage.getItem('theme')</code>. Откройте ключ <code>user</code> и выясните, как достать из него имя: подсказка, это JSON-строка.</li>
+  </ol>
+  <div class="note">
+    <b>Совет к тесту</b>
+    <p>Не зубрите названия кнопок — они переименовываются от версии к версии (Preserve log стал Keep log, Hide network стал Network messages). Запоминайте, что инструмент делает: тогда вы найдёте его в любой версии Chrome.</p>
+  </div>
+</section>

@@ -1,0 +1,90 @@
+<section id="inheritance">
+  <h2>Наследование<span class="src">Источники: oop-overview, Wikipedia (Inheritance), MDN, Eloquent JavaScript</span></h2>
+  <p>Наследование позволяет создать новый класс на основе существующего. Потомок получает поля и методы родителя и может добавить свои или поменять унаследованные. Так общий код пишется один раз и живёт в базовом классе.</p>
+
+  <pre><code>class Person {
+  constructor(name, age) {
+    this.name = name;
+    this.age = age;
+  }
+  sayHi() { return `Привет, я ${this.name}`; }
+}
+
+class Employee extends Person {
+  constructor(name, age, salary) {
+    super(name, age);   // обязательно до this
+    this.salary = salary;
+  }
+  raise(percent) { this.salary *= 1 + percent / 100; }
+  sayHi() {             // переопределение
+    return super.sayHi() + ', я сотрудник';
+  }
+}
+
+class Manager extends Employee {
+  constructor(name, age, salary, dept) {
+    super(name, age, salary);
+    this.dept = dept;
+  }
+  report() { return `${this.name}: отдел ${this.dept}`; }
+}
+
+const m = new Manager('Ира', 40, 5000, 'ИТ');
+m.raise(10);
+m.sayHi();  // 'Привет, я Ира, я сотрудник'
+m.report(); // 'Ира: отдел ИТ'</code></pre>
+
+  <h3 id="tri-mehaniki-kotorye-nuzhno-znat">Три механики, которые нужно знать</h3>
+  <ul>
+    <li><code>extends</code> устанавливает связь «потомок → родитель».</li>
+    <li><code>super(...)</code> в конструкторе вызывает конструктор родителя. В классе-потомке до этого вызова нельзя трогать <code>this</code>: получите <code>ReferenceError</code>.</li>
+    <li><code>super.метод()</code> вызывает версию метода из родителя. Так переопределение (override) дополняет поведение, а не стирает его.</li>
+  </ul>
+
+  <h3 id="kak-dvizhok-nahodit-metod">Как движок находит метод</h3>
+  <p>Что происходит при <code>m.sayHi()</code>, если <code>m</code> это <code>Manager</code>? Движок смотрит в сам <code>m</code>, затем по цепочке вверх. Поиск останавливается на первом найденном совпадении, поэтому версия из <code>Employee</code> «затеняет» версию из <code>Person</code>. Именно так работает переопределение.</p>
+
+  <figure class="dg">
+    <p class="dg-title">Поиск <code>m.sayHi()</code> по цепочке прототипов</p>
+    <ol class="seqlist" aria-hidden="true">
+      <li class="card lit" style="--i:0"><span class="hd">m (экземпляр Manager)</span><span class="ln">свои поля: name, age, salary, dept</span></li>
+      <li class="miss">sayHi() здесь нет → выше</li>
+      <li class="card lit" style="--i:1"><span class="hd">Manager.prototype</span><span class="ln">методы: report()</span></li>
+      <li class="miss">sayHi() здесь нет → выше</li>
+      <li class="card lit found" style="--i:2"><span class="hd">Employee.prototype ← найдено</span><span class="ln">методы: raise(), sayHi()</span></li>
+      <li class="miss">дальше идти не нужно; Person.sayHi спрятан override'ом</li>
+      <li class="card lit" style="--i:3"><span class="hd">Person.prototype</span><span class="ln">методы: sayHi() (до него поиск не дошёл)</span></li>
+    </ol>
+    <figcaption>Подсветка идёт сверху вниз, как идёт поиск. Для <code>m.sayHi()</code> он останавливается на <code>Employee.prototype</code>, потому что там переопределённая версия. До <code>Person</code> дойдёт только вызов <code>super.sayHi()</code> изнутри.</figcaption>
+  </figure>
+
+  <h3 id="vidy-nasledovaniya">Виды наследования</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Вид</th><th>Что это</th><th>Есть в JS?</th></tr></thead>
+    <tbody>
+      <tr><td>Одиночное</td><td>У класса один родитель.</td><td>Да, единственный вариант.</td></tr>
+      <tr><td>Многоуровневое</td><td>Цепочка: A → B → C (как Person → Employee → Manager).</td><td>Да.</td></tr>
+      <tr><td>Иерархическое</td><td>Несколько потомков одного родителя.</td><td>Да.</td></tr>
+      <tr><td>Множественное</td><td>У класса несколько родителей.</td><td>Нет. Имитируют примесями (mixins).</td></tr>
+      <tr><td>Гибридное</td><td>Комбинация видов выше.</td><td>Частично, через примеси.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="kogda-nasledovanie-vredit">Когда наследование вредит</h3>
+  <p>Наследование соблазнительно: «у этих двух классов совпадает кусок кода, вынесем в родителя». Это классическая ловушка. Хорошая проверка перед <code>extends</code>: можно ли сказать «потомок <em>является</em> родителем» и подставить его везде, где ожидается родитель (принцип подстановки Лисков). Менеджер является сотрудником, а вот «Автомобиль является Двигателем» уже абсурд, хотя код запуска мог бы пригодиться.</p>
+  <ul>
+    <li><strong>Хрупкий базовый класс.</strong> Правка в родителе может незаметно сломать потомков, потому что они завязаны на его внутренности.</li>
+    <li><strong>Глубокие иерархии.</strong> Чтобы понять метод, приходится прыгать по пяти файлам вверх и вниз (эффект «йо-йо»).</li>
+    <li><strong>Ромбовидная проблема.</strong> При множественном наследовании неясно, чью версию метода брать, если два родителя унаследовали его от общего предка. Поэтому в JS и в Java множественного наследования классов нет.</li>
+  </ul>
+  <p>Практическое правило: <strong>предпочитайте композицию наследованию</strong>. Вместо «является» используйте «имеет»: объект держит внутри другие объекты и делегирует им работу.</p>
+  <pre><code>class Engine {
+  start() { return 'двигатель запущен'; }
+}
+class Car {
+  constructor() { this.engine = new Engine(); }
+  start() { return this.engine.start(); }
+}
+new Car().start(); // 'двигатель запущен'</code></pre>
+  <p>Теперь двигатель можно заменить на электрический, не трогая иерархию классов. С наследованием так не получится.</p>
+</section>

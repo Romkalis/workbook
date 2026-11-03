@@ -1,0 +1,65 @@
+<section id="polymorphism">
+  <h2>Полиморфизм<span class="src">Источники: oop-overview, BMC (polymorphism), TechTarget, MDN</span></h2>
+  <p>Слово означает «много форм». Суть: один и тот же вызов ведёт себя по-разному в зависимости от того, какой объект его получил, а вызывающий код об этом не знает и знать не обязан. Вы пишете <code>transport.move()</code> и не проверяете, машина это, самолёт или корабль.</p>
+
+  <pre><code>class Transport {
+  constructor(model) {
+    if (new.target === Transport) {
+      throw new TypeError('Transport нельзя создать напрямую');
+    }
+    this.model = model;
+  }
+  move() { throw new Error('move() нужно реализовать'); }
+}
+class Car extends Transport {
+  move() { return `${this.model} едет по дороге`; }
+}
+class Plane extends Transport {
+  move() { return `${this.model} летит по небу`; }
+}
+class Ship extends Transport {
+  move() { return `${this.model} плывёт по воде`; }
+}
+
+for (const v of [new Car('Kia'), new Plane('Airbus'), new Ship('Титан')]) {
+  console.log(v.move());   // одна и та же строка кода
+}</code></pre>
+
+  <figure class="dg">
+    <p class="dg-title">Один вызов, три поведения</p>
+    <div class="poly" aria-hidden="true">
+      <span class="call">v.move()</span>
+      <div class="impls">
+        <div class="card lit" style="--i:0"><span class="hd">Car</span><span class="ln">Kia едет по дороге</span></div>
+        <div class="card lit" style="--i:1"><span class="hd">Plane</span><span class="ln">Airbus летит по небу</span></div>
+        <div class="card lit" style="--i:2"><span class="hd">Ship</span><span class="ln">Титан плывёт по воде</span></div>
+      </div>
+    </div>
+    <figcaption>Цикл по массиву вызывает один и тот же <code>move()</code>. Какая именно реализация сработает, решается во время выполнения по типу объекта. Если появится <code>Train</code>, цикл менять не придётся.</figcaption>
+  </figure>
+
+  <p>Класс <code>Transport</code> здесь играет роль <strong>абстрактного класса</strong>: он задаёт контракт («у любого транспорта есть <code>move</code>»), но создать его напрямую нельзя. В JavaScript нет ключевого слова <code>abstract</code>, поэтому это имитируют проверкой <code>new.target</code> и методами, которые бросают ошибку. В TypeScript есть и <code>abstract class</code>, и <code>interface</code>, которые проверяются ещё при компиляции.</p>
+
+  <h3 id="vidy-polimorfizma">Виды полиморфизма</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Вид</th><th>Идея</th><th>Пример</th></tr></thead>
+    <tbody>
+      <tr><td>Подтипов (динамический)</td><td>Метод выбирается по реальному типу объекта во время выполнения.</td><td>Пример с <code>Transport</code> выше. Главный вид в ООП.</td></tr>
+      <tr><td>Параметрический</td><td>Один код работает с любым типом данных.</td><td>Дженерики в TypeScript: <code>function first&lt;T&gt;(a: T[]): T | undefined</code>.</td></tr>
+      <tr><td>Ad hoc (перегрузка)</td><td>Одно имя, разные реализации для разных типов.</td><td>Оператор <code>+</code> складывает числа и склеивает строки. Перегрузки методов в JS нет.</td></tr>
+      <tr><td>Приведение типов</td><td>Значение неявно превращается в нужный тип.</td><td><code>1 + '2'</code> даёт <code>'12'</code>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="utinaya-tipizaciya">Утиная типизация</h3>
+  <p>JavaScript не требует общего родителя. Если у объекта есть нужный метод или свойство, он подойдёт. «Если оно ходит как утка и крякает как утка, то это утка».</p>
+  <pre><code>const describe = (x) =&gt; `длина: ${x.length}`;
+describe('abc');          // 'длина: 3'
+describe([1, 2]);         // 'длина: 2'
+describe({ length: 7 });  // 'длина: 7'</code></pre>
+  <p>Удобно, но компилятор не подскажет, что вы передали не то. Поэтому в больших проектах поверх JS берут TypeScript.</p>
+  <div class="note">
+    <b>Признак того, что полиморфизма не хватает</b>
+    <p>Цепочка <code>if (x instanceof Car) ... else if (x instanceof Plane) ...</code> в каждом месте, где нужно поведение. Лучше положить это поведение в методы классов, а вызывающему коду оставить один вызов.</p>
+  </div>
+</section>

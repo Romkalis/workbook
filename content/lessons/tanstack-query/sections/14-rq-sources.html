@@ -1,0 +1,10 @@
+<section id="rq-sources" class="sources">
+<h2>Источники и ограничения</h2>
+<p>Проверено 3 ноября 2026 года.</p>
+<ul>
+<li>Конспект «React Query (TanStack Query v5)» и презентация к нему (материалы курса «TanStack Query на реальном коде», файлы react-query-notes.html и react-query-presentation.html). Разобраны полностью. Исправлены: подпись к <code>invalidateQueries</code> (по умолчанию сравнение по началу ключа, а не точное), паттерны запроса по кнопке, оптимистичное обновление без проверки на <code>undefined</code>, пропущенные шаги в слайде. Названия рабочих проектов из презентации убраны.</li>
+<li><a href="https://tanstack.com/query/latest/docs/framework/react/overview">TanStack Query: документация v5</a> — значения по умолчанию, <code>QueryCache</code>, создание клиента в компоненте.</li>
+<li><a href="https://tanstack.com/query/latest/docs/framework/react/guides/migrating-to-v5">Migrating to TanStack Query v5</a> — отличия от v4.</li>
+<li>Поведение статусов, сравнения ключей, <code>refetchType: 'none'</code>, <code>keepPreviousData</code>, <code>prefetchQuery</code> и ответа fetch с кодом 500 проверено скриптом на <code>@tanstack/query-core</code> 5.105.3 в Node.js 22. React-обёртку в этом скрипте не запускали: она использует то же ядро.</li>
+</ul>
+</section>

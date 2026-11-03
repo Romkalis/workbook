@@ -1,0 +1,44 @@
+<section id="rq-enabled">
+<h2>enabled, зависимые запросы и select</h2>
+<p>Опция <code>enabled</code> включает и выключает автоматический запуск. Пока <code>enabled: false</code>, запрос не уходит.</p>
+<h3 id="rq-enabled-dependent">Зависимые запросы</h3>
+<p>Иногда второму запросу нужны данные первого: например, чтобы загрузить заказы, нужен <code>id</code> пользователя. Без <code>enabled</code> второй запрос ушёл бы сразу с <code>undefined</code> вместо id.</p>
+<pre><code>const { data: user } = useQuery({
+  queryKey: ['user'],
+  queryFn: getCurrentUser,
+});
+
+const { data: orders } = useQuery({
+  queryKey: ['orders', user?.id],
+  queryFn: () =&gt; fetchOrders(user.id),
+  enabled: !!user?.id, // ждём, пока появится id
+});</code></pre>
+<p><code>!!</code> превращает значение в true или false: <code>!!undefined</code> даёт false, <code>!!'42'</code> — true.</p>
+<h3 id="rq-enabled-select">select: берём из ответа только нужное</h3>
+<p><code>select</code> — функция, которая преобразует данные при чтении. В кеше остаётся полный ответ, а компонент получает только нужную часть. Несколько компонентов могут читать один запрос с разными <code>select</code>, и запрос при этом будет один.</p>
+<pre><code>const { data: gameIds } = useQuery({
+  queryKey: ['games'],
+  queryFn: fetchGames,
+  select: (games) =&gt; games.map((g) =&gt; g.id), // в data будут только id
+});</code></pre>
+<h3 id="rq-enabled-trigger">Запрос по кнопке</h3>
+<p>Иногда запрос должен уйти только после действия пользователя. Классический пример — поиск: не нужно отправлять запрос на каждую букву, только по Enter или кнопке.</p>
+<p>Самый понятный способ: хранить отдельно то, что пользователь <em>набирает</em>, и то, что он <em>отправил</em>. В ключ кладём только отправленное.</p>
+<pre><code>const [input, setInput] = useState('');  // текст в поле
+const [term, setTerm] = useState('');    // отправленный запрос
+
+const { data, isFetching } = useQuery({
+  queryKey: ['search', term],
+  queryFn: () =&gt; searchGames(term),
+  enabled: term !== '', // пустой поиск не отправляем
+});
+
+return (
+  &lt;form onSubmit={(e) =&gt; { e.preventDefault(); setTerm(input); }}&gt;
+    &lt;input value={input} onChange={(e) =&gt; setInput(e.target.value)} /&gt;
+    &lt;button disabled={isFetching}&gt;Найти&lt;/button&gt;
+  &lt;/form&gt;
+);</code></pre>
+<p>Пока человек печатает, меняется только <code>input</code>, ключ остаётся прежним, запросов нет. После отправки меняется <code>term</code>, а с ним и ключ, и уходит ровно один запрос. Повторный поиск того же слова возьмёт ответ из кеша.</p>
+<div class="warn"><b>Чем плохи варианты из конспекта</b><p>В конспекте предложены два паттерна, и у обоих в ключе лежит текст поля <code>query</code>, который меняется при каждой букве.</p><p><strong>enabled: false + refetch().</strong> Работает: <code>refetch()</code> запускает запрос даже при выключенном <code>enabled</code>. Но с каждой новой буквой ключ меняется, по новому ключу данных нет, и результаты прошлого поиска пропадают с экрана ещё до нажатия кнопки.</p><p><strong>enabled: submitted.</strong> После первой отправки <code>submitted</code> навсегда остаётся true, и дальше запрос уходит на каждую букву. То есть ровно то, от чего хотели уйти.</p></div>
+</section>

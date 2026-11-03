@@ -1,0 +1,109 @@
+<section id="classes">
+  <h2>Классы в JavaScript<span class="src">Источники: JavaScript.info, MDN</span></h2>
+<p>В примерах сначала смотрите на new: конструктор получает аргументы и записывает поля экземпляра. Затем найдите вызов метода и прочитайте this как объект перед точкой. Static-член ищите отдельно — на самом классе. Так вы не смешаете данные конкретного пользователя и общие возможности класса.</p>
+  <p>Класс описывает, как создавать объекты и какое поведение им дать. Вызов <code>new</code> создаёт экземпляр, а конструктор инициализирует его данные. Методы класса обычно общие для всех экземпляров и хранятся в <code>ClassName.prototype</code>.</p>
+  <pre><code>class User {
+  constructor(name) {
+    this.name = name;
+  }
+
+  sayHi() {
+    return `Привет, ${this.name}`;
+  }
+}
+
+const user = new User('Оля');
+user.sayHi(); // 'Привет, Оля'
+Object.getPrototypeOf(user) === User.prototype; // true
+Object.hasOwn(user, 'sayHi'); // false</code></pre>
+  <h3 id="konstruktor-i-poly">Конструктор и поля</h3>
+  <p>Метод <code>constructor</code> вызывается при создании экземпляра через <code>new</code>. Если он не указан, JavaScript добавит конструктор по умолчанию: пустой у базового класса и передающий аргументы родителю у наследника. Поля экземпляра принадлежат конкретному объекту; методы класса хранятся в прототипе, а не копируются в каждый экземпляр.</p>
+  <pre><code>class Lamp {
+  isOn = false; // отдельное поле каждого экземпляра
+  constructor(color) {
+    this.color = color;
+  }
+  toggle() {
+    this.isOn = !this.isOn;
+    return this.isOn;
+  }
+}
+
+const deskLamp = new Lamp('зелёный');
+deskLamp.toggle(); // true</code></pre>
+  <h3 id="staticheskie-metody">Статические методы</h3>
+  <p>Метод или поле с ключевым словом <code>static</code> принадлежит самому классу, а не его экземплярам. Он подходит для операций и значений, которым не нужны данные конкретного объекта, например для фабрики или константы.</p>
+  <pre><code>class Temperature {
+  constructor(celsius) {
+    this.celsius = celsius;
+  }
+  static fromFahrenheit(value) {
+    return new Temperature((value - 32) * 5 / 9);
+  }
+}
+
+Temperature.fromFahrenheit(68).celsius; // 20
+// new Temperature(20).fromFahrenheit(68); // TypeError</code></pre>
+  <p>Статические свойства и методы наследуются классом-потомком через цепочку самих классов. Они не копируются в потомка: доступ к свойству родителя продолжается по прототипной цепочке конструктора.</p>
+  <pre><code>class Animal {
+  static category = 'животное';
+  static describe() { return this.category; }
+}
+class Cat extends Animal {}
+
+Cat.category; // 'животное'
+Cat.describe(); // 'животное'
+Object.hasOwn(Cat, 'category'); // false</code></pre>
+  <h3 id="class-expression">Объявление класса и выражение класса</h3>
+  <p>Класс можно объявить по имени или создать как выражение и сохранить в переменную. Фигурные скобки в примере — тело класса, а запятые между методами не ставятся.</p>
+  <pre><code>const User = class {
+  greet() {
+    return 'Привет';
+  }
+};
+
+new User().greet(); // 'Привет'</code></pre>
+  <h3 id="odin-konstruktor">Один конструктор или конструктор по умолчанию</h3>
+  <p>В классе может быть не более одного метода <code>constructor</code>; второй приведёт к синтаксической ошибке. Если конструктор не написан, JavaScript создаёт его автоматически. Для базового класса он пустой, а для потомка передаёт аргументы конструктору родителя через <code>super(...args)</code>.</p>
+  <pre><code>class Base {
+  constructor(value) { this.value = value; }
+}
+class Child extends Base {}
+
+new Child(42).value; // 42 — конструктор по умолчанию вызвал super(42)</code></pre>
+  <h3 id="public-private-protected">Публичные, приватные и «защищённые» члены</h3>
+  <p>Публичные поля и методы доступны снаружи и наследуются обычным образом. Приватные поля и методы с префиксом <code>#</code> — настоящая языковая возможность: обращаться к ним можно только из тела класса, где они объявлены. Потомок не может напрямую прочитать приватное поле родителя.</p>
+  <pre><code>class Account {
+  #balance = 0;
+  balance = 'публичное поле с тем же коротким именем';
+
+    #validate(amount) {
+      if (amount <= 0) throw new RangeError('сумма должна быть положительной');
+  }
+    deposit(amount) {
+      this.#validate(amount);
+      this.#balance += amount;
+    }
+  getBalance() {
+    return this.#balance;
+  }
+}
+
+const account = new Account();
+account.balance; // 'публичное поле с тем же коротким именем'
+account.getBalance(); // 0
+// account.#balance; // SyntaxError: приватный идентификатор недоступен снаружи</code></pre>
+  <p><code>#balance</code> и <code>balance</code> — разные поля, поэтому у одного класса могут быть оба. Приватные методы тоже объявляются с <code>#</code>, например <code>#validate</code> выше. Такой префикс — часть синтаксиса и реальная защита языка, а не просто договорённость. Имя с подчёркиванием, например <code>_balance</code>, — лишь общепринятое соглашение о «защищённом» члене. В JavaScript нет отдельного уровня доступа <em>protected</em>: такое свойство остаётся публичным. Обычный метод родителя наследуется потомком; приватный идентификатор родителя напрямую потомку недоступен.</p>
+  <h3 id="klass-i-funktsiya">Чем класс отличается от функции-конструктора</h3>
+  <ul>
+    <li>Класс нельзя вызвать как обычную функцию: без <code>new</code> будет <code>TypeError</code>.</li>
+    <li>Код внутри тела класса всегда работает в строгом режиме.</li>
+    <li>Объявление класса нельзя использовать до строки объявления: попытка обратиться к нему раньше приведёт к <code>ReferenceError</code>.</li>
+    <li>Методы класса неперечисляемы при обычном перечислении свойств прототипа.</li>
+  </ul>
+  <p>Класс может наследоваться от встроенного класса, например <code>Array</code> или <code>Map</code>, если нужен специализированный тип. Синтаксис классов появился в ES2015. Объявление класса создаёт специальную функцию-конструктор — поэтому <code>typeof User</code> возвращает <code>'function'</code>, хотя сам класс нельзя вызвать без <code>new</code>. Класс не является отдельным примитивным типом или интерфейсом; наследование экземпляров по-прежнему опирается на цепочки прототипов.</p>
+  <pre><code>class UserList extends Array {}
+const users = new UserList('Аня', 'Миша');
+users.length; // 2
+users[0]; // 'Аня'</code></pre>
+</section>

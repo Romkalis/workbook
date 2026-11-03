@@ -1,0 +1,12 @@
+<section id="pr-sources" class="sources">
+<h2>Источники и ограничения</h2>
+<p>Проверено 3 ноября 2026 года.</p>
+<ul>
+<li>Разборы курса «TanStack Query на реальном коде»: useCurrentUser-lesson.html (хук <code>useSession</code>), useTournamentLeaderboard-lesson.html, useSSEBalanceUpdates-lesson.html, useSearchExecution-lesson.html и доп. материал data-fetching-strategies-lesson.html. Разобраны полностью. Код сокращён и обезличен, названия проектов убраны, пример WebSocket заменён на чат.</li>
+<li>Уточнение к разбору <code>useLeaderboard</code>: новый пустой массив на каждом рендере сам по себе не вызывает бесконечный ре-рендер, только лишние перезапуски эффектов. Цикл появляется, если эффект меняет состояние.</li>
+<li>На вопрос из разбора <code>useLiveBalanceSync</code> об инвалидации сразу после <code>setQueryData</code> в материалах курса ответа нет. Ответ в уроке — наш разбор поведения библиотеки, а причина такого кода в проекте неизвестна.</li>
+<li><a href="https://tanstack.com/query/latest/docs/framework/react/guides/infinite-queries">TanStack Query: Infinite Queries</a>, <a href="https://tanstack.com/query/latest/docs/framework/react/guides/query-cancellation">Query Cancellation</a>, <a href="https://tanstack.com/query/latest/docs/framework/react/guides/paginated-queries">Paginated Queries</a>.</li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/EventSource">MDN: EventSource</a>, <a href="https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API">MDN: WebSocket API</a> — ограничения EventSource и устройство WebSocket.</li>
+<li>Логика <code>getNextPageParam</code> и <code>keepPreviousData</code> проверена скриптом на <code>@tanstack/query-core</code> 5.105.3. Хуки целиком не запускались: они зависят от закрытого кода проекта.</li>
+</ul>
+</section>

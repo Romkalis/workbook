@@ -1,0 +1,13 @@
+<section id="jwt-sources" class="sources">
+<h2>Источники и ограничения</h2>
+<p>Проверено 3 ноября 2026 года.</p>
+<ul>
+<li>«JWT-авторизация в Express + MongoDB — разбор по шагам» (jwt-auth-tutorial.md). Разобран полностью. Изменено: хук <code>pre('save')</code> без <code>next</code> (в mongoose 9 исходный вариант падает), <code>try/catch</code> в маршрутах входа и профиля, base64url вместо base64, опция <code>algorithms</code> в <code>jwt.verify</code>, чтение токена из cookie. Mermaid-схема заменена на CSS-схему.</li>
+<li><a href="https://github.com/auth0/node-jsonwebtoken">jsonwebtoken</a> — <code>sign</code>, <code>verify</code>, ошибки <code>JsonWebTokenError</code> и <code>TokenExpiredError</code>.</li>
+<li><a href="https://mongoosejs.com/docs/middleware.html">Mongoose: Middleware</a> — асинхронные хуки.</li>
+<li><a href="https://www.rfc-editor.org/rfc/rfc7519">RFC 7519: JSON Web Token</a> — структура токена, поля <code>iat</code> и <code>exp</code>.</li>
+<li><a href="https://expressjs.com/en/guide/migrating-5.html">Express: переход на версию 5</a> — обработка ошибок в async-обработчиках.</li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html">OWASP: Password Storage</a> — хранение паролей, XSS, CSRF (из общих знаний, для расширения).</li>
+<li>Проверено в Node.js 22.23: создание, раскодирование и проверка токена, отказ при подделке, чужом секрете и истёкшем сроке (jsonwebtoken 9.0.3); хеш и сравнение пароля (bcryptjs 2.4.3); хук перед сохранением (mongoose 8.24 и 9.11). Express и MongoDB целиком не запускались.</li>
+</ul>
+</section>

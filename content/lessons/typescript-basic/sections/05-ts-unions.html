@@ -1,0 +1,40 @@
+<section id="ts-unions">
+<h2>Union, narrowing и пересечения</h2>
+<p>Сужение типа (narrowing) — уточнение после проверки. Например, в ветке <code>typeof id === "string"</code> переменная id уже не string | number, а string. Discriminant, или дискриминант, — поле с разными фиксированными значениями, по которому можно различить варианты объекта.</p>
+<p>Union <code>A | B</code> разрешает значение одного из вариантов. Intersection <code>A &amp; B</code> требует одновременно выполнить оба контракта. Символы похожи на логические операции, но работают с типами, а не исполняемыми выражениями.</p><h3 id="ts-narrowing">Сужение типа проверками</h3><pre><code>function formatId(id: string | number): string {
+  if (typeof id === &quot;string&quot;) return id.trim().toUpperCase();
+  return id.toFixed(0);
+}
+console.log(formatId(&quot; rs &quot;), formatId(42)); // RS 42
+function first(value: string | string[]): string {
+  return Array.isArray(value) ? (value[0] ?? &quot;&quot;) : value;
+}
+console.log(first([&quot;TS&quot;]));
+</code></pre><p>Пока переменная может быть и строкой, и числом, TypeScript разрешит только то, что умеют оба типа. Например, <code>toUpperCase()</code> есть только у строк, поэтому вызвать его сразу нельзя. После проверки <code>typeof value === "string"</code> компилятор знает: внутри этой ветки точно строка. Другие средства: <code>instanceof</code> для классов, <code>in</code> для свойств и <code>Array.isArray</code> для массивов. Учитывайте, что <code>typeof null === "object"</code>. Проверка truthy отбрасывает также пустую строку и ноль; если надо исключить только отсутствие, проверяйте null/undefined явно.</p><h3 id="ts-discriminated">Размеченное объединение: состояние без противоречий</h3><pre><code>type LoadResult =
+  | { status: &quot;loading&quot; }
+  | { status: &quot;success&quot;; data: string[] }
+  | { status: &quot;error&quot;; message: string };
+function render(result: LoadResult): string {
+  switch (result.status) {
+    case &quot;loading&quot;: return &quot;Загрузка&quot;;
+    case &quot;success&quot;: return result.data.join(&quot;, &quot;);
+    case &quot;error&quot;: return result.message;
+    default: {
+      const unreachable: never = result;
+      return unreachable;
+    }
+  }
+}
+console.log(render({ status: &quot;success&quot;, data: [&quot;TS&quot;] }));
+</code></pre><p>Общее поле status — дискриминант. В ветке success гарантированно есть data, а в error — message. Если добавить новый вариант и забыть обработку, присваивание в never обнаружит пропуск. Это надёжнее объекта с тремя необязательными полями, который разрешает бессмысленные сочетания.</p><h3 id="ts-intersections">Пересечение контрактов</h3><pre><code>type Identified = { id: number };
+type Titled = { title: string };
+type Lesson = Identified &amp; Titled;
+const lesson: Lesson = { id: 1, title: &quot;TypeScript&quot; };
+type Impossible = { id: string } &amp; { id: number };
+console.log(lesson.title);
+if (false) {
+  // @ts-expect-error: id должен быть одновременно string и number (never)
+  const impossible: Impossible = { id: 1 };
+}
+</code></pre><p>Пересечение не означает «выбрать правое свойство при конфликте». Несовместимые требования к одному полю могут дать never. При <code>interface extends</code> несовместимое переопределение обычно обнаруживается уже в объявлении интерфейса.</p>
+</section>

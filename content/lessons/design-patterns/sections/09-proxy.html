@@ -1,0 +1,34 @@
+<section id="proxy">
+<h2>Proxy — Заместитель</h2>
+<p><b>Структурный паттерн.</b> Чтение каталога дорогое; хотим повторно использовать результат, сохранив контракт сервиса. Клиент не должен управлять кэшем вручную.</p>
+<div class="note"><b>Простыми словами</b><p>Секретарь начальника: с ним говорят так же, как с начальником, но он решает, пускать ли посетителя, может сам ответить на частый вопрос или записать визит в журнал. Заместитель имеет тот же интерфейс, что и настоящий объект, и встаёт перед ним, чтобы проверять, кешировать или откладывать работу.</p></div>
+<h3 id="proxy-roles">Участники и направление вызовов</h3>
+<p>Catalog — общий интерфейс сервиса и заместителя. CachedCatalog проверяет кэш и при необходимости делегирует запрос RealCatalog. Клиент видит тот же метод title.</p>
+<h3 id="proxy-example">Пример на TypeScript</h3>
+<pre><code>interface Catalog { title(id: number): string }
+class RealCatalog implements Catalog {
+  calls = 0;
+  title(id: number): string { this.calls += 1; return `Урок ${id}`; }
+}
+class CachedCatalog implements Catalog {
+  private cache = new Map&lt;number, string&gt;();
+  constructor(private source: Catalog) {}
+  title(id: number): string {
+    const cached = this.cache.get(id);
+    if (cached !== undefined) return cached;
+    const title = this.source.title(id);
+    this.cache.set(id, title);
+    return title;
+  }
+}
+const source = new RealCatalog();
+const proxy = new CachedCatalog(source);
+console.log(proxy.title(1), proxy.title(1), source.calls); // Урок 1 Урок 1 1
+</code></pre>
+<p>Повторный запрос не дошёл до источника: calls равно 1. Здесь заместитель кэширующий; другие варианты контролируют доступ или откладывают создание тяжёлого объекта.</p>
+<h3 id="proxy-tradeoffs">Когда применять и что учитывать</h3>
+<p>Нужно определить срок актуальности и способ сброса кэша. Пример синхронный и не обрабатывает гонки запросов. Дополнение из общих знаний: встроенный JS Proxy перехватывает операции над объектами и может помочь реализовать заместителя, но паттерн не требует этого API. Проверка доступа на клиенте не заменяет проверку на сервере.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/proxy">Proxy — Заместитель</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>Кэш — сохранённый результат предыдущего обращения. В первый вызов proxy идёт к source и запоминает строку. Во второй возвращает её из Map: поэтому счётчик обращений к source не увеличивается. При изменении исходных данных старый кэш нужно обновить или удалить.</p>
+</section>

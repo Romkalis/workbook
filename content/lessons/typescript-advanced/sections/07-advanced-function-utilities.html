@@ -1,0 +1,41 @@
+<section id="advanced-function-utilities">
+<h2>Типы из функций, конструкторов и Promise</h2>
+<h3 id="advanced-parameters-return">Parameters, ReturnType и Awaited</h3>
+<p>Допустим, функция load уже описана, а рядом нужен тип её аргументов или результата. Чтобы не переписывать эти типы вручную, возьмём их из самой функции. <code>typeof load</code> здесь означает «тип функции load», а не строку, возвращаемую оператором typeof в JavaScript.</p>
+
+<pre><code>function load(id: string, limit = 10): Promise&lt;{ id: string; count: number }&gt; {
+  return Promise.resolve({ id, count: limit });
+}
+type Args = Parameters&lt;typeof load&gt;;
+type Pending = ReturnType&lt;typeof load&gt;;
+type Data = Awaited&lt;Pending&gt;;
+const args: Args = [&quot;a1&quot;, 2];
+const data: Data = { id: &quot;a1&quot;, count: 2 };
+console.log(args[0], data.count);
+void load(...args).then(result =&gt; console.log(result.count));
+</code></pre>
+<p>Разберём результат по строкам: Args — кортеж <code>[id: string, limit?: number]</code>; Pending — <code>Promise&lt;{ id: string; count: number }&gt;</code>; Data — объект <code>{ id: string; count: number }</code> после успешного ожидания Promise. Проще говоря, <code>Parameters</code> отвечает «что функция принимает», <code>ReturnType</code> — «что возвращает», <code>Awaited</code> — «что получится после <code>await</code>». Awaited умеет раскрывать также вложенные Promise и объединения типов. Это помогает не дублировать сигнатуры. У перегруженной функции извлечение обычно ориентируется на последнюю сигнатуру, а не выбирает перегрузку по будущим аргументам.</p>
+<h3 id="advanced-constructor-utilities">ConstructorParameters и InstanceType</h3>
+<pre><code>class Article {
+  constructor(readonly title: string, readonly minutes: number) {}
+}
+type Args = ConstructorParameters&lt;typeof Article&gt;;
+type Item = InstanceType&lt;typeof Article&gt;;
+const args: Args = [&quot;TS&quot;, 8];
+const item: Item = new Article(...args);
+console.log(item.title, item.minutes);
+</code></pre>
+<p>Для этих типов передают тип конструктора <code>typeof Article</code>, а не тип экземпляра Article. У обычного класса экземпляр можно назвать напрямую; утилиты полезнее в обобщённых фабриках и обёртках.</p>
+<h3 id="advanced-this-utilities">Дополнительно: утилиты для this</h3>
+<p>В heading первый параметр this описывает объект, с которым вызывают функцию; отдельным аргументом JavaScript он не передаётся. Вызов bind создаёт функцию, у которой этот объект уже закреплён. Поэтому bound при вызове принимает только prefix.</p>
+
+<pre><code>function heading(this: { title: string }, prefix: string): string {
+  return prefix + this.title;
+}
+type Context = ThisParameterType&lt;typeof heading&gt;;
+const context: Context = { title: &quot;TS&quot; };
+const bound: OmitThisParameter&lt;typeof heading&gt; = heading.bind(context);
+console.log(bound(&quot;Урок: &quot;));
+</code></pre>
+<p>ThisParameterType извлекает явно объявленный this, OmitThisParameter убирает его из сигнатуры. Есть также ThisType: он подсказывает тип this внутри методов объектного литерала. Это более редкий приём, к которому можно вернуться позже; сам ThisType не создаёт объект и не закрепляет this при вызове. Uppercase, Lowercase, Capitalize и Uncapitalize преобразуют строковые литеральные типы — к ним перейдём в разделе шаблонных строк.</p>
+</section>

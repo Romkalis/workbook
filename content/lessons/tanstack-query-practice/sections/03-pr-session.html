@@ -1,0 +1,80 @@
+<section id="pr-session">
+<h2>Разбор 1. useSession: два запроса в одном хуке</h2>
+<p>Хук возвращает текущего пользователя. Внутри два запроса: данные пользователя и его избранные игры.</p>
+<pre><code>export const useSession = () =&gt; {
+  const userQuery = useQuery({
+    queryKey: queryKeys.auth.me(),
+    queryFn: async () =&gt; {
+      try {
+        const response = await fetchCurrentSession();
+        return normalizeSessionResponse(response.data);
+      } catch (error) {
+        const status = error?.response?.status;
+        if (status === 401 || status === 403) {
+          SessionManager.clearToken(); // не залогинен — это не ошибка, а «пользователя нет»
+          return null;
+        }
+        logger.error('[useSession] Failed to fetch user data', { error });
+        throw error;
+      }
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const favoritesQuery = useQuery({
+    queryKey: ['favorites', userQuery.data?.id],        // ← (2)
+    queryFn: async () =&gt; {
+      try {
+        const response = await fetchSavedItems();
+        return response.data;
+      } catch (error) {
+        logger.error('[useSession] Failed to fetch favorites', { error });
+        return { total: 0, items: [] };                 // ← (3)
+      }
+    },
+    enabled: !!userQuery.data?.id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnMount: true,                               // ← (4)
+    refetchOnWindowFocus: false,
+  });
+
+  return useMemo(() =&gt; ({ userId: userQuery.data?.id || null /* ...и ещё 7 полей */ }), [/* ... */]);
+};</code></pre>
+<h3 id="pr-session-good">Что хорошо</h3>
+<p>Ответы 401 и 403 обработаны осознанно: «не авторизован» превращается в <code>null</code>, а не в ошибку. Компонент просто увидит, что пользователя нет, и покажет кнопку входа. <code>retry: false</code> тоже к месту: повторять запрос без токена бессмысленно. Избранное ждёт <code>id</code> через <code>enabled</code>.</p>
+<h3 id="pr-session-bad">Что не так</h3>
+<ol>
+<li><strong>Лишний запрос у всех.</strong> <code>useSession()</code> вызывают в шапке, в меню, на странице профиля. И каждый раз вместе с пользователем подключается запрос избранного, даже если компоненту оно не нужно. Пока данные свежие, сеть он не нагрузит, но это лишняя работа и лишние перерисовки.</li>
+<li><strong>Ключ набран руками.</strong> Первый запрос берёт ключ из фабрики, а второй — нет. Обновить избранное из другого места можно только повторив строку <code>'favorites'</code> вручную.</li>
+<li><strong>Ошибка проглатывается.</strong> Любой сбой превращается в пустой список. Пользователь увидит «у вас нет избранного», хотя на самом деле его просто не удалось загрузить. И библиотека не повторит запрос: для неё он успешен.</li>
+<li><strong>Опция, которая ничего не делает.</strong> <code>refetchOnMount: true</code> — значение по умолчанию. Строка выглядит как осознанная настройка, и читатель тратит время, пытаясь понять, зачем она.</li>
+</ol>
+<h3 id="pr-session-fix">Как исправить</h3>
+<p>Добавляем ключ в фабрику и выносим избранное в отдельный хук. Его подключат только те компоненты, которым избранное действительно нужно.</p>
+<pre><code>// queryKeys.ts
+favorites: {
+  all: () =&gt; ['favorites'] as const,
+  byUser: (userId: string) =&gt; ['favorites', userId] as const,
+},
+
+// useSavedItems.ts — новый хук
+export const useSavedItems = (userId: string | null) =&gt; {
+  const query = useQuery({
+    queryKey: queryKeys.favorites.byUser(userId ?? ''),
+    queryFn: async () =&gt; (await fetchSavedItems()).data, // ошибка уходит наружу
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+  return { favorites: query.data, isLoading: query.isLoading, error: query.error };
+};
+
+// в компоненте, где нужно избранное
+const { userId } = useSession();
+const { favorites, error } = useSavedItems(userId);</code></pre>
+<p>Из <code>useSession</code> запрос избранного просто удаляется. Пустая строка в <code>byUser(userId ?? '')</code> нужна только для типов: пока <code>userId</code> нет, <code>enabled</code> равен false, и запрос с таким ключом не уйдёт.</p>
+<div class="note"><b>Правило</b><p>Держите запросы в одном хуке, если почти всем, кто его вызывает, нужны оба результата. Если второй нужен только части компонентов, выносите его в отдельный хук: пусть компонент сам решает, подключать его или нет.</p></div>
+</section>

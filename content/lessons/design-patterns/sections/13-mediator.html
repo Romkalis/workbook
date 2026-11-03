@@ -1,0 +1,33 @@
+<section id="mediator">
+<h2>Mediator — Посредник</h2>
+<p><b>Поведенческий паттерн.</b> В форме поле заголовка влияет на кнопку сохранения. Если элементы начнут напрямую менять друг друга, их будет трудно использовать в другой форме.</p>
+<div class="note"><b>Простыми словами</b><p>Диспетчерская вышка в аэропорту: самолёты не договариваются друг с другом напрямую, все говорят только с вышкой. Посредник убирает прямые связи между множеством объектов: каждый общается только с ним.</p></div>
+<h3 id="mediator-roles">Участники и направление вызовов</h3>
+<p>Компоненты сообщают о событиях посреднику. FormMediator знает правила взаимодействия и меняет Button. Field знает только контракт Mediator, а не конкретную кнопку.</p>
+<h3 id="mediator-example">Пример на TypeScript</h3>
+<pre><code>interface Mediator { changed(value: string): void }
+class Button { enabled = false; }
+class Field {
+  constructor(private mediator: Mediator) {}
+  input(value: string): void { this.mediator.changed(value); }
+}
+class FormMediator implements Mediator {
+  readonly button = new Button();
+  readonly title = new Field(this);
+  changed(value: string): void {
+    this.button.enabled = value.trim().length &gt; 0;
+  }
+}
+const form = new FormMediator();
+form.title.input(&quot;TS&quot;);
+console.log(form.button.enabled); // true
+form.title.input(&quot;  &quot;);
+console.log(form.button.enabled); // false
+</code></pre>
+<p>Поле не обращалось к кнопке. Правило «пустой заголовок запрещает сохранение» сосредоточено в посреднике. Объекты имитируют элементы формы без зависимости от DOM.</p>
+<h3 id="mediator-tradeoffs">Когда применять и что учитывать</h3>
+<p>Подходит, когда много связей между участниками одного сценария. Посредник не просто рассылает события, а определяет реакцию и координирует коллег. Следите, чтобы он не стал огромным объектом, знающим весь продукт. Небольшие независимые формы могут иметь своих посредников.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/mediator">Mediator — Посредник</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>При вводе Field сообщает новое значение посреднику. Посредник проверяет строку и меняет enabled у Button. Сам Field не ищет кнопку и не знает правила её включения: это позволяет использовать поле с другой координацией.</p>
+</section>

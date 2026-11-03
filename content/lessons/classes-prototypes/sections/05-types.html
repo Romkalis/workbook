@@ -1,0 +1,34 @@
+<section id="types">
+  <h2><code>typeof</code> и <code>instanceof</code><span class="src">Источники: MDN, JavaScript.info</span></h2>
+<p>Для выбора проверки сначала сформулируйте вопрос. «Это строка?» — typeof. «Это массив?» — Array.isArray. «Есть ли прототип данного конструктора в цепочке объекта?» — instanceof. «Это null?» — прямое сравнение с null. Одной универсальной проверки на все случаи здесь нет.</p>
+  <p>Операторы отвечают на разные вопросы. <code>typeof</code> возвращает строку с категорией значения, а <code>instanceof</code> проверяет, встречается ли прототип конкретного конструктора в цепочке прототипов объекта.</p>
+  <pre><code>  class User {}
+
+  typeof 42;                         // 'number'
+typeof 'текст';                    // 'string'
+typeof function () {};             // 'function'
+typeof {};                         // 'object'
+typeof null;                       // 'object' — историческая особенность
+typeof User;                       // 'function' для объявления class User
+
+const user = new User();
+user instanceof User;              // true
+user instanceof Object;            // true</code></pre>
+  <p><code>instanceof</code> возвращает логическое значение <code>true</code> или <code>false</code>. Для примитивов он не определяет тип: например, <code>42 instanceof Number</code> вернёт <code>false</code>. Оператор предназначен прежде всего для объектов и проверки их прототипной цепочки. Не путайте его с <code>typeof</code>, который работает и с примитивами, и всегда возвращает строку.</p>
+  <h3 id="object-prototype-to-string"><code>Object.prototype.toString()</code></h3>
+  <p>У объектов есть унаследованный метод <code>toString</code>, который возвращает строку. Вызов <code>Object.prototype.toString.call(value)</code> позволяет применить именно этот метод к разным значениям и получить метку вроде <code>[object Number]</code> или <code>[object Array]</code>. Для проверки массива всё же используйте <code>Array.isArray</code>: строки с метками не всегда надёжны для определения типа.</p>
+  <pre><code>Object.prototype.toString.call(42); // '[object Number]'
+Object.prototype.toString.call([]); // '[object Array]'
+Object.prototype.toString.call(null); // '[object Null]'</code></pre>
+  <h3 id="ogranicheniya-typeof">Ограничения <code>typeof</code></h3>
+  <p><code>typeof null</code> возвращает <code>'object'</code> по исторической причине — это не значит, что <code>null</code> является объектом. Для проверки на null сравнивайте значение напрямую: <code>value === null</code>. Массивы тоже дают <code>'object'</code>; для них используйте <code>Array.isArray(value)</code>.</p>
+  <h3 id="kak-rabotaet-instanceof">Как работает <code>instanceof</code></h3>
+  <p>В обычном случае <code>value instanceof Constructor</code> проверяет, находится ли <code>Constructor.prototype</code> в цепочке прототипов у <code>value</code>. Это проверка цепочки, а не «точного типа».</p>
+  <pre><code>class Animal {}
+class Rabbit extends Animal {}
+const rabbit = new Rabbit();
+
+rabbit instanceof Rabbit; // true
+rabbit instanceof Animal; // true</code></pre>
+  <p>У <code>instanceof</code> есть ограничения: например, экземпляры из другого окна браузера могут принадлежать другому конструктору <code>Array</code>, поэтому проверка с локальным <code>Array</code> не сработает. Если нужно определить именно массив, надёжнее <code>Array.isArray</code>.</p>
+</section>

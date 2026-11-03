@@ -1,0 +1,36 @@
+<section id="visitor">
+<h2>Visitor — Посетитель</h2>
+<p><b>Поведенческий паттерн.</b> Для известных видов материалов нужны новые операции: длительность, экспорт, проверка. Не хочется добавлять каждую такую операцию в классы материалов.</p>
+<div class="note"><b>Простыми словами</b><p>Инспектор обходит кафе, магазин и аптеку и для каждого типа применяет свою проверку. Чтобы добавить новую проверку, нанимают нового инспектора, а сами заведения не перестраивают. Посетитель позволяет добавлять новые операции над разными классами, не меняя эти классы.</p></div>
+<h3 id="visitor-roles">Участники и направление вызовов</h3>
+<p>Элемент имеет accept(visitor). Конкретные Video и Article вызывают соответствующий метод visitVideo или visitArticle. Visitor содержит операцию над всеми видами элементов. Выбор зависит и от вида элемента, и от конкретного посетителя — это двойная диспетчеризация.</p>
+<h3 id="visitor-example">Пример на TypeScript</h3>
+<pre><code>interface Material { accept&lt;R&gt;(visitor: Visitor&lt;R&gt;): R }
+interface Visitor&lt;R&gt; {
+  visitVideo(video: Video): R;
+  visitArticle(article: Article): R;
+}
+class Video implements Material {
+  constructor(readonly minutes: number) {}
+  accept&lt;R&gt;(visitor: Visitor&lt;R&gt;): R { return visitor.visitVideo(this); }
+}
+class Article implements Material {
+  constructor(readonly words: number) {}
+  accept&lt;R&gt;(visitor: Visitor&lt;R&gt;): R { return visitor.visitArticle(this); }
+}
+class DurationVisitor implements Visitor&lt;number&gt; {
+  visitVideo(video: Video): number { return video.minutes; }
+  visitArticle(article: Article): number { return Math.ceil(article.words / 200); }
+}
+const materials: Material[] = [new Video(12), new Article(600)];
+const duration = new DurationVisitor();
+const total = materials.reduce((sum, item) =&gt; sum + item.accept(duration), 0);
+console.log(total); // 15
+</code></pre>
+<p>Посетитель посчитал 12 минут видео и 3 минуты статьи. Скорость 200 слов/мин — условность примера, а не норматив. Метод accept выбирает нужную операцию явно, без цепочки instanceof. Параметр R описывает результат посетителя: DurationVisitor выбирает number, а другой посетитель может выбрать string, не меняя классы элементов.</p>
+<h3 id="visitor-tradeoffs">Когда применять и что учитывать</h3>
+<p>Удобен, когда набор видов элементов стабилен, а новые операции появляются часто. Добавить новый Visitor сравнительно легко; новый вид элемента заставит обновить контракт и существующих посетителей. Первичное внедрение требует accept в элементах. Перегрузки TypeScript сами не обеспечивают runtime-выбор по классу. Посетитель и итератор решают разные задачи: один выполняет операцию, другой задаёт обход.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/visitor">Visitor — Посетитель</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>Проследите один элемент Video: accept получает посетителя и вызывает у него visitVideo(this). У Article такой же шаг приводит в visitArticle. Клиент обходит материалы единообразно, а специальные операции для разных видов собраны в посетителе.</p>
+</section>

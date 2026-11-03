@@ -1,0 +1,83 @@
+<section id="encapsulation">
+  <h2>Инкапсуляция<span class="src">Источники: oop-overview, Wikipedia (Encapsulation), TechTarget, MDN</span></h2>
+  <p>У слова два смысла, и в источниках путаются оба. Первый: <strong>объединение</strong> данных и методов в одном объекте. Второй: <strong>ограничение доступа</strong> к части этих данных, чтобы с ними работали только через методы самого объекта. В практическом разговоре под инкапсуляцией чаще всего понимают второе.</p>
+  <p>Зачем скрывать? Если любой код снаружи может записать в поле что угодно, вы не можете гарантировать, что объект остаётся корректным. Баланс счёта становится отрицательным, таймер получает интервал в минус час. Если же изменения идут через методы, проверки сидят в одном месте, а внутреннее устройство можно переписать, не ломая тех, кто объектом пользуется.</p>
+
+  <figure class="dg">
+    <p class="dg-title">Что можно снаружи, а что нет</p>
+    <div class="enc" aria-hidden="true">
+      <div>
+        <h4>Попытки вызвать</h4>
+        <ol class="seqlist">
+          <li class="card lit" style="--i:0"><span class="hd">t.start()</span><span class="ln">через публичный метод <span class="tag">ок</span></span></li>
+          <li class="card lit" style="--i:1"><span class="hd">t.count</span><span class="ln">через геттер, только чтение <span class="tag">ок</span></span></li>
+          <li class="card lit no" style="--i:2"><span class="hd">t.#count = 99</span><span class="ln">SyntaxError ещё до запуска <span class="tag bad">нельзя</span></span></li>
+          <li class="card lit no" style="--i:3"><span class="hd">t.count = 0</span><span class="ln">нет сеттера → TypeError <span class="tag bad">нельзя</span></span></li>
+        </ol>
+      </div>
+      <div>
+        <h4>Объект Timer</h4>
+        <div class="vault">
+          <div class="pub"><span>start()</span><span>stop()</span><span>reset()</span><span>get count</span></div>
+          <div class="priv"><b>скрыто (#)</b><span>#count</span><span>#interval</span><span>#id</span></div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Подсветка идёт по четырём попыткам. Публичный интерфейс (сверху) открыт, закрытое состояние (пунктир) доступно только коду внутри класса. Про TypeError в последней строке: он выбрасывается в строгом режиме (модули, тело класса), в обычном скрипте присваивание молча игнорируется.</figcaption>
+  </figure>
+
+  <h3 id="kak-skryvat-v-javascript">Как скрывать в JavaScript</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Способ</th><th>Защита</th><th>Комментарий</th></tr></thead>
+    <tbody>
+      <tr><td><code>_name</code></td><td>Только договорённость</td><td>Поле технически открыто. Подчёркивание говорит коллегам «не трогай». Встретите в старом коде.</td></tr>
+      <tr><td><code>#name</code></td><td>Настоящая приватность</td><td>Доступ только из тела класса. Снаружи даже обратиться нельзя, синтаксическая ошибка.</td></tr>
+      <tr><td>замыкание</td><td>Настоящая приватность</td><td>Данные в переменных функции-конструктора. Старый приём.</td></tr>
+      <tr><td><code>Symbol</code>, <code>WeakMap</code></td><td>Слабая / частичная</td><td>Редкие приёмы. Для новой разработки берите <code>#</code>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <pre><code>class Acc { _b = 5; #p = 7; }
+const a = new Acc();
+a._b;           // 5  — соглашение не защищает
+a.p;            // undefined
+Object.keys(a); // ['_b'] — приватного поля не видно</code></pre>
+
+  <h3 id="polnyy-primer-taymer">Полный пример: таймер</h3>
+  <p>Хорошая инкапсуляция выглядит так: состояние и вспомогательная логика закрыты, наружу торчит маленький понятный интерфейс.</p>
+  <p>В примере есть <code>static</code> с решёткой: <code>static #MIN</code>, <code>static #MAX</code> и <code>static #validate</code>. Это закрытые члены самого класса, а не экземпляра, они общие для всех таймеров и описаны в подразделе «Статические члены подробнее» раздела про классы. Границы интервала и проверка одинаковы для любого таймера, поэтому хранить их в каждом объекте незачем. Вызываются они через имя класса: <code>Timer.#validate(interval)</code>.</p>
+  <pre><code>class Timer {
+  static #MIN = 100;
+  static #MAX = 1000;
+  #interval; #count = 0; #id = null;
+
+  constructor(interval) {
+    this.#interval = Timer.#validate(interval);
+  }
+  static #validate(ms) {
+    if (ms &lt; Timer.#MIN || ms &gt; Timer.#MAX) {
+      throw new RangeError(
+        `Интервал: от ${Timer.#MIN} до ${Timer.#MAX} мс`);
+    }
+    return ms;
+  }
+  start() {
+    if (this.#id !== null) return;
+    this.#id = setInterval(
+      () =&gt; { this.#count++; }, this.#interval);
+  }
+  stop() { clearInterval(this.#id); this.#id = null; }
+  reset() { this.#count = 0; }
+  get count() { return this.#count; }
+}
+
+const t = new Timer(100);
+t.start();   // через ~350 мс t.count будет около 3
+new Timer(5); // RangeError</code></pre>
+  <p>Заметьте: нельзя создать таймер с интервалом 5 мс, нельзя обнулить счётчик присваиванием, нельзя запустить таймер дважды (повторный <code>start</code> просто ничего не делает). Все правила в одном классе, и снаружи их не обойти.</p>
+
+  <div class="warn">
+    <b>Геттер и сеттер на каждое поле это ещё не инкапсуляция</b>
+    <p>Если у каждого приватного поля есть публичные <code>get</code> и <code>set</code> без проверок, вы просто сделали поля публичными более длинным способом. Открывайте операции, которые имеют смысл для предметной области (<code>withdraw(amount)</code>), а не доступ к внутренностям (<code>setBalance(x)</code>).</p>
+  </div>
+</section>

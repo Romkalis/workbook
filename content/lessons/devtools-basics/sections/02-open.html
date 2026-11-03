@@ -1,0 +1,32 @@
+<section id="open">
+  <h2>Открываем DevTools <span class="src">Общее введение к модулю</span></h2>
+<p>Сочетание Ctrl+Shift+I означает: удерживайте Ctrl и Shift, затем нажмите I. На Mac Cmd — Command (⌘), Option — клавиша ⌥. Дальше команды относятся к DevTools, поэтому перед нажатием щёлкните внутри его панели.</p>
+  <p>Четыре способа открыть панель инструментов, все равнозначны:</p>
+  <ul>
+    <li>клавиша <code>F12</code>;</li>
+    <li><code>Ctrl+Shift+I</code> (Windows, Linux) или <code>Cmd+Option+I</code> (Mac);</li>
+    <li>правая кнопка на странице → <strong>Inspect</strong> («Просмотреть код»): сразу откроется Elements на нужном элементе;</li>
+    <li>меню Chrome → More tools → Developer tools.</li>
+  </ul>
+  <p>Панель можно закрепить снизу, справа, слева или вынести в отдельное окно: меню «три точки» → Dock side. Вкладки модуля: Elements, Console, Sources, Network, Application. Остальные вкладки прячутся за значком <code>»</code>.</p>
+
+  <figure class="dg">
+    <p class="dg-title">Пять вкладок модуля и что в каждой смотреть</p>
+    <ol class="seqlist n5" aria-hidden="true">
+      <li class="card lit" style="--i:0"><span class="hd">Elements</span><span class="ln">как браузер видит вашу страницу: дерево DOM и применённые CSS-правила</span></li>
+      <li class="card lit" style="--i:1"><span class="hd">Console</span><span class="ln">журнал сообщений и ошибок, плюс командная строка для JavaScript</span></li>
+      <li class="card lit" style="--i:2"><span class="hd">Sources</span><span class="ln">файлы приложения, редактор и отладчик с брейкпоинтами</span></li>
+      <li class="card lit" style="--i:3"><span class="hd">Network</span><span class="ln">все запросы страницы: что загрузилось, как долго, с каким статусом</span></li>
+      <li class="card lit" style="--i:4"><span class="hd">Application</span><span class="ln">хранилища браузера: localStorage, cookies, кэш и прочее</span></li>
+    </ol>
+    <figcaption>Подсветка идёт по кругу. Это карта на весь модуль, дальше каждой вкладке посвящён свой раздел.</figcaption>
+  </figure>
+
+  <h3 id="komandnoe-menyu">Командное меню</h3>
+  <p><code>Ctrl+Shift+P</code> (<code>Cmd+Shift+P</code> на Mac) открывает командное меню DevTools: набираете часть названия действия и запускаете его с клавиатуры. Через него удобно переключать панели, делать скриншоты и включать блокировку запросов. В этом конспекте оно ещё пригодится.</p>
+
+  <div class="note">
+    <b>За рамками модуля</b>
+    <p>Если вы разрабатываете адаптивную вёрстку, рядом с вкладками есть кнопка Device Toolbar (<code>Ctrl+Shift+M</code>), она включает эмуляцию телефона. Одна практическая оговорка: без <code>&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;</code> в разметке страница на телефоне, да и в эмуляции, отрисуется как уменьшенная десктопная. Это не баг DevTools, а поведение мобильных браузеров. В материалах модуля этого нет, добавлено из общих знаний.</p>
+  </div>
+</section>

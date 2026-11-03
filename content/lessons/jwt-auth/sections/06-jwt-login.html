@@ -1,0 +1,53 @@
+<section id="jwt-login">
+<h2>Регистрация и вход</h2>
+<h3 id="jwt-login-register">Регистрация</h3>
+<pre><code>// routes/auth.js
+const router = require('express').Router();
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+
+router.post('/register', async (req, res) =&gt; {
+  try {
+    const { email, password } = req.body;
+    const user = await User.create({ email, password }); // хук pre('save') захеширует пароль
+    res.status(201).json({ id: user._id, email: user.email });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});</code></pre>
+<p>Токен здесь ещё не создаётся. Мы просто сохраняем пользователя. Обратите внимание: в ответе нет пароля, даже хешированного.</p>
+<h3 id="jwt-login-login">Вход — здесь появляется токен</h3>
+<pre><code>router.post('/login', async (req, res) =&gt; {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(401).json({ message: 'Неверный email или пароль' });
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) return res.status(401).json({ message: 'Неверный email или пароль' });
+
+    const token = jwt.sign(
+      { id: user._id },                          // payload: что положить в токен
+      process.env.JWT_SECRET,                    // секрет для подписи
+      { expiresIn: process.env.JWT_EXPIRES_IN }, // срок жизни
+    );
+    res.json({ token });
+  } catch (err) {
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+});
+
+module.exports = router;</code></pre>
+<p>Почему сообщение одинаковое и для «нет такого email», и для «неверный пароль»? Если бы они различались, по ответу можно было бы узнать, какие email зарегистрированы.</p>
+<p>В исходном материале у маршрута входа нет <code>try/catch</code>. В Express 4 ошибка внутри <code>async</code>-обработчика (например, упала база) не попадёт в обработчик ошибок, и запрос просто повиснет. Express 5 такие ошибки ловит сам, но <code>try/catch</code> работает в обеих версиях.</p>
+<h3 id="jwt-login-sign">Что делает jwt.sign</h3>
+<ol>
+<li>Кодирует header <code>{"alg":"HS256","typ":"JWT"}</code> в base64url.</li>
+<li>Кодирует payload <code>{ id, iat, exp }</code> в base64url. <code>iat</code> и <code>exp</code> библиотека добавит сама из <code>expiresIn</code>.</li>
+<li>Склеивает их через точку.</li>
+<li>Вычисляет подпись алгоритмом HMAC-SHA256 от этой строки с ключом <code>JWT_SECRET</code>.</li>
+<li>Добавляет подпись третьей частью.</li>
+</ol>
+<p>Если кто-то заменит id в payload на чужой, но не знает секрета, он не сможет пересчитать подпись. Мы проверили: такой токен <code>jwt.verify</code> отклоняет с ошибкой <code>invalid signature</code>.</p>
+</section>

@@ -1,0 +1,30 @@
+<section id="advanced-object-utilities">
+<h2>Utility types для объектов</h2>
+<p>Utility types — встроенные вспомогательные типы. Они позволяют получить новый тип из существующего, например сделать поля профиля необязательными для формы редактирования. Они меняют статический контракт, не копируют, не фильтруют и не замораживают реальные объекты. Формулы этих типов можно прочитать в lib.es5.d.ts установленного компилятора.</p>
+<h3 id="advanced-partial-required-readonly">Partial, Required и Readonly</h3>
+<pre><code>interface Profile { id: string; name: string; bio?: string }
+const patch: Partial&lt;Profile&gt; = { name: &quot;Анна&quot; };
+const full: Required&lt;Profile&gt; = { id: &quot;u1&quot;, name: &quot;Анна&quot;, bio: &quot;Учусь&quot; };
+const view: Readonly&lt;Profile&gt; = full;
+console.log(patch.name, view.bio);
+if (false) {
+  // @ts-expect-error: readonly запрещает запись через view
+  view.name = &quot;Лев&quot;;
+}
+</code></pre>
+<p>В примере patch — частичное обновление профиля: менять имя можно, передавать все остальные поля не требуется. Full — полностью заполненный профиль. View ссылается на тот же объект, но его тип разрешает только чтение. Partial делает свойства необязательными, Required убирает знак ?, Readonly запрещает присваивание через этот тип. Они работают на первом уровне: <code>Readonly&lt;{ meta: { title: string } }&gt;</code> не делает meta.title неизменяемым. Для обновления профиля безопаснее <code>Partial&lt;Pick&lt;Profile, "name" | "bio"&gt;&gt;</code>, чтобы не разрешать менять id.</p>
+<h3 id="advanced-pick-omit-record">Pick, Omit и Record</h3>
+<pre><code>interface Article { id: string; title: string; secret: string }
+type Card = Pick&lt;Article, &quot;id&quot; | &quot;title&quot;&gt;;
+type PublicArticle = Omit&lt;Article, &quot;secret&quot;&gt;;
+const original: Article = { id: &quot;a1&quot;, title: &quot;TS&quot;, secret: &quot;hidden&quot; };
+const typed: PublicArticle = original; // ссылка всё ещё содержит secret
+const card: Card = { id: original.id, title: original.title };
+const labels: Record&lt;&quot;loading&quot; | &quot;ready&quot;, string&gt; = {
+  loading: &quot;Загрузка&quot;, ready: &quot;Готово&quot;
+};
+console.log(&quot;secret&quot; in typed, &quot;secret&quot; in card, labels.ready); // true false Готово
+</code></pre>
+<p>Pick выбирает ключи, Omit исключает, Record описывает значения по набору ключей. Omit не удалил secret во время выполнения; для публичного ответа сформируйте новый объект из нужных полей. Record с конечным union требует все перечисленные ключи; произвольный строковый словарь не гарантирует существование каждого ключа.</p>
+<div class="tbl"><table><thead><tr><th scope="col">Тип</th><th scope="col">Когда полезен</th></tr></thead><tbody><tr><td>Partial&lt;T&gt;</td><td>Частичное обновление разрешённых полей</td></tr><tr><td>Required&lt;T&gt;</td><td>Полная конфигурация после заполнения пропусков</td></tr><tr><td>Readonly&lt;T&gt;</td><td>Контракт чтения без присваиваний</td></tr><tr><td>Pick&lt;T, K&gt;</td><td>Узкое представление с выбранными полями</td></tr><tr><td>Omit&lt;T, K&gt;</td><td>Контракт без перечисленных полей</td></tr><tr><td>Record&lt;K, V&gt;</td><td>Словарь значений V по ключам K</td></tr></tbody></table></div>
+</section>

@@ -1,0 +1,28 @@
+<section id="ts-functions">
+<h2>Функции: параметры, колбэки и перегрузки</h2>
+<p>Сигнатура — описание параметров и результата функции. Optional-параметр можно пропустить, default задаёт значение по умолчанию, rest собирает дополнительные аргументы. Перегрузки — несколько разрешённых способов вызова одной функции, а не несколько выполняемых тел.</p>
+<p>Сигнатура показывает вход и выход. Проверяйте типы параметров, обязательность аргументов и все пути возврата. Аннотируйте публичный результат, если хотите защитить контракт от случайного изменения реализации.</p><h3 id="ts-function-parameters">Optional, default и rest</h3><pre><code>function greet(name: string, prefix = &quot;Привет&quot;, suffix?: string): string {
+  return `${prefix}, ${name}${suffix ?? &quot;!&quot;}`;
+}
+function sum(...values: number[]): number {
+  return values.reduce((total, value) =&gt; total + value, 0);
+}
+type Transform = (value: number) =&gt; number;
+const square: Transform = value =&gt; value * value;
+console.log(greet(&quot;Маша&quot;), sum(1, 2, 3), square(4));
+</code></pre><p>Optional-параметр имеет внутри функции тип с undefined; необязательные параметры ставят после обязательных. Значение по умолчанию срабатывает при пропуске или undefined, но не при null. Rest собирает остаток аргументов в массив. В типе функции стрелка отделяет тип результата, а в обычном объявлении для этого используется двоеточие.</p><h3 id="ts-function-callbacks">Контракт колбэка и this</h3><p>Не добавляйте <code>index?</code> в тип колбэка «на всякий случай»: это обещает, что вызывающая сторона вправе не передать index. Если индекс всегда передаётся, пишите number; обработчик, которому он не нужен, просто объявит меньше параметров. Специальный первый параметр <code>this</code> описывает контекст вызова и стирается из JS.</p><pre><code>function show(this: { title: string }, prefix: string): string {
+  return prefix + this.title;
+}
+console.log(show.call({ title: &quot;TypeScript&quot; }, &quot;Урок: &quot;));
+async function loadCount(): Promise&lt;number&gt; { return 3; }
+void loadCount().then(count =&gt; console.log(count));
+</code></pre><p>Результат async-функции всегда обёрнут в Promise. Здесь <code>Promise&lt;number&gt;</code> описывает число после успешного ожидания, а не значение, доступное синхронно.</p><h3 id="ts-overloads">Когда нужны перегрузки</h3><pre><code>function convert(value: string): number;
+function convert(value: number): string;
+function convert(value: string | number): number | string {
+  return typeof value === &quot;string&quot; ? Number(value) : String(value);
+}
+const parsed = convert(&quot;42&quot;); // number
+const printed = convert(42); // string
+console.log(parsed.toFixed(0), printed.toUpperCase());
+</code></pre><p>Перегрузки сохраняют зависимость результата от аргумента. Сигнатура реализации должна обслужить все перегрузки, но снаружи сама по себе недоступна. Если зависимость не нужна, одна сигнатура с union проще. Перегрузка не создаёт несколько JS-функций: тело остаётся одно.</p>
+</section>

@@ -1,0 +1,36 @@
+<section id="strategy-di">
+<h2>Для практики: Strategy, DI и полиморфизм</h2>
+<p>Kata — небольшое упражнение Codewars с заданным интерфейсом и автоматическими тестами. DI означает Dependency Injection, передачу зависимостей снаружи. Дублёр — небольшой заменяющий объект для проверки, который возвращает заранее известные данные вместо обращения к реальному источнику.</p>
+<div class="note"><b>Простыми словами</b><p>Навигатор строит маршрут пешком, на машине или на транспорте: цель одна, способ подменяется. Стратегия — это подменяемый алгоритм. А внедрение зависимостей (DI) — когда объект не создаёт себе помощников сам, а получает их снаружи, например в конструкторе. Так их легко заменить, в том числе в тестах.</p></div>
+<p>В связанном с модулем наборе Codewars есть Strategy, Dependency Injection и Sortable Shapes, хотя они не входят в список 15 теоретических страниц. Поэтому разберём необходимую основу отдельно. Примеры авторские и не являются готовыми решениями kata.</p>
+<h3 id="strategy-choice">Strategy — Стратегия: смена алгоритма</h3>
+<p>Контекст использует один контракт алгоритма, а клиент подставляет нужную реализацию. Например, каталог можно сортировать по имени или длительности. В JS стратегия часто является функцией, и отдельные классы не нужны. В отличие от State стратегия описывает выбранный способ решения, а не жизненный цикл контекста.</p>
+<pre><code>type Lesson = { title: string; minutes: number };
+type Compare = (a: Lesson, b: Lesson) =&gt; number;
+class Catalog {
+  constructor(private compare: Compare) {}
+  ordered(items: readonly Lesson[]): Lesson[] { return [...items].sort(this.compare); }
+}
+const lessons = [{ title: &quot;TS&quot;, minutes: 30 }, { title: &quot;Patterns&quot;, minutes: 10 }];
+const shortest = new Catalog((a, b) =&gt; a.minutes - b.minutes);
+const longest = new Catalog((a, b) =&gt; b.minutes - a.minutes);
+console.log(shortest.ordered(lessons)[0].title); // Patterns
+console.log(longest.ordered(lessons)[0].title); // TS
+</code></pre>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/strategy">Strategy</a>. Стратегия позволяет менять алгоритм независимо от клиента; цена — дополнительный контракт и место выбора. Для одного стабильного алгоритма она может быть лишней.</p>
+<h3 id="dependency-injection">Dependency Injection — внедрение зависимостей</h3>
+<p>Объект получает нужную зависимость снаружи вместо самостоятельного поиска или создания. Ниже Report не знает, откуда приходят названия уроков. Сборка приложения подставляет источник, тест — небольшой дублёр. Это внедрение через конструктор; DI-контейнер не обязателен.</p>
+<pre><code>interface Source { titles(): readonly string[] }
+class Report {
+  constructor(private source: Source) {}
+  render(): string { return this.source.titles().join(&quot;, &quot;); }
+}
+const testSource: Source = { titles: () =&gt; [&quot;TS&quot;, &quot;Patterns&quot;] };
+const report = new Report(testSource);
+console.log(report.render()); // TS, Patterns
+</code></pre>
+<p>Основа — <a href="https://martinfowler.com/articles/injection.html">статья Мартина Фаулера о DI</a>; она добавлена как первоисточник для практической темы. Если Report сам обращается к глобальному registry.get, это поиск зависимости через Service Locator. DI делает зависимость явной в контракте. Не путайте DI, конкретный способ передачи зависимости, с общим принципом инверсии зависимостей.</p>
+<h3 id="sortable-shapes">Sortable Shapes: полиморфный контракт</h3>
+<p>Подготовка из общих знаний: разные фигуры могут реализовать метод area. Сортировщик сравнивает площади через общий контракт и не обязан проверять вид фигуры. Для Codewars сначала прочитайте требуемый API: метод, поле и правила сравнения определяются конкретным условием, а не названием паттерна.</p>
+<p>Для числовой сортировки в JS нужен компаратор, возвращающий отрицательное число, ноль или положительное число. Сам sort меняет массив; в примере Strategy сначала делается копия. Не используйте boolean вместо числового результата сравнения.</p>
+</section>

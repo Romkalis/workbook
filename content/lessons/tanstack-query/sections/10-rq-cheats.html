@@ -1,0 +1,19 @@
+<section id="rq-cheats">
+<h2>Шпаргалка: что выбрать</h2>
+<p>Одна таблица со всеми настройками из урока. Ищите в левой колонке свою задачу.</p>
+<div class="tbl"><table>
+<thead><tr><th>Задача</th><th>Решение</th><th>Пример данных</th></tr></thead>
+<tbody>
+<tr><td>Данные почти не меняются</td><td><code>staleTime: Infinity</code></td><td>Список стран, настройки</td></tr>
+<tr><td>Не обновлять при возврате во вкладку</td><td><code>refetchOnWindowFocus: false</code></td><td>Страница с формой</td></tr>
+<tr><td>Не обновлять при каждом появлении компонента</td><td><code>refetchOnMount: false</code></td><td>Данные, которые обновляете сами</td></tr>
+<tr><td>Всегда обновлять при появлении</td><td><code>refetchOnMount: 'always'</code></td><td>Таблица лидеров</td></tr>
+<tr><td>Запрос только после действия</td><td>значение действия в ключе + <code>enabled</code></td><td>Поиск, фильтры</td></tr>
+<tr><td>Ждать данные другого запроса</td><td><code>enabled: !!id</code></td><td>Заказы пользователя</td></tr>
+<tr><td>Обновить экран без запроса</td><td><code>setQueryData</code></td><td>Оптимистичное обновление, событие от сервера</td></tr>
+<tr><td>Перезапросить после изменения</td><td><code>invalidateQueries</code></td><td>После мутации</td></tr>
+<tr><td>Регулярно опрашивать сервер</td><td><code>refetchInterval</code></td><td>Статус долгой задачи</td></tr>
+<tr><td>Не удалять из памяти</td><td><code>gcTime: Infinity</code></td><td>Данные, нужные на всех страницах</td></tr>
+<tr><td>Не мигать при смене страницы</td><td><code>placeholderData: keepPreviousData</code></td><td>Пагинация, поиск</td></tr>
+</tbody></table></div>
+</section>

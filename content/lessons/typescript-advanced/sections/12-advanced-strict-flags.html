@@ -1,0 +1,28 @@
+<section id="advanced-strict-flags">
+<h2>Строгость: индексный доступ и optional-поля</h2>
+<h3 id="advanced-indexed-access">noUncheckedIndexedAccess: элемент может отсутствовать</h3>
+<p>Перед запуском включите этот флаг в TS Config Playground. Массив пуст: обращение titles[0] действительно вернёт undefined. Компилятор должен заставить нас учесть это перед вызовом строкового метода.</p>
+
+<pre><code>const titles: string[] = [];
+const first = titles[0]; // string | undefined при включённом флаге
+console.log(first?.toUpperCase() ?? &quot;Нет уроков&quot;);
+if (false) {
+  // @ts-expect-error: элемент может отсутствовать
+  first.toUpperCase();
+}
+</code></pre>
+<p>Флаг добавляет undefined для потенциально отсутствующего результата индексного доступа. Это полезно для массивов и словарей. Проверка должна учитывать реальное отсутствие; постфиксный ! лишь подавит сомнение компилятора. Флаг не включается автоматически одним strict.</p>
+<h3 id="advanced-exact-optional">exactOptionalPropertyTypes: отсутствует или записано undefined?</h3>
+<p>Для этого примера включите exactOptionalPropertyTypes вместе со strict. Объекты <code>{}</code> и <code>{ theme: undefined }</code> различаются: в первом свойства нет, во втором оно есть, но содержит undefined. Это различие видно при проверке <code>"theme" in object</code>.</p>
+
+<pre><code>interface Options { theme?: &quot;light&quot; | &quot;dark&quot; }
+const absent: Options = {};
+const chosen: Options = { theme: &quot;light&quot; };
+console.log(&quot;theme&quot; in absent, &quot;theme&quot; in chosen); // false true
+if (false) {
+  // @ts-expect-error: отсутствие поля и явный undefined различаются
+  const wrong: Options = { theme: undefined };
+}
+</code></pre>
+<p>С этим флагом <code>theme?</code> допускает отсутствие поля, но не явную запись undefined, если undefined отдельно не указан в типе. Чтение optional-поля всё равно учитывает отсутствие. Флаг также не входит в strict. В проекте News API strict и noImplicitAny требуются заданием; дополнительные флаги выбирайте осознанно.</p>
+</section>

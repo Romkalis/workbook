@@ -1,0 +1,46 @@
+<section id="advanced-generics">
+<h2>Generics: связи, ограничения и значения по умолчанию</h2>
+<p>Generic, или обобщённое объявление, использует параметр типа вместо одного заранее выбранного типа. Например, функция <code>identity&lt;T&gt;(value: T): T</code> принимает значение и возвращает значение того же типа: для строки T станет строкой, для числа — числом. Один и тот же T связывает вход и результат. Если T нигде не связан с входными данными, компилятор не может узнать форму ответа сервера из одного имени типа.</p>
+<h3 id="advanced-generic-constraints">keyof, тип свойства и ограничение параметра</h3>
+<p>В get буква T обозначает тип объекта. <code>keyof T</code> — допустимые ключи этого объекта. <code>K extends keyof T</code> требует выбрать один из них. Запись <code>T[K]</code> даёт тип значения по выбранному ключу; она называется индексным доступом к типу (indexed access). Это не чтение реального объекта, а описание результата функции.</p>
+
+<pre><code>function get&lt;T, K extends keyof T&gt;(object: T, key: K): T[K] {
+  return object[key];
+}
+function keepId&lt;T extends { id: string }&gt;(value: T): T { return value; }
+const article = keepId({ id: &quot;a1&quot;, title: &quot;TS&quot; });
+const title = get(article, &quot;title&quot;);
+console.log(title.toUpperCase());
+if (false) {
+  // @ts-expect-error: отсутствует id
+  keepId({ title: &quot;TS&quot; });
+  // @ts-expect-error: неизвестный ключ
+  get(article, &quot;author&quot;);
+}
+</code></pre>
+<p>Ограничение <code>extends</code> задаёт минимальные требования, но сохраняет конкретный T. Возврат просто <code>{ id: string }</code> потерял бы сведения о title. Не возвращайте новый объект с одним id под видом произвольного T: у клиента могут быть обязательные дополнительные поля.</p>
+<h3 id="advanced-generic-containers">Обобщённый контейнер и тип по умолчанию</h3>
+<pre><code>interface Page&lt;T = string&gt; { items: readonly T[]; total: number }
+class Store&lt;T extends { id: string }&gt; {
+  constructor(private items: readonly T[]) {}
+  find(id: string): T | undefined { return this.items.find(item =&gt; item.id === id); }
+}
+const page: Page = { items: [&quot;TS&quot;], total: 1 };
+const store = new Store([{ id: &quot;a1&quot;, title: &quot;TS&quot; }]);
+console.log(page.items.join(&quot;, &quot;), store.find(&quot;missing&quot;));
+</code></pre>
+<p>Page без аргумента использует string. У конструктора Store тип выводится из переданных элементов. Не обещайте T там, где поиск может ничего не вернуть. Статические члены принадлежат самому классу, а не экземпляру; использовать в их типах параметр T этого экземпляра нельзя.</p>
+<h3 id="advanced-noinfer">Дополнительно: NoInfer и источник типа</h3>
+<p>Этот приём можно оставить на второй проход. В примере values — разрешённые варианты, fallback — запасное значение. Нужно вывести C только из списка вариантов, а запасное значение проверить по уже полученному типу.</p>
+
+<pre><code>function choose&lt;C extends string&gt;(values: readonly C[], fallback: NoInfer&lt;C&gt;): C {
+  return values[0] ?? fallback;
+}
+console.log(choose([&quot;light&quot;, &quot;dark&quot;] as const, &quot;light&quot;));
+if (false) {
+  // @ts-expect-error: fallback не должен расширять набор вариантов
+  choose([&quot;light&quot;, &quot;dark&quot;] as const, &quot;auto&quot;);
+}
+</code></pre>
+<p>Здесь C получается равным <code>"light" | "dark"</code>. Обёртка <code>NoInfer&lt;C&gt;</code> не позволяет аргументу fallback добавить в этот набор "auto". Поэтому "light" подходит, а "auto" вызывает ошибку. Это дополнение для TS 5.4+, полезное лишь там, где обычный вывод допускает лишние варианты.</p>
+</section>

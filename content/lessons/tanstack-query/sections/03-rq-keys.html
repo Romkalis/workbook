@@ -1,0 +1,32 @@
+<section id="rq-keys">
+<h2>Ключ запроса (queryKey)</h2>
+<p><strong>queryKey</strong> — это «адрес» данных в кеше. Он всегда записывается массивом. По ключу библиотека:</p>
+<ul>
+<li>находит уже загруженные данные;</li>
+<li>решает, можно ли отдать их сразу или нужен новый запрос;</li>
+<li>понимает, какие данные обновить после изменения на сервере.</li>
+</ul>
+<pre><code>['games']                          // все игры
+['game', '123']                    // одна игра с id 123
+['games', 'slots']                 // игры категории slots
+['games', { page: 2, limit: 20 }]  // вторая страница по 20 штук</code></pre>
+<p>Ключи сравниваются по содержимому, а не по ссылке. Поэтому <code>['games', { page: 2 }]</code>, созданный в двух разных компонентах, — это одна и та же запись. А <code>['game', '123']</code> и <code>['game', '456']</code> — две разные.</p>
+<figure class="dg">
+<p class="dg-title">Кеш как полки с подписями</p>
+<ul class="seqlist n3" aria-hidden="true">
+<li class="card lit" style="--i:0"><span class="hd">['game', '123']</span><span class="ln">{ id: '123', title: 'Шахматы' }</span></li>
+<li class="card lit" style="--i:1"><span class="hd">['game', '456']</span><span class="ln">{ id: '456', title: 'Го' }</span></li>
+<li class="card lit" style="--i:2"><span class="hd">['games', { page: 2 }]</span><span class="ln">[ …20 игр… ]</span></li>
+</ul>
+<figcaption>Каждый ключ — отдельная подписанная полка. Когда в компоненте меняется <code>id</code> со 123 на 456, библиотека идёт к другой полке. Если там пусто, делается запрос, а полка со 123 остаётся нетронутой: вернётесь к этой игре — данные появятся сразу.</figcaption>
+</figure>
+<h3 id="rq-keys-rule">Главное правило</h3>
+<p>Всё, от чего зависит ответ сервера, должно быть в ключе. Если запрос использует <code>userId</code>, <code>categoryId</code> и <code>page</code>, все три значения кладутся в массив.</p>
+<pre><code>// Плохо: page не в ключе
+useQuery({ queryKey: ['games'], queryFn: () =&gt; fetchGames(page) });
+
+// Хорошо
+useQuery({ queryKey: ['games', { page }], queryFn: () =&gt; fetchGames(page) });</code></pre>
+<p>В первом варианте при смене страницы ключ не меняется. Библиотека считает, что это те же данные, и показывает первую страницу вместо второй.</p>
+<p>Ключи удобно строить от общего к частному: сначала сущность, потом уточнения. Почему это важно, станет видно в разделе про <code>invalidateQueries</code>. Как держать все ключи в одном месте, разобрано в уроке «TanStack Query на реальном коде».</p>
+</section>

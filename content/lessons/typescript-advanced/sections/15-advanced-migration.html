@@ -1,0 +1,56 @@
+<section id="advanced-migration">
+<h2>Миграция JS → TS и ESLint</h2>
+<p>Переименование .js в .ts — только начало. Практический план из общих знаний: сначала восстановите рабочий запуск исходного приложения, затем добавьте инструменты, опишите границы данных, переведите модули небольшими шагами и проверяйте поведение после каждого шага. Ошибки компилятора помогают найти ранее неявные договорённости, но не заменяют функциональную проверку.</p>
+<h3 id="advanced-migration-boundaries">Начните с границ, а не с утверждений as</h3>
+<ol><li>Зафиксируйте исходные сценарии и результат сборки.</li><li>Настройте tsconfig, loader и typecheck, сохранив рабочий запуск.</li><li>Опишите DTO ответа, параметры запросов, результаты и ошибки отдельно от UI-модели.</li><li>Принимайте внешние значения как unknown и проверяйте перед использованием.</li><li>Типизируйте функции и классы; сохраняйте естественный вывод очевидных локальных значений.</li><li>В DOM учитывайте null у querySelector и реальный вид элемента; проверяйте instanceof до специфичных операций.</li><li>Уберите подавления и небезопасные утверждения, проверьте сборку и пользовательские сценарии.</li></ol><h3 id="advanced-eslint">ESLint: выбираем формат по версии</h3>
+<p>ESLint проверяет код по правилам; tsc проверяет типовые связи. Оба формата ниже включают recommended и запрет явного any. Выберите один вариант по версии инструментов в своём проекте; устанавливать обе конфигурации одновременно не нужно.</p>
+<div class="tbl"><table><thead><tr><th>Версия ESLint</th><th>Legacy: .eslintrc.json</th><th>Flat: eslint.config.mjs</th></tr></thead><tbody><tr><td>8.57.x</td><td>По умолчанию</td><td>Доступен, но современный пример ниже рассчитан на 10</td></tr><tr><td>9.x</td><td>С ESLINT_USE_FLAT_CONFIG=false</td><td>По умолчанию</td></tr><tr><td>10.x</td><td>Не поддерживается</td><td>Поддерживается</td></tr></tbody></table></div>
+<p>Legacy нужен для сопровождения старых проектов. Для нового выбирайте flat config. Не обновляйте ESLint отдельно от проверки совместимости Node.js и плагинов.</p>
+<h3 id="advanced-eslint-flat">Новый формат: eslint.config.mjs</h3>
+<p>Для показанного отдельного проекта установите инструменты. Конфигурация ниже проверена с ESLint 10 и typescript-eslint 8; она не заменяет конфиг уже существующего проекта автоматически.</p>
+<pre><code>npm install --save-dev eslint@10 @eslint/js@10 typescript-eslint@8
+</code></pre>
+<p>Создайте <code>eslint.config.mjs</code>:</p>
+<pre><code>import js from &quot;@eslint/js&quot;;
+import { defineConfig } from &quot;eslint/config&quot;;
+import tseslint from &quot;typescript-eslint&quot;;
+export default defineConfig(
+  { ignores: [&quot;dist/**&quot;] },
+  {
+    files: [&quot;src/**/*.ts&quot;],
+    extends: [js.configs.recommended, tseslint.configs.recommended],
+    languageOptions: { globals: { console: &quot;readonly&quot; } },
+    rules: { &quot;@typescript-eslint/no-explicit-any&quot;: &quot;error&quot; }
+  }
+);
+</code></pre>
+<p>Это дополнение из официального <a href="https://typescript-eslint.io/getting-started/">typescript-eslint Quickstart</a>. Базовые рекомендованные правила и запрет явно написанного any включены явно. Lint анализирует соглашения и подозрительные конструкции, а tsc проверяет типовые связи: запускайте оба. Опция noImplicitAny сообщает об ошибке, когда тип не указан и компилятор не смог вывести достаточно точный тип вместо any. Но она не запрещает написанный вручную any — поэтому отдельное правило важно.</p>
+<p>Для этого примера задайте в scripts файла package.json команду <code>"lint": "eslint src"</code> и запускайте <code>npm run lint</code>. Объект files выбирает TS-файлы. Здесь разрешён только console; для браузерного приложения добавьте используемые глобальные имена в languageOptions.globals, например document и fetch, либо подключите набор browser из пакета globals.</p>
+<h3 id="advanced-eslint-legacy">Старый формат: .eslintrc.json</h3>
+<p>Рабочий учебный вариант для ESLint 8.57.1 и typescript-eslint 8: установите parser и plugin отдельно. Команды установки относятся к отдельному проекту, где уже есть package.json; TypeScript 5.9 указан для воспроизводимости проверки.</p>
+<pre><code>npm install --save-dev eslint@8.57.1 @typescript-eslint/parser@8 @typescript-eslint/eslint-plugin@8 typescript@5.9</code></pre>
+<p>Создайте .eslintrc.json в корне проекта. Это JSON: ключи и строки заключаются в двойные кавычки, import и export здесь не используются.</p>
+<pre><code>{
+  "root": true,
+  "env": { "browser": true, "es2022": true },
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": { "ecmaVersion": "latest", "sourceType": "module" },
+  "plugins": ["@typescript-eslint"],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
+  "ignorePatterns": ["dist/**"],
+  "rules": { "@typescript-eslint/no-explicit-any": "error" }
+}</code></pre>
+<p>root останавливает поиск родительских конфигураций; env задаёт глобальные имена окружения; parser читает TS; plugins подключает правила; extends включает готовые наборы; ignorePatterns исключает сборку. Вместо ignorePatterns можно использовать отдельный .eslintignore. Источники: <a href="https://typescript-eslint.io/getting-started/legacy-eslint-setup/">Legacy ESLint Setup</a> и <a href="https://eslint.org/docs/v9.x/use/configure/configuration-files-deprecated">справочник старого формата</a>.</p>
+<p>В ESLint 8 задайте npm-скрипт <code>"lint": "eslint src --ext .ts"</code>. Параметр --ext нужен, чтобы захватить TS-файлы. Для проверки без npm-скрипта выполните:</p>
+<pre><code>npx eslint src --ext .ts</code></pre>
+<p>Если существующий проект уже использует ESLint 9 с совместимыми плагинами, legacy включается переменной окружения. Команда для macOS/Linux:</p>
+<pre><code>ESLINT_USE_FLAT_CONFIG=false npx eslint src --ext .ts</code></pre>
+<p>В Windows задайте ту же переменную средствами своего терминала перед запуском ESLint. В версии 10 переменная не вернёт поддержку legacy: нужен flat config. Не устанавливайте ESLint без ограничения версии, если намеренно воспроизводите старую настройку.</p>
+<h3 id="advanced-eslint-compare">Как сопоставить два формата</h3>
+<div class="tbl"><table><thead><tr><th>Legacy</th><th>Flat config</th></tr></thead><tbody><tr><td>JSON и строковые имена в extends</td><td>JS-модуль с импортами и экспортом объектов</td></tr><tr><td>parser и plugins как строки</td><td>Объекты parser и plugins; в примере их подключает tseslint.configs.recommended</td></tr><tr><td>env: browser</td><td>languageOptions.globals</td></tr><tr><td>overrides для разных файлов</td><td>Объекты с files</td></tr><tr><td>ignorePatterns или .eslintignore</td><td>Отдельный объект ignores</td></tr><tr><td>rules</td><td>rules: имена правил сохраняются</td></tr></tbody></table></div>
+<p>Проверьте выбранный вариант на корректном TS-файле, затем временно добавьте явный any: lint должен завершиться с ошибкой no-explicit-any. Удалите ошибку и запустите проверки снова. Оба примера конфигураций проверены этим способом; это не проверка типов с помощью tsc.</p>
+<p>При переносе существующего проекта перенесите extends в импортированные конфигурации, env — в languageOptions.globals, а исключения .eslintignore — в ignores. Flat config не читает .eslintignore автоматически. Сверьте пути files и ignores с <a href="https://eslint.org/docs/latest/use/configure/migration-guide">руководством миграции</a>, затем удалите старые файлы настроек и проверьте lint. В <a href="/lessons/news-api#news-eslint-migration">уроке News API</a> есть пошаговый список.</p>
+<p>Даже запрет явно написанного any не гарантирует безопасный результат стороннего вызова: сохраняйте недоверенные данные как unknown и проверяйте.</p>
+<p>В flat config: ignores исключает результат сборки, files выбирает TS-исходники, extends подключает готовые наборы правил, languageOptions разрешает глобальный console, rules задаёт явный запрет any. После установки инструментов и создания файла выполните <code>npm run lint</code> из папки проекта.</p>
+
+</section>

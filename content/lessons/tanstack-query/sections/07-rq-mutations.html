@@ -1,0 +1,57 @@
+<section id="rq-mutations">
+<h2>useMutation и обновление кеша</h2>
+<p><code>useQuery</code> читает данные. Чтобы их изменить (запросы POST, PUT, PATCH, DELETE), используют <code>useMutation</code>. Главное отличие: мутация не запускается сама при появлении компонента, только когда вы вызовете <code>mutate</code>.</p>
+<pre><code>const queryClient = useQueryClient();
+
+const { mutate, isPending, isError } = useMutation({
+  mutationFn: (newGame) =&gt; createGame(newGame),
+  onSuccess: (createdGame) =&gt; {
+    // createdGame — ответ сервера
+    queryClient.invalidateQueries({ queryKey: ['games'] });
+  },
+  onError: (error) =&gt; {
+    showToast(`Не получилось: ${error.message}`);
+  },
+  onSettled: () =&gt; {
+    // вызывается в любом случае: и после успеха, и после ошибки
+    closeForm();
+  },
+});
+
+// где-то в обработчике
+mutate({ title: 'Новая игра', category: 'puzzle' });</code></pre>
+<p>Кнопку на время запроса блокируют по <code>isPending</code>: <code>&lt;button disabled={isPending}&gt;</code>. У мутаций нет <code>isLoading</code>, только <code>isPending</code>.</p>
+<h3 id="rq-mutations-async">mutate или mutateAsync</h3>
+<ul>
+<li><strong>mutate</strong> — «запустил и забыл». Результат обрабатывается в <code>onSuccess</code> и <code>onError</code>. Исключений не бросает, поэтому <code>try/catch</code> не нужен.</li>
+<li><strong>mutateAsync</strong> возвращает Promise, его можно ждать через <code>await</code>. При ошибке Promise отклоняется, поэтому вызов нужно обернуть в <code>try/catch</code>, иначе получите необработанную ошибку.</li>
+</ul>
+<pre><code>// mutate: колбэк можно передать и прямо в вызов
+mutate(data, { onSuccess: () =&gt; showToast('Создано!') });
+
+// mutateAsync: когда нужно дождаться результата
+try {
+  const game = await mutateAsync(data);
+  navigate(`/games/${game.id}`);
+} catch (error) {
+  // ошибку уже увидел onError, здесь просто не даём ей «упасть»
+}</code></pre>
+<p>В большинстве случаев хватает <code>mutate</code>.</p>
+<h3 id="rq-mutations-invalidate">invalidateQueries: «эти данные устарели»</h3>
+<p>После мутации данные на сервере изменились, а в кеше лежит старая копия. <code>invalidateQueries</code> помечает записи как устаревшие и сразу перезапрашивает те, что сейчас на экране. Остальные обновятся, когда снова понадобятся.</p>
+<p>Ключ сравнивается <strong>по началу</strong>. Это значит, что вызов с <code>['games']</code> затронет все ключи, которые с него начинаются:</p>
+<pre><code>// затронет ['games'], ['games', 'slots'], ['games', { page: 2 }]
+queryClient.invalidateQueries({ queryKey: ['games'] });
+
+// только ровно ['games'], без вложенных
+queryClient.invalidateQueries({ queryKey: ['games'], exact: true });
+
+// несколько разных веток сразу
+await Promise.all([
+  queryClient.invalidateQueries({ queryKey: ['games'] }),
+  queryClient.invalidateQueries({ queryKey: ['user', 'balance'] }),
+]);</code></pre>
+<div class="warn"><b>Ошибка в исходном конспекте</b><p>В конспекте и в презентации курса вызов без <code>exact</code> подписан как «точное совпадение», а для сравнения по началу предлагается <code>exact: false</code>. На самом деле <code>exact: false</code> — это и есть значение по умолчанию, а точное совпадение включается через <code>exact: true</code>. Мы проверили это на библиотеке.</p></div>
+<p>Именно поэтому ключи строят от общего к частному: одним вызовом с коротким ключом обновляется целая ветка кеша.</p>
+<p>Если перезапрашивать сразу не нужно, есть опция <code>refetchType: 'none'</code>: данные только помечаются устаревшими, а запрос пойдёт при следующем обращении. Пример — в разборе хука <code>useLiveBalanceSync</code>.</p>
+</section>

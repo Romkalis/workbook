@@ -1,0 +1,77 @@
+<section id="rq-client">
+<h2>useQueryClient: ручное управление кешем</h2>
+<p><code>useQueryClient()</code> возвращает тот самый <code>QueryClient</code>, который передан в провайдер. Через него можно работать с кешем напрямую: в обработчиках событий, в мутациях, в своих хуках.</p>
+<div class="tbl"><table>
+<thead><tr><th>Метод</th><th>Что делает</th></tr></thead>
+<tbody>
+<tr><td><code>invalidateQueries</code></td><td>Помечает данные устаревшими и перезапрашивает активные</td></tr>
+<tr><td><code>getQueryData</code></td><td>Читает данные из кеша без запроса</td></tr>
+<tr><td><code>setQueryData</code></td><td>Записывает данные в кеш руками</td></tr>
+<tr><td><code>prefetchQuery</code></td><td>Загружает данные заранее, до того как они понадобятся</td></tr>
+<tr><td><code>cancelQueries</code></td><td>Отменяет идущие запросы</td></tr>
+<tr><td><code>resetQueries</code></td><td>Возвращает запросы в начальное состояние</td></tr>
+<tr><td><code>clear</code></td><td>Очищает весь кеш</td></tr>
+</tbody></table></div>
+<p>Ниже пять типичных ситуаций.</p>
+<h3 id="rq-client-many">1. Мутация затронула несколько списков</h3>
+<p>После пополнения счёта изменились и баланс, и история операций. Обновляем оба:</p>
+<pre><code>useMutation({
+  mutationFn: depositMoney,
+  onSuccess: () =&gt; {
+    queryClient.invalidateQueries({ queryKey: ['balance'] });
+    queryClient.invalidateQueries({ queryKey: ['transactions'] });
+  },
+});</code></pre>
+<h3 id="rq-client-get">2. Данные уже есть: берём из кеша</h3>
+<pre><code>function handleClick(gameId) {
+  const game = queryClient.getQueryData(['game', gameId]);
+  if (game) {
+    openModal(game);           // мгновенно, без запроса
+  } else {
+    fetchAndOpenModal(gameId); // в кеше нет — загружаем
+  }
+}</code></pre>
+<p>В TypeScript тип данных указывают так: <code>getQueryData&lt;Game&gt;(['game', gameId])</code>.</p>
+<h3 id="rq-client-prefetch">3. Загрузка заранее при наведении</h3>
+<p>Пользователь навёл курсор на карточку — начинаем грузить подробности. Когда он кликнет, данные уже в кеше, и загрузки не видно.</p>
+<pre><code>function handleMouseEnter(id) {
+  queryClient.prefetchQuery({
+    queryKey: ['game', id],
+    queryFn: () =&gt; fetchGame(id),
+    staleTime: 60 * 1000, // если данные моложе минуты, запроса не будет
+  });
+}</code></pre>
+<p>На телефоне наведения нет, поэтому это лишь ускорение, а не обязательная часть работы.</p>
+<h3 id="rq-client-optimistic">4. Оптимистичное обновление</h3>
+<p>Обычно интерфейс ждёт ответа сервера. Оптимистичное обновление меняет экран сразу, будто сервер уже согласился. Если сервер вернул ошибку, возвращаем всё как было. Так делают для быстрых действий вроде «убрать из избранного».</p>
+<pre><code>useMutation({
+  mutationFn: removeFavorite,
+  onMutate: async (gameId) =&gt; {
+    // 1. отменяем идущие запросы избранного, чтобы их ответ не затёр наши изменения
+    await queryClient.cancelQueries({ queryKey: ['favorites'] });
+    // 2. запоминаем, как было, чтобы откатиться
+    const previous = queryClient.getQueryData(['favorites']);
+    // 3. сразу меняем кеш — экран обновится без ожидания
+    queryClient.setQueryData(['favorites'], (old) =&gt;
+      old?.filter((g) =&gt; g.id !== gameId)
+    );
+    return { previous }; // попадёт в onError третьим аргументом
+  },
+  onError: (error, gameId, context) =&gt; {
+    // 4. сервер отказал — возвращаем как было
+    queryClient.setQueryData(['favorites'], context?.previous);
+  },
+  onSettled: () =&gt; {
+    // 5. в любом случае сверяемся с сервером
+    queryClient.invalidateQueries({ queryKey: ['favorites'] });
+  },
+});</code></pre>
+<p>В исходном конспекте функция обновления написана как <code>(old) =&gt; old.filter(...)</code>. Если избранное ещё ни разу не загружалось, <code>old</code> равен <code>undefined</code>, и код упадёт. Поэтому здесь стоит <code>old?.filter</code>. А в презентации курса в этом примере пропущены шаги 1 и 5.</p>
+<h3 id="rq-client-logout">5. Выход из аккаунта</h3>
+<p>При выходе кеш очищают целиком. Иначе следующий человек за этим компьютером может на секунду увидеть чужой профиль или баланс.</p>
+<pre><code>function handleLogout() {
+  logout();
+  queryClient.clear(); // весь кеш удалён
+  navigate('/');
+}</code></pre>
+</section>

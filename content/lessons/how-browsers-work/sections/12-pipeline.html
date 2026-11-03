@@ -1,0 +1,138 @@
+<section id="pipeline">
+  <h2>Pixel pipeline, 60 fps и главный поток
+    <span class="src">web.dev «Rendering performance», Chrome часть 3</span>
+  </h2>
+
+  <h3 id="byudzhet-kadra">Бюджет кадра</h3>
+  <p>Для примера возьмём экран с частотой 60 Гц: он обновляется 60 раз в секунду, каждое обновление это один кадр. На кадр уходит 1000 / 60 ≈ <strong>16,66 мс</strong>. Но у браузера есть и собственные накладные расходы, поэтому ваша работа должна укладываться примерно в <strong>10 мс</strong>. Не уложились, кадры пропускаются, и картинка дёргается: это называется <strong>jank</strong>.</p>
+  <p>Для разных задач цели разные. Для анимаций критично уложиться в бюджет кадра. Для дискретных изменений интерфейса (переход из одного состояния в другое без движения) главное, чтобы реакция <em>казалась</em> мгновенной. Обычно называют 100 мс, а порог «хорошо» у метрики INP (Interaction to Next Paint) составляет 200 мс или меньше, чтобы учесть слабые устройства.</p>
+
+  <h3 id="pyat-stadiy-na-kotorye-vy-vliyaete">Пять стадий, на которые вы влияете</h3>
+  <ol class="pipe">
+    <li><b>JavaScript</b><span>или CSS-анимации, Web Animations API</span></li>
+    <li><b>Style</b><span>какие правила к каким элементам</span></li>
+    <li><b>Layout</b><span>геометрия</span></li>
+    <li><b>Paint</b><span>подготовка рисования; затем растеризация получает пиксели</span></li>
+    <li><b>Composite</b><span>сборка слоёв в правильном порядке</span></li>
+  </ol>
+  <p>Не каждый кадр проходит все стадии. Есть три типичных пути, в порядке убывающей цены:</p>
+  <div class="cost">
+    <div>
+      <h4>Полный путь</h4>
+      <p class="path">JS/CSS → Style → Layout → Paint → Composite</p>
+      <p>Меняется геометрия: <code>width</code>, <code>height</code>, <code>top</code>, <code>left</code>, отступы, шрифт. Браузер пересчитывает раскладку страницы, перерисовывает затронутое и собирает слои.</p>
+    </div>
+    <div>
+      <h4>Без layout</h4>
+      <p class="path">JS/CSS → Style → Paint → Composite</p>
+      <p>Меняется только внешний вид: <code>color</code>, <code>background-image</code>, <code>box-shadow</code>. Дорогой layout пропускается.</p>
+    </div>
+    <div>
+      <h4>Только composite</h4>
+      <p class="path">JS/CSS → Style → Composite</p>
+      <p>Меняется то, что не требует ни layout, ни paint, например <code>transform</code> и <code>opacity</code>. Самый дешёвый путь для анимаций и прокрутки.</p>
+    </div>
+  </div>
+  <figure class="tl">
+    <div class="tl-scroll"><div class="tl-body">
+      <div class="tl-lane"><b class="tl-name"><code>width</code></b><div class="tl-track">
+        <i class="blk neutral" style="--s:0;--w:19">JS / CSS</i>
+        <i class="blk" style="--s:20;--w:19">Style</i>
+        <i class="blk stop" style="--s:40;--w:19" title="пересчёт геометрии, самая дорогая стадия">Layout</i>
+        <i class="blk" style="--s:60;--w:19">Paint</i>
+        <i class="blk" style="--s:80;--w:19">Composite</i>
+      </div></div>
+      <div class="tl-lane"><b class="tl-name"><code>color</code></b><div class="tl-track">
+        <i class="blk neutral" style="--s:0;--w:19">JS / CSS</i>
+        <i class="blk" style="--s:20;--w:19">Style</i>
+        <i class="blk skip" style="--s:40;--w:19" title="геометрия не менялась">Layout</i>
+        <i class="blk" style="--s:60;--w:19">Paint</i>
+        <i class="blk" style="--s:80;--w:19">Composite</i>
+      </div></div>
+      <div class="tl-lane"><b class="tl-name"><code>transform</code></b><div class="tl-track">
+        <i class="blk neutral" style="--s:0;--w:19">JS / CSS</i>
+        <i class="blk" style="--s:20;--w:19">Style</i>
+        <i class="blk skip" style="--s:40;--w:19">Layout</i>
+        <i class="blk skip" style="--s:60;--w:19">Paint</i>
+        <i class="blk" style="--s:80;--w:19">Composite</i>
+      </div></div>
+      <div class="tl-headwrap" aria-hidden="true"><i class="head"></i></div>
+    </div></div>
+    <figcaption>Типичные пути обновления изображения. Зачёркнутые стадии в показанном случае не нужны. Transform и opacity могут использовать уже подготовленные слои; это возможность оптимизации, а не гарантия для любой страницы.</figcaption>
+  </figure>
+
+  <p>Производительность это искусство <em>избегать</em> работы и делать необходимую работу эффективнее. Цель не бороться с браузером, а работать вместе с ним.</p>
+
+  <h3 id="glavnyy-potok-i-event-loop">Главный поток и event loop</h3>
+  <p>На основном потоке работает цикл событий (event loop): он выполняет задачи JavaScript и обработчики, а между подходящими задачами браузер получает возможность обновить изображение. Layout и paint — этапы обновления, а не обычные события, поставленные в очередь как click. Compositor, растеризация и другие службы выполняют часть работы отдельно.</p>
+  <p>Долгая задача JavaScript задерживает другие работы основного потока, включая обновление интерфейса. RequestAnimationFrame вызывает функцию перед очередным обновлением изображения, но не переносит её в другой поток: обработчик должен оставаться коротким. Подходящие вычисления можно вынести в Web Worker, а работу на основном потоке — разделить на небольшие задачи с передачей управления браузеру.</p>
+<pre><code>function tick() {
+  // небольшая порция работы на один кадр
+  updateOnlyWhatChanged();
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);</code></pre>
+
+  <figure class="tl">
+    <div class="tl-scroll"><div class="tl-body">
+      <div class="tl-group">
+        <p class="tl-title">Один длинный JS-блок (~50 мс)</p>
+        <div class="tl-lane"><b class="tl-name">Главный поток</b><div class="tl-track">
+          <i class="blk stop" style="--s:12.5;--w:37" title="пока работает JS, кадры не собираются">JS ~50 мс</i>
+          <i class="blk" style="--s:50.5;--w:11">рендер</i>
+        </div></div>
+        <div class="tl-lane"><b class="tl-name">Экран</b><div class="tl-track">
+          <i class="blk" style="--s:0;--w:12">кадр</i>
+          <i class="blk stop" style="--s:12.5;--w:12">пропуск</i>
+          <i class="blk stop" style="--s:25;--w:12">пропуск</i>
+          <i class="blk stop" style="--s:37.5;--w:12">пропуск</i>
+          <i class="blk" style="--s:50;--w:12">кадр</i>
+          <i class="blk" style="--s:62.5;--w:12">кадр</i>
+          <i class="blk" style="--s:75;--w:12">кадр</i>
+          <i class="blk" style="--s:87.5;--w:12">кадр</i>
+        </div></div>
+      </div>
+      <div class="tl-group">
+        <p class="tl-title">JS порциями через requestAnimationFrame</p>
+        <div class="tl-lane"><b class="tl-name">Главный поток</b><div class="tl-track">
+          <i class="blk neutral" style="--s:1;--w:4" title="небольшая порция JS"></i><i class="blk" style="--s:5.5;--w:6" title="рендер кадра"></i>
+          <i class="blk neutral" style="--s:13.5;--w:4"></i><i class="blk" style="--s:18;--w:6"></i>
+          <i class="blk neutral" style="--s:26;--w:4"></i><i class="blk" style="--s:30.5;--w:6"></i>
+          <i class="blk neutral" style="--s:38.5;--w:4"></i><i class="blk" style="--s:43;--w:6"></i>
+          <i class="blk neutral" style="--s:51;--w:4"></i><i class="blk" style="--s:55.5;--w:6"></i>
+          <i class="blk neutral" style="--s:63.5;--w:4"></i><i class="blk" style="--s:68;--w:6"></i>
+          <i class="blk neutral" style="--s:76;--w:4"></i><i class="blk" style="--s:80.5;--w:6"></i>
+          <i class="blk neutral" style="--s:88.5;--w:4"></i><i class="blk" style="--s:93;--w:6"></i>
+        </div></div>
+        <div class="tl-lane"><b class="tl-name">Экран</b><div class="tl-track">
+          <i class="blk" style="--s:0;--w:12">кадр</i>
+          <i class="blk" style="--s:12.5;--w:12">кадр</i>
+          <i class="blk" style="--s:25;--w:12">кадр</i>
+          <i class="blk" style="--s:37.5;--w:12">кадр</i>
+          <i class="blk" style="--s:50;--w:12">кадр</i>
+          <i class="blk" style="--s:62.5;--w:12">кадр</i>
+          <i class="blk" style="--s:75;--w:12">кадр</i>
+          <i class="blk" style="--s:87.5;--w:12">кадр</i>
+        </div></div>
+      </div>
+      <div class="tl-group">
+        <p class="tl-title">Анимация transform при занятом главном потоке</p>
+        <div class="tl-lane"><b class="tl-name">Главный поток</b><div class="tl-track">
+          <i class="blk stop" style="--s:12.5;--w:37">JS ~50 мс</i>
+        </div></div>
+        <div class="tl-lane"><b class="tl-name">Compositor</b><div class="tl-track">
+          <i class="blk" style="--s:0;--w:12">кадр</i>
+          <i class="blk" style="--s:12.5;--w:12">кадр</i>
+          <i class="blk" style="--s:25;--w:12">кадр</i>
+          <i class="blk" style="--s:37.5;--w:12">кадр</i>
+          <i class="blk" style="--s:50;--w:12">кадр</i>
+          <i class="blk" style="--s:62.5;--w:12">кадр</i>
+          <i class="blk" style="--s:75;--w:12">кадр</i>
+          <i class="blk" style="--s:87.5;--w:12">кадр</i>
+        </div></div>
+      </div>
+      <div class="tl-headwrap" aria-hidden="true"><i class="head"></i></div>
+    </div></div>
+    <figcaption>Каждая клетка в строке «Экран» это один кадр при 60 Гц (около 16,7 мс). В первом случае длинный JS держит главный поток, и три кадра пропущены. Во втором короткие порции работы оставляют время на обновление изображения; длинный обработчик снова привёл бы к пропускам. В третьем подготовленная compositor-анимация может продолжаться отдельно от занятого главного потока.</figcaption>
+  </figure>
+</section>

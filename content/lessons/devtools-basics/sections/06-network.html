@@ -1,0 +1,75 @@
+<section id="network">
+  <h2>Network: анализ запросов <span class="src">Теория: Network features reference → Load; Clear; Inspect details</span></h2>
+<p>Запрос — обращение страницы за ресурсом или данными, ответ — результат со статусом, заголовками и телом. URL — адрес ресурса. Заголовки передают служебные сведения, тело — содержимое. Сначала выберите строку запроса, затем смотрите её подробности: фильтры меняют только список, а не поведение сети.</p>
+  <p>Вкладка Network записывает все запросы, которые делает страница: HTML, стили, скрипты, картинки, шрифты, fetch и XHR. Это ответ на вопросы «что загрузилось», «что ушло на сервер», «что вернул сервер» и «что тормозит».</p>
+  <div class="warn">
+    <b>Запись идёт только при открытом DevTools</b>
+    <p>Network не умеет показывать то, что произошло до его открытия. Чтобы увидеть запросы загрузки страницы, откройте DevTools, перейдите на вкладку Network и только потом перезагрузите страницу (<code>F5</code>).</p>
+  </div>
+
+  <figure class="shot"><button type="button" class="zoom" data-w="1500" aria-label="Открыть скриншот на весь экран: Network: список запросов"><img src="/img/devtools/network.webp" alt="Network: список запросов" width="1800" height="450"></button><figcaption><strong>Network: список запросов.</strong> Снимок после перезагрузки демо-страницы.<ol><li><b>1</b>Clear</li><li><b>2</b>Keep log</li><li><b>3</b>Disable cache</li><li><b>4</b>Throttling: No throttling</li><li><b>5</b>Колонка Status</li><li><b>6</b>Колонка Initiator</li></ol><p class="zoomhint">Нажмите на картинку, чтобы открыть крупно.</p></figcaption></figure>
+
+  <h3 id="tablica-zaprosov">Таблица запросов</h3>
+  <p>Основные колонки по умолчанию: <strong>Name</strong> (имя ресурса), <strong>Status</strong> (код ответа: 200 успех, 304 не изменилось, 404 не найдено, 5xx ошибка сервера), <strong>Type</strong> (document, stylesheet, script, fetch, png...), <strong>Initiator</strong> (кто инициировал запрос: ссылка на файл и строку кода), <strong>Size</strong> (размер), <strong>Time</strong> (длительность) и <strong>Waterfall</strong> (график по времени). Правая кнопка по заголовку колонок позволяет добавить другие, например Method, Domain, Protocol.</p>
+  <p>Над таблицей две временных шкалы. Overview — общий обзор, на нём можно выделить мышью интересный фрагмент. А вертикальные линии на водопаде отмечают события страницы: <span style="color:#1a73e8">синяя</span> — <code>DOMContentLoaded</code> (HTML разобран, DOM построен), <span style="color:#d93025">красная</span> — <code>load</code> (загружены все ресурсы, включая картинки).</p>
+  <p>Красным в таблице подсвечиваются неудачные запросы (статус 4xx, 5xx, отменённые). На демо-странице это <code>missing.png</code> с кодом 404. Очистить журнал можно кнопкой Clear (значок «запрет») или командой в меню; опция <strong>Keep log</strong> (раньше Preserve log) сохраняет записи между перезагрузками, что нужно при отладке редиректов и отправки форм.</p>
+
+  <h3 id="filtry">Фильтры</h3>
+  <p>Фильтры включаются значком воронки (filter toggle). Их несколько уровней, и они комбинируются:</p>
+  <ul>
+    <li><strong>Строка фильтра</strong>: подстрока имени или URL. Регулярное выражение в слешах (<code>/\.(png|jpg)$/</code>). Исключение через минус: <code>-main.css</code>.</li>
+    <li><strong>Property-фильтры</strong> вида <code>свойство:значение</code>: <code>domain:</code>, <code>method:</code>, <code>status-code:</code>, <code>mime-type:</code>, <code>larger-than:</code> (в байтах, можно <code>100k</code>), <code>scheme:</code> и другие. Подсказки выпадают при вводе.</li>
+    <li><strong>Кнопки типов</strong>: All, Fetch/XHR, Doc, CSS, JS, Font, Img, Media и далее. С зажатым <code>Ctrl</code> (<code>Cmd</code>) выбирается несколько типов.</li>
+    <li><strong>Invert</strong> — инверсия фильтра, <strong>More filters</strong> — дополнительные (скрыть data URL и расширения, показать только запросы третьих сторон и т. п.).</li>
+  </ul>
+
+  <figure class="shot"><button type="button" class="zoom" data-w="1500" aria-label="Открыть скриншот на весь экран: Network: панель фильтров"><img src="/img/devtools/network-filter.webp" alt="Network: панель фильтров" width="1800" height="450"></button><figcaption><strong>Network: панель фильтров.</strong> Панель появляется по значку воронки.<ol><li><b>1</b>Переключатель панели фильтров</li><li><b>2</b>Кнопка типа Fetch/XHR</li><li><b>3</b>More filters</li><li><b>4</b>Invert</li></ol><p class="zoomhint">Нажмите на картинку, чтобы открыть крупно.</p></figcaption></figure>
+
+  <p>Если нужно найти запрос не по имени, а по тому, что внутри заголовков или тела ответа, откройте вкладку <strong>Search</strong> (<code>Ctrl+F</code> / <code>Cmd+F</code> внутри Network): она ищет по содержимому всех записанных запросов.</p>
+
+  <h3 id="svedeniya-ob-otdelnom-zaprose">Сведения об отдельном запросе</h3>
+  <p>Клик по строке открывает панель подробностей. В ней вкладки:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Вкладка</th><th>Что в ней</th></tr></thead>
+    <tbody>
+      <tr><td>Headers</td><td>URL, метод, статус; заголовки запроса и ответа (<code>Content-Type</code>, <code>Cache-Control</code>, <code>Set-Cookie</code>...)</td></tr>
+      <tr><td>Payload</td><td>Тело запроса и параметры строки запроса; есть только у запросов с данными</td></tr>
+      <tr><td>Preview</td><td>Отформатированный ответ: дерево для JSON, картинка для изображения, страница для HTML</td></tr>
+      <tr><td>Response</td><td>Сырой ответ сервера как текст</td></tr>
+      <tr><td>Initiator</td><td>Цепочка вызовов, которая привела к запросу</td></tr>
+      <tr><td>Timing</td><td>Разбор времени запроса по фазам</td></tr>
+      <tr><td>Cookies</td><td>Какие cookie ушли и пришли</td></tr>
+    </tbody>
+  </table></div>
+
+  <figure class="shot"><button type="button" class="zoom" data-w="1500" aria-label="Открыть скриншот на весь экран: Network: подробности запроса"><img src="/img/devtools/network-details.webp" alt="Network: подробности запроса" width="1800" height="797"></button><figcaption><strong>Network: подробности запроса.</strong> Открывается кликом по строке запроса.<ol><li><b>1</b>Headers</li><li><b>2</b>Preview</li><li><b>3</b>Response</li><li><b>4</b>Initiator</li><li><b>5</b>Timing</li><li><b>6</b>Заголовки ответа, среди них <code>Cache-Control: no-cache</code></li></ol><p class="zoomhint">Нажмите на картинку, чтобы открыть крупно.</p></figcaption></figure>
+
+  <h3 id="iz-chego-skladyvaetsya-vremya-zaprosa">Из чего складывается время запроса</h3>
+  <p>Вкладка Timing показывает фазы, из которых состоит запрос. Читайте их по порядку, самая частая причина медленного запроса видна сразу:</p>
+
+  <figure class="dg">
+    <p class="dg-title">Фазы одного запроса (пропорции условные)</p>
+    <div class="wf" aria-hidden="true">
+      <div class="wfr"><div class="nm">Queueing<small>запрос ждёт очереди в браузере</small></div><div class="tr"><div class="bar b" style="--s:0;--w:5;--i:0"></div></div></div>
+      <div class="wfr"><div class="nm">Stalled<small>браузер ещё не может отправить</small></div><div class="tr"><div class="bar b" style="--s:5;--w:6;--i:1"></div></div></div>
+      <div class="wfr"><div class="nm">DNS Lookup<small>поиск IP по имени</small></div><div class="tr"><div class="bar" style="--s:11;--w:7;--i:2"></div></div></div>
+      <div class="wfr"><div class="nm">Initial connection / SSL<small>соединение и TLS</small></div><div class="tr"><div class="bar" style="--s:18;--w:12;--i:3"></div></div></div>
+      <div class="wfr"><div class="nm">Request sent<small>отправка запроса</small></div><div class="tr"><div class="bar" style="--s:30;--w:3;--i:4"></div></div></div>
+      <div class="wfr"><div class="nm">Waiting for server response<small>раньше TTFB</small></div><div class="tr"><div class="bar w" style="--s:33;--w:42;--i:5"></div></div></div>
+      <div class="wfr"><div class="nm">Content download<small>получение тела ответа</small></div><div class="tr"><div class="bar" style="--s:75;--w:20;--i:6"></div></div></div>
+    </div>
+    <figcaption>Полосы появляются по очереди в том же порядке, как идёт запрос. Длинная оранжевая полоса — самый частый случай: сервер долго готовит ответ. Длинная <em>Content download</em> означает, что ответ слишком большой для канала. На скриншоте ниже у запроса к локальному серверу DNS и SSL отсутствуют, а ожидание ответа заняло около 181 мс.</figcaption>
+  </figure>
+
+  <figure class="shot"><button type="button" class="zoom" data-w="1500" aria-label="Открыть скриншот на весь экран: Network: вкладка Timing"><img src="/img/devtools/network-timing.webp" alt="Network: вкладка Timing" width="1800" height="797"></button><figcaption><strong>Network: вкладка Timing.</strong> Фазы выбранного запроса в порядке выполнения.<ol><li><b>1</b>Queueing</li><li><b>2</b>Stalled</li><li><b>3</b>Waiting for server response (около 181 мс)</li><li><b>4</b>Content download</li></ol><p class="zoomhint">Нажмите на картинку, чтобы открыть крупно.</p></figcaption></figure>
+
+  <h3 id="eksperimenty-s-setyu">Эксперименты с сетью</h3>
+  <ul>
+    <li><strong>Throttling</strong> (выпадающий список «No throttling») имитирует медленный интернет: Fast 4G, Slow 4G, 3G и другие. Режим <strong>Offline</strong> полностью выключает сеть и позволяет проверить, как приложение ведёт себя без связи.</li>
+    <li><strong>Disable cache</strong> отключает кэш браузера, пока DevTools открыт. Включайте его, когда сомневаетесь, что вы смотрите свежую версию файла.</li>
+    <li>Правая кнопка на перезагрузке → <strong>Empty cache and hard reload</strong> очищает кэш для этой страницы и грузит всё заново.</li>
+    <li><strong>Request blocking</strong>: командное меню → «block» → добавьте шаблон URL, и такие запросы будут отклоняться. Хороший способ проверить, как страница живёт без шрифта, скрипта или картинки.</li>
+    <li><strong>Screenshots</strong> включает ленту кадров загрузки над таблицей: видно, как страница появлялась на экране.</li>
+    <li>Правая кнопка по запросу → <strong>Copy</strong> даёт копию запроса как cURL, fetch и т. п. А <strong>Save all as HAR</strong> сохраняет весь журнал в файл для отправки коллегам.</li>
+  </ul>
+</section>

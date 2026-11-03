@@ -1,0 +1,24 @@
+<section id="advanced-union-utilities">
+<h2>Utility types для объединений</h2>
+<h3 id="advanced-exclude-extract">Exclude и Extract фильтруют варианты union</h3>
+<pre><code>type Load =
+  | { status: &quot;loading&quot; }
+  | { status: &quot;ready&quot;; data: string[] }
+  | { status: &quot;error&quot;; message: string };
+type Ready = Extract&lt;Load, { status: &quot;ready&quot; }&gt;;
+type Finished = Exclude&lt;Load, { status: &quot;loading&quot; }&gt;;
+type Value = NonNullable&lt;string | null | undefined&gt;;
+const ready: Ready = { status: &quot;ready&quot;, data: [&quot;TS&quot;] };
+const value: Value = &quot;TS&quot;;
+const finished: Finished = ready;
+console.log(value, finished.status);
+if (false) {
+  // @ts-expect-error: loading исключён
+  const wrong: Finished = { status: &quot;loading&quot; };
+}
+</code></pre>
+<p>В Load три варианта состояния. <code>Extract&lt;Load, { status: "ready" }&gt;</code> оставляет только объект с готовыми данными. <code>Exclude&lt;Load, { status: "loading" }&gt;</code> оставляет два остальных варианта: ready и error. Иными словами, Exclude исключает подходящие варианты, а Extract выбирает их. NonNullable исключает null и undefined. Эти типы не проверяют переменную при выполнении: перед преобразованием внешнего значения всё ещё нужен guard.</p>
+<h3 id="advanced-omit-union">Почему Omit и Exclude не взаимозаменяемы</h3>
+<p>Omit работает с ключами объекта, а Exclude — с вариантами union. <code>Exclude&lt;"a" | "b", "a"&gt;</code> даст "b". Если применить Exclude к объекту, передав строковое имя его поля, поле не исчезнет. У Omit над union могут потеряться свойства отдельных вариантов, поскольку операция не обязана распределяться по ним.</p>
+<p>Для начала достаточно различать операции: <code>Omit&lt;Article, "id"&gt;</code> исключает поле id, а <code>Exclude&lt;"loading" | "ready", "loading"&gt;</code> исключает вариант "loading". Сложный случай — отдельное преобразование каждого объекта в union — разберём <a href="#advanced-distribution">после условных типов</a>.</p>
+</section>

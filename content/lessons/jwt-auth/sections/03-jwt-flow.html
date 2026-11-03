@@ -1,0 +1,17 @@
+<section id="jwt-flow">
+<h2>Общая схема</h2>
+<p>Весь процесс состоит из трёх сценариев: регистрация, вход и запрос к защищённой странице.</p>
+<figure class="dg">
+<p class="dg-title">Путь пользователя от регистрации до профиля</p>
+<ol class="seqlist n6" aria-hidden="true">
+<li class="card lit" style="--i:0"><span class="hd">POST /register</span><span class="ln">сервер хеширует пароль и сохраняет пользователя в MongoDB</span></li>
+<li class="card lit" style="--i:1"><span class="hd">POST /login</span><span class="ln">сервер находит пользователя по email и сверяет пароль с хешем</span></li>
+<li class="card lit" style="--i:2"><span class="hd">jwt.sign</span><span class="ln">пароль верный — сервер подписывает токен с id внутри и отдаёт клиенту</span></li>
+<li class="card lit" style="--i:3"><span class="hd">GET /profile + Authorization: Bearer …</span><span class="ln">клиент прикладывает токен к запросу</span></li>
+<li class="card lit" style="--i:4"><span class="hd">jwt.verify</span><span class="ln">сервер проверяет подпись и срок и достаёт id</span></li>
+<li class="card lit" style="--i:5"><span class="hd">User.findById(id)</span><span class="ln">по id берутся данные профиля из базы</span></li>
+</ol>
+<figcaption>Шаги 1–3 происходят один раз при регистрации и входе, шаги 4–6 повторяются на каждый запрос к защищённой странице. Чтобы узнать, кто пришёл, сервер не обращается к базе: достаточно проверить подпись. В базу он идёт только за данными профиля.</figcaption>
+</figure>
+<p>Главная мысль: сервер ничего не хранит про вход. Он не помнит, что «Аня залогинена». Он один раз подписал токен с её id, а дальше проверяет подпись у каждого пришедшего токена. Подпись верна — значит, токен выдал этот сервер и его не меняли, и id внутри можно доверять.</p>
+</section>

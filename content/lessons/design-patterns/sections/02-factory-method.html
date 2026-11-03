@@ -1,0 +1,38 @@
+<section id="factory-method">
+<h2>Factory Method — Фабричный метод</h2>
+<p><b>Порождающий паттерн.</b> Сценарий экспорта один, но конкретный экспортёр зависит от разновидности приложения. Хотим сохранить общий сценарий, позволив наследнику выбрать продукт.</p>
+<div class="note"><b>Простыми словами</b><p>Сеть кофеен работает по одному порядку: принять заказ, приготовить, выдать. Но <em>что</em> именно готовить, решает конкретная точка: в одной варят эспрессо, в другой — чай. Фабричный метод устроен так же: общий метод родителя описывает порядок работы и в нужный момент вызывает <code>create...()</code>, а какой объект там создать, решает наследник.</p></div>
+<h3 id="factory-method-roles">Участники и направление вызовов</h3>
+<p>Продукт задаёт контракт Exporter. Создатель ExportFlow содержит общий сценарий run и фабричный метод createExporter. Конкретные создатели переопределяют только выбор продукта. Клиент вызывает run, который работает через контракт продукта.</p>
+<h3 id="factory-method-example">Пример на TypeScript</h3>
+<pre><code>interface Exporter { encode(title: string): string }
+class TextExporter implements Exporter {
+  encode(title: string): string { return title; }
+}
+class JsonExporter implements Exporter {
+  encode(title: string): string { return JSON.stringify({ title }); }
+}
+abstract class ExportFlow {
+  protected abstract createExporter(): Exporter;
+  run(title: string): string {
+    const exporter = this.createExporter();
+    return exporter.encode(title.trim());
+  }
+}
+class TextFlow extends ExportFlow {
+  protected createExporter(): Exporter { return new TextExporter(); }
+}
+class JsonFlow extends ExportFlow {
+  protected createExporter(): Exporter { return new JsonExporter(); }
+}
+const textFlow = new TextFlow();
+const jsonFlow = new JsonFlow();
+console.log(textFlow.run(&quot; TS &quot;), jsonFlow.run(&quot; TS &quot;));
+</code></pre>
+<p>Получим <code>TS</code> и <code>{"title":"TS"}</code>. Общая подготовка строки осталась в run; способ создания экспортёра изменился через наследника.</p>
+<h3 id="factory-method-tradeoffs">Когда применять и что учитывать</h3>
+<p>Подходит, когда уже есть общий процесс и точка расширения через наследование. Цена — дополнительные классы создателей. Функция createExporter(kind) со switch тоже полезна, но сама по себе является простой фабрикой, а не классическим Factory Method. Если нужен только выбор по строке, простая фабрика часто достаточна.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/factory-method">Factory Method — Фабричный метод</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>Проследите JsonFlow.run: общий метод убирает пробелы, вызывает createExporter у текущего наследника, получает JsonExporter и вызывает encode. Клиент выбрал вид сценария один раз, а общий метод не проверяет тип экспортёра через if.</p>
+</section>

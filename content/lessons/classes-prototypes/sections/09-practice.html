@@ -1,0 +1,25 @@
+<section id="practice">
+  <h2>Практика по модулю<span class="src">Задание модуля RS School</span></h2>
+  <p>В RS-App модуль предлагает пройти автоматический тест <strong>«[St1] Classes &amp; Prototypes»</strong>. Точные вопросы теста здесь не воспроизводятся; конспект готовит к понятиям и чтению кода из целей модуля.</p>
+  <ol class="plain">
+    <li>Сначала пройдите тест в конце этой страницы и отметьте темы, в которых ошиблись.</li>
+    <li>Нарисуйте цепочку поиска для объекта, созданного через <code>Object.create</code>, и отдельно для экземпляра класса-наследника.</li>
+    <li>Напишите один пример наследования функциями-конструкторами ES5 и перепишите его с <code>class</code>.</li>
+    <li>Для общего поведения реализуйте примесь, затем сравните её с композицией отдельного объекта.</li>
+    <li>Проверьте примеры в консоли: отдельно выведите <code>typeof</code>, <code>instanceof</code> и <code>Object.getPrototypeOf</code>.</li>
+  </ol>
+  <h3 id="zadacha-na-tsepochku">Мини-задача: найти метод</h3>
+  <p>Не запуская код, ответьте: откуда вызовется <code>pet.speak()</code> и чему равен <code>this.name</code>?</p>
+  <pre><code>const animal = {
+  name: 'животное',
+  speak() { return this.name; },
+};
+const pet = Object.create(animal);
+pet.name = 'кот';
+pet.speak();</code></pre>
+  <details class="q"><summary>Ответ: метод найден в прототипе, но <code>this</code> — <code>pet</code></summary><div class="a">
+    <p>В самом <code>pet</code> нет <code>speak</code>, поэтому поиск продолжается в <code>animal</code>. Но метод вызван как <code>pet.speak()</code>, значит <code>this</code> равен <code>pet</code> и результат — <code>'кот'</code>.</p>
+  </div></details>
+  <h3 id="test-v-rs-app">Тест в RS-App</h3>
+  <p>После конспекта выполните тест модуля в разделе Auto Test RS-App. Вопросы на этой странице — самостоятельная проверка, а не копия официального теста.</p>
+</section>

@@ -1,0 +1,140 @@
+.sidebar {
+  position: sticky;
+  top: var(--header-h);
+  align-self: start;
+  max-height: calc(100vh - var(--header-h));
+  overflow-y: auto;
+  padding: var(--sp-5) var(--sp-3) var(--sp-6) var(--sp-4);
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+
+.home,
+.lesson,
+.section,
+.subtopic {
+  display: block;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.home:hover,
+.lesson:hover,
+.section:hover,
+.subtopic:hover {
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.footerLink {
+  margin-top: var(--sp-5);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--r-sm) var(--r-sm);
+}
+
+.home[aria-current='page'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.stage {
+  margin-top: var(--sp-5);
+}
+
+.stageTitle {
+  margin: 0 10px var(--sp-2);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.list,
+.sections,
+.subtopics {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lesson {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.lesson[aria-current='page'] {
+  color: var(--accent);
+}
+
+.sections {
+  margin: 2px 0 var(--sp-3) var(--sp-3);
+  padding-left: var(--sp-2);
+  border-left: 1px solid var(--line);
+}
+
+.section {
+  padding: 4px 10px;
+  font-size: 14px;
+}
+
+.section[aria-current='location'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.subtopics {
+  margin: 2px 0 4px var(--sp-3);
+}
+
+.subtopic {
+  padding: 3px 10px;
+  font-size: 13.5px;
+}
+
+.subtopic[aria-current='location'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.backdrop {
+  display: none;
+}
+
+/* Телефон и узкое окно: оглавление выезжает слева поверх страницы */
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    inset: var(--header-h) auto 0 0;
+    z-index: var(--z-drawer);
+    width: min(88vw, 340px);
+    max-height: none;
+    background: var(--bg);
+    border-right: 1px solid var(--line);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0.2s;
+  }
+
+  .sidebar[data-open='true'] {
+    transform: none;
+    visibility: visible;
+  }
+
+  .backdrop[data-open='true'] {
+    display: block;
+    position: fixed;
+    inset: var(--header-h) 0 0 0;
+    z-index: calc(var(--z-drawer) - 1);
+    background: var(--overlay);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
+  }
+}

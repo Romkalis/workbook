@@ -1,0 +1,41 @@
+<section id="advanced-conditional">
+<h2>Conditional types и infer</h2>
+<p>Условный тип <code>T extends U ? X : Y</code> читается так: «если значения типа T подходят под требования U, выбери X, иначе выбери Y». Например, <code>string extends string ? "да" : "нет"</code> даст тип "да". Это не if, который проверяет данные при выполнении. В generic-объявлении результат может уточниться только после подстановки аргумента.</p>
+<h3 id="advanced-infer">infer: дать имя найденной части типа</h3>
+<p>В <code>ElementOf&lt;T&gt;</code> проверяется, является ли T массивом. Если да, <code>infer Item</code> означает «узнай тип его элемента и назови его Item». Для <code>readonly string[]</code> получим string; для number, который не является массивом, вернётся исходный number.</p>
+
+<pre><code>type ElementOf&lt;T&gt; = T extends readonly (infer Item)[] ? Item : T;
+type Item = ElementOf&lt;readonly string[]&gt;;
+type Result = ElementOf&lt;number&gt;; // не массив — остаётся number
+const item: Item = &quot;TS&quot;;
+const result: Result = 42;
+console.log(item, result);
+if (false) {
+  // @ts-expect-error: ElementOf извлёк string
+  const wrong: Item = 42;
+}
+</code></pre>
+<p>Infer даёт имя найденной части типа. Здесь Item становится типом string. Для Result проверка «является ли number массивом» не проходит, поэтому выбирается ветка после двоеточия — исходный number. Запись extends встречается также в ограничении параметра типа, например <code>T extends { id: string }</code>: там она задаёт требования к T, а не выбирает одну из двух веток.</p>
+<h3 id="advanced-distribution">Распределение по union и как его отключить</h3>
+<pre><code>type Each&lt;T&gt; = T extends string ? &quot;text&quot; : &quot;other&quot;;
+type Whole&lt;T&gt; = [T] extends [string] ? &quot;text&quot; : &quot;other&quot;;
+type Distributed = Each&lt;string | number&gt;; // &quot;text&quot; | &quot;other&quot;
+type Together = Whole&lt;string | number&gt;; // &quot;other&quot;
+const first: Distributed = &quot;text&quot;;
+const second: Together = &quot;other&quot;;
+console.log(first, second);
+if (false) {
+  // @ts-expect-error: union целиком не является строковым типом
+  const wrong: Together = &quot;text&quot;;
+}
+</code></pre>
+<p>Подставим <code>string | number</code> в <code>Each</code>. TypeScript не проверяет объединение целиком, а разбирает его по одному варианту: <code>string</code> даёт <code>"text"</code>, <code>number</code> даёт <code>"other"</code>, и результаты складываются в <code>"text" | "other"</code>. Это называется распределением по объединению (distribution). Оно включается само, когда слева от <code>extends</code> стоит просто <code>T</code>.</p><p>В <code>Whole</code> параметр завёрнут в квадратные скобки <code>[T]</code>, и распределение выключается. Теперь проверяется всё объединение сразу: «является ли <code>string | number</code> строкой?» — нет, поэтому получаем только <code>"other"</code>.</p><p> Для распределяемого условия never даёт never, поскольку в нём нет вариантов; для проверки самого never используйте <code>[T] extends [never]</code>. Глубокая рекурсия типов имеет ограничения вычисления: не заменяйте понятную модель бесконечным конструктором типов.</p>
+<details class="q"><summary>Дополнительно: Omit отдельно для каждого варианта union</summary><div class="a"><pre><code>type Event = { kind: &quot;click&quot;; x: number } | { kind: &quot;key&quot;; key: string };
+type DropKind&lt;T&gt; = T extends unknown ? Omit&lt;T, &quot;kind&quot;&gt; : never;
+type Payload = DropKind&lt;Event&gt;; // { x: number } | { key: string }
+const payload: Payload = { x: 10 };
+console.log(payload);
+</code></pre>
+<p>Теперь можно прочитать DropKind по шагам: T extends unknown запускает распределение, Omit убирает kind у каждого варианта отдельно, затем результаты объединяются. Получаются два варианта данных: координата x либо нажатая клавиша key. Это дополнительный приём для случаев, когда обычный Omit теряет поля отдельных вариантов.</p>
+</div></details>
+</section>

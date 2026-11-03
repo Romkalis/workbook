@@ -1,0 +1,32 @@
+<section id="jwt-model">
+<h2>Модель пользователя и хеш пароля</h2>
+<pre><code>// models/User.js
+const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
+
+const userSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true }, // здесь будет хеш, а не сам пароль
+});
+
+// Перед сохранением хешируем пароль, если он новый или изменился
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
+  this.password = await bcrypt.hash(this.password, 10);
+});
+
+// Проверка пароля при входе
+userSchema.methods.comparePassword = function (candidate) {
+  return bcrypt.compare(candidate, this.password);
+};
+
+module.exports = mongoose.model('User', userSchema);</code></pre>
+<h3 id="jwt-model-hash">Что такое хеш</h3>
+<p>Пароль никогда не хранится как есть. <code>bcrypt.hash</code> превращает <code>"1234"</code> в строку вида <code>$2b$10$N9qo8uLOickgx2ZMRZoMy…</code> длиной 60 символов. Обратно из неё пароль получить нельзя.</p>
+<p>Как же тогда проверить пароль при входе? Не расшифровкой, а сравнением: введённый пароль хешируется заново тем же способом, и результаты сравниваются. Это делает <code>bcrypt.compare</code>. Число 10 — «стоимость» хеширования: чем больше, тем медленнее подбирать пароли перебором.</p>
+<p>Даже если базу украдут, злоумышленник получит хеши, а не пароли.</p>
+<h3 id="jwt-model-hook">Почему function, а не стрелка</h3>
+<p>Внутри хука <code>this</code> — это документ, который сохраняется. У стрелочной функции своего <code>this</code> нет, поэтому здесь нужна обычная <code>function</code>.</p>
+<p><code>this.isModified('password')</code> защищает от двойного хеширования: если пользователь поменял только email, пароль уже хранится как хеш, и хешировать его снова нельзя, иначе войти больше не получится.</p>
+<div class="note"><b>Отличие от исходного материала</b><p>В исходнике хук написан как <code>async function (next)</code> с вызовами <code>next()</code>. Для асинхронной функции <code>next</code> не нужен: Mongoose сам ждёт, пока завершится Promise. Мы проверили оба варианта. В mongoose 8 работают оба. В mongoose 9 в хук больше не передаётся <code>next</code>, и код из исходника падает с ошибкой «next is not a function». Вариант без <code>next</code> работает в обеих версиях.</p></div>
+</section>

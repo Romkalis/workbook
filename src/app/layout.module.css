@@ -1,0 +1,36 @@
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.main {
+  min-width: 0;
+  padding: var(--sp-6) var(--sp-5) 96px var(--sp-4);
+}
+
+.skip {
+  position: absolute;
+  left: var(--sp-3);
+  top: -100px;
+  z-index: 100;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-md);
+}
+
+.skip:focus {
+  top: var(--sp-3);
+}
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .main {
+    padding: var(--sp-5) var(--sp-4) 80px;
+  }
+}

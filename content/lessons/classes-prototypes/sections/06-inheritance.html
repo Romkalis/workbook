@@ -1,0 +1,66 @@
+<section id="inheritance">
+  <h2>Наследование: три подхода<span class="src">Источники: материалы RS School, JavaScript.info, MDN</span></h2>
+<p>Во всех трёх подходах отслеживайте две разные операции: кто записал начальные поля объекта и где затем ищутся методы. Object.create связывает объекты, вызов конструктора заполняет поля. В синтаксисе классов эти обязанности выражены через extends и super.</p>
+  <p>Прототипное наследование означает, что объект использует свойства другого объекта через цепочку поиска. Исторически в JavaScript для этого применяли несколько способов. Сравним делегирование через <code>Object.create</code> («способ Крокфорда»), функцию-конструктор ES5 и синтаксис классов ES2015.</p>
+  <h3 id="crockford-way">Способ Крокфорда: делегирование объекту</h3>
+  <p>Идея этого подхода — создать новый объект на основе существующего прототипа, не вызывая классический конструктор. Иногда этот вариант связывают с функцией <code>beget</code>; в современном коде ту же задачу решает <code>Object.create</code>.</p>
+  <pre><code>const person = {
+  init(name) {
+    this.name = name;
+    return this;
+  },
+  greet() {
+    return `Привет, я ${this.name}`;
+  },
+};
+
+const student = Object.create(person).init('Миша');
+student.course = 2;
+student.greet(); // 'Привет, я Миша'
+Object.getPrototypeOf(student) === person; // true</code></pre>
+  <p>Здесь <code>student</code> делегирует поиск методов объекту <code>person</code>. Поле <code>name</code> записывается в сам <code>student</code>, потому что внутри метода <code>this</code> — объект перед точкой.</p>
+  <h3 id="es5-way">ES5: функции-конструкторы</h3>
+  <p>До <code>class</code> конструктор был обычной функцией, вызываемой с <code>new</code>. Методы размещали в её свойстве <code>prototype</code>. Для наследования экземпляров создавали прототип потомка через <code>Object.create</code>, а конструктор родителя вызывали с нужным <code>this</code> через <code>Parent.call</code>.</p>
+  <pre><code>function Person(name) {
+  this.name = name;
+}
+Person.prototype.greet = function () {
+  return `Привет, я ${this.name}`;
+};
+
+function Student(name, course) {
+  Person.call(this, name); // инициализация данных родителя
+  this.course = course;
+}
+Student.prototype = Object.create(Person.prototype);
+Student.prototype.constructor = Student;
+Student.prototype.introduce = function () {
+  return `${this.greet()}, курс ${this.course}`;
+};
+
+new Student('Миша', 2).introduce(); // 'Привет, я Миша, курс 2'</code></pre>
+  <p>Здесь две отдельные задачи, и каждую решает своя строка.</p><ul><li><code>Object.create(Person.prototype)</code> даёт студенту доступ к методам <code>Person</code>: связывает прототипы. Конструктор <code>Person</code> при этом не вызывается.</li><li><code>Person.call(this, name)</code> записывает в новый объект поле <code>name</code>: вызывает конструктор родителя для нашего объекта. Это то, что в классах делает <code>super(name)</code>.</li></ul><p>Строка <code>Student.prototype.constructor = Student</code> возвращает свойство <code>constructor</code>: после замены прототипа оно указывало бы на <code>Person</code>. На наследование оно не влияет, но по нему иногда узнают, каким конструктором создан объект.</p>
+  <h3 id="es2015-way">ES2015: <code>class</code> и <code>extends</code></h3>
+  <p>Современная запись делает обе операции явными: <code>extends</code> связывает прототипы, а <code>super(...args)</code> вызывает конструктор родителя.</p>
+  <pre><code>class Person {
+  constructor(name) {
+    this.name = name;
+  }
+  greet() {
+    return `Привет, я ${this.name}`;
+  }
+}
+
+class Student extends Person {
+  constructor(name, course) {
+    super(name); // до этого вызова this использовать нельзя
+    this.course = course;
+  }
+  introduce() {
+    return `${super.greet()}, курс ${this.course}`;
+  }
+}
+
+new Student('Миша', 2).introduce(); // 'Привет, я Миша, курс 2'</code></pre>
+  <p>В конструкторе производного класса <code>super()</code> обязателен, если конструктор объявлен. Он должен выполниться до обращения к <code>this</code>. <code>super.method()</code> вызывает реализацию метода из родительского класса.</p>
+</section>

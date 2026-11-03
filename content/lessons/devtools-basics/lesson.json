@@ -1,0 +1,16 @@
+{
+  "slug": "devtools-basics",
+  "title": "Chrome DevTools",
+  "stage": 1,
+  "order": 2,
+  "kicker": "RS School · Stage 1",
+  "heading": "Chrome DevTools: Elements, Console, Sources, Network, Application",
+  "lead": "Конспект по материалам модуля. Как смотреть и править DOM и CSS, читать консоль, останавливать код брейкпоинтами, разбирать сетевые запросы и работать с localStorage. Все скриншоты лежат внутри файла, страница открывается без интернета.",
+  "chips": [
+    "~2 часа на модуль",
+    "14 скриншотов",
+    "6 схем",
+    "33 вопроса с ответами",
+    "22 источника"
+  ]
+}

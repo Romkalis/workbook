@@ -1,0 +1,35 @@
+<section id="ts-generics">
+<h2>Generics и keyof: сохраняем связь типов</h2>
+<p>В identity буква T — место для конкретного типа. При вызове identity(42) компилятор подставляет числовой тип и сохраняет его в результате. Запись <code>K extends keyof T</code> читается как «K должен быть одним из ключей T», а <code>T[K]</code> — «тип значения по этому ключу».</p>
+<p>Generic — параметр типа. Он нужен, когда несколько мест сигнатуры должны зависеть от одного выбранного типа. Замена всех типов на any эту связь теряет.</p><h3 id="ts-generic-functions">Функция и контейнер с параметром типа</h3><pre><code>function identity&lt;T&gt;(value: T): T { return value; }
+interface Box&lt;T&gt; { value: T }
+const box: Box&lt;string&gt; = { value: &quot;TypeScript&quot; };
+const count = identity(42); // тип выведен из аргумента
+const title = identity&lt;string&gt;(box.value); // тип задан явно
+function first&lt;T&gt;(items: readonly T[]): T | undefined { return items[0]; }
+console.log(count, title.toUpperCase(), first&lt;number&gt;([]));
+</code></pre><p>В <code>identity&lt;T&gt;</code> один и тот же T описывает вход и выход. Компилятор чаще всего выводит его сам. Сигнатура first учитывает пустой массив: обещание просто T было бы неверным. Внутри generic-функции нельзя считать, что у любого T есть length.</p><h3 id="ts-generic-constraints">Ограничение extends</h3><pre><code>function lengthOf&lt;T extends { length: number }&gt;(value: T): number {
+  return value.length;
+}
+console.log(lengthOf(&quot;TS&quot;), lengthOf([1, 2, 3]));
+if (false) {
+  // @ts-expect-error: у числа нет свойства length
+  lengthOf(42);
+}
+</code></pre><p><code>extends</code> здесь задаёт минимальный контракт, а не наследование класса. Если нужно только прочитать length и нигде не сохранить T, достаточно параметра <code>{ length: number }</code>. Generic полезен, когда связь типов реально используется.</p><h3 id="ts-keyof">keyof и доступ к типу свойства</h3><pre><code>function get&lt;T, K extends keyof T&gt;(object: T, key: K): T[K] {
+  return object[key];
+}
+const student = { name: &quot;Маша&quot;, score: 95 };
+type StudentKey = keyof typeof student; // &quot;name&quot; | &quot;score&quot;
+const key: StudentKey = &quot;score&quot;;
+console.log(get(student, key).toFixed(0), get(student, &quot;name&quot;).toUpperCase());
+if (false) {
+  // @ts-expect-error: такого ключа нет
+  get(student, &quot;age&quot;);
+}
+</code></pre><p><code>typeof student</code> в позиции типа получает тип переменной, <code>keyof</code> — объединение ключей этого типа, <code>T[K]</code> — тип выбранного свойства. В JS-выражении typeof по-прежнему возвращает строку. У числовой индексной сигнатуры keyof будет number; у строковой — string | number, потому что числовые ключи JS-объекта преобразуются в строки.</p><h3 id="ts-utility-types">Готовые преобразования типов</h3><p>Дополнение из общих знаний, сверяемое со справочником TypeScript: <code>Partial&lt;T&gt;</code> делает свойства необязательными, <code>Required&lt;T&gt;</code> — обязательными, <code>Readonly&lt;T&gt;</code> — доступными только для чтения. <code>Pick&lt;T, K&gt;</code> оставляет выбранные ключи, <code>Omit&lt;T, K&gt;</code> исключает их. Это изменения типов, не преобразования объектов во время выполнения.</p><pre><code>interface Profile { id: number; name: string; bio?: string }
+const patch: Partial&lt;Profile&gt; = { name: &quot;Анна&quot; };
+const card: Pick&lt;Profile, &quot;id&quot; | &quot;name&quot;&gt; = { id: 1, name: &quot;Маша&quot; };
+console.log({ ...card, ...patch });
+</code></pre>
+</section>

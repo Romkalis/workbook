@@ -1,0 +1,15 @@
+{
+  "slug": "typescript-basic",
+  "title": "TypeScript Basic",
+  "stage": 2,
+  "order": 5,
+  "kicker": "RS School · Stage 2",
+  "heading": "TypeScript Basic: типы, функции, классы и модули",
+  "lead": "Учимся читать и писать TypeScript: от примитивов и вывода типов до interface, union, generics, keyof и модулей. Разбираем безопасную работу с данными, проверяем примеры и готовимся к тесту RS School.",
+  "chips": [
+    "~11 часов на модуль",
+    "15 разделов",
+    "31 проверенный пример",
+    "32 вопроса с объяснениями"
+  ]
+}

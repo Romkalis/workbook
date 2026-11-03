@@ -1,0 +1,41 @@
+<section id="command">
+<h2>Command — Команда</h2>
+<p><b>Поведенческий паттерн.</b> Одно действие редактора должно запускаться из кнопки, меню или истории. Нужно хранить запрос отдельно от элемента интерфейса и уметь отменять его.</p>
+<div class="note"><b>Простыми словами</b><p>Официант записывает заказ на листок. Листок можно передать на кухню, отложить, отменить или повторить. Команда превращает действие в объект, и с ним можно делать то же самое: хранить, передавать, ставить в очередь, отменять.</p></div>
+<h3 id="command-roles">Участники и направление вызовов</h3>
+<p>Command хранит операцию и параметры; Editor — получатель, который меняет текст. History — инициатор: вызывает execute и сохраняет выполненную команду. Undo использует снимок предыдущего значения.</p>
+<h3 id="command-example">Пример на TypeScript</h3>
+<pre><code>interface Command { execute(): void; undo(): void }
+class Editor { text = &quot;&quot;; }
+class Append implements Command {
+  private before: string | undefined;
+  constructor(private editor: Editor, private part: string) {}
+  execute(): void {
+    this.before = this.editor.text;
+    this.editor.text += this.part;
+  }
+  undo(): void {
+    if (this.before === undefined) throw new Error(&quot;Команда ещё не выполнена&quot;);
+    this.editor.text = this.before;
+  }
+}
+class History {
+  private done: Command[] = [];
+  run(command: Command): void { command.execute(); this.done.push(command); }
+  undo(): void { this.done.pop()?.undo(); }
+}
+const editor = new Editor();
+const history = new History();
+history.run(new Append(editor, &quot;TS&quot;));
+history.run(new Append(editor, &quot; Basic&quot;));
+console.log(editor.text); // TS Basic
+history.undo();
+console.log(editor.text); // TS
+</code></pre>
+<p>История сохранила объекты запросов, а не знания о кнопках. В последнем состоянии отменена только последняя добавка. Каждый запуск здесь получает новый экземпляр Append.</p>
+<h3 id="command-tradeoffs">Когда применять и что учитывать</h3>
+<p>Подходит для истории, очередей и отложенного выполнения. Command не делает произвольное действие обратимым: отмену проектируют отдельно. Пример рассчитан на строго последовательные изменения через одну историю; внешние изменения текста и повторное использование экземпляра нарушат предположения. Отмена отправленного письма или платежа не равна возврату строки из снимка.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/command">Command — Команда</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>Разделите роли: Editor хранит текст, Append знает действие и снимок предыдущего текста, History хранит порядок выполненных команд. Undo берёт последнюю команду из истории и просит её восстановить предыдущее значение.</p>
+</section>

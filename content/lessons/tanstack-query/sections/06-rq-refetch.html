@@ -1,0 +1,24 @@
+<section id="rq-refetch">
+<h2>Когда данные обновляются сами</h2>
+<p>Библиотека повторяет запрос в нескольких ситуациях. Все они срабатывают только для <strong>устаревших</strong> данных: если <code>staleTime</code> ещё не прошёл, запроса не будет. Каждую можно выключить в настройках.</p>
+<div class="tbl"><table>
+<thead><tr><th>Настройка</th><th>По умолчанию</th><th>Когда срабатывает</th></tr></thead>
+<tbody>
+<tr><td><code>refetchOnMount</code></td><td>true</td><td>На экране появился компонент с этим запросом</td></tr>
+<tr><td><code>refetchOnWindowFocus</code></td><td>true</td><td>Пользователь вернулся во вкладку</td></tr>
+<tr><td><code>refetchOnReconnect</code></td><td>true</td><td>Вернулся интернет</td></tr>
+<tr><td><code>refetchInterval</code></td><td>выключено</td><td>Каждые N миллисекунд (опрос, polling)</td></tr>
+</tbody></table></div>
+<p>Обновление при фокусе особенно полезно: человек ушёл на 10 минут в другую вкладку, вернулся, и баланс обновился сам. Если оно мешает (например, на странице с формой), его выключают для конкретного запроса: <code>refetchOnWindowFocus: false</code>.</p>
+<p>У <code>refetchOnMount</code> есть значение <code>'always'</code>: запрос при монтировании пойдёт даже для свежих данных. Пример есть в разборе хука <code>useLeaderboard</code> в следующем уроке.</p>
+<h3 id="rq-refetch-interval">Опрос по таймеру</h3>
+<p><code>refetchInterval: 5000</code> обновляет данные каждые 5 секунд. Пока вкладка в фоне, опрос стоит на паузе. Чтобы он шёл и в фоне, добавляют <code>refetchIntervalInBackground: true</code>.</p>
+<p>Вместо числа можно передать функцию. Она получает запрос и возвращает интервал или <code>false</code>, чтобы остановиться. Так удобно ждать окончания долгой задачи на сервере:</p>
+<pre><code>useQuery({
+  queryKey: ['task', taskId],
+  queryFn: () =&gt; fetchTask(taskId),
+  refetchInterval: (query) =&gt;
+    query.state.data?.status === 'completed' ? false : 2000,
+});</code></pre>
+<p>Если сервер умеет сам присылать события (WebSocket или SSE), опрос не нужен: лучше обновлять кеш по событию. Чем отличаются эти способы, разобрано в уроке «TanStack Query на реальном коде».</p>
+</section>

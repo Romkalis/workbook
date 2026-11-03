@@ -1,0 +1,140 @@
+.quiz {
+  padding-top: 44px;
+}
+
+.heading {
+  margin: 0 0 var(--sp-4);
+  font-size: clamp(23px, 3.4vw, 30px);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.intro {
+  max-width: 70ch;
+  margin: 0 0 var(--sp-4);
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  max-width: 78ch;
+  margin: 0 0 var(--sp-4);
+}
+
+.score {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.questions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.question {
+  max-width: 78ch;
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-4) 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.prompt {
+  margin: 0 0 var(--sp-3);
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.num {
+  margin-right: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.options {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.option {
+  font: inherit;
+  font-size: 15.5px;
+  line-height: 1.45;
+  text-align: left;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.option:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.option:disabled {
+  cursor: default;
+}
+
+.option code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--code-bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.ok {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.bad {
+  background: var(--warn-soft);
+  border-color: var(--warn);
+}
+
+.why {
+  margin: var(--sp-3) 0 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.why strong {
+  color: var(--fg);
+}
+
+.why code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--code-bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.result {
+  max-width: 78ch;
+  margin-top: var(--sp-4);
+  padding: 18px 20px;
+  background: var(--accent-soft);
+  border-radius: var(--r-lg);
+}
+
+.result b {
+  display: block;
+  margin-bottom: var(--sp-1);
+  font-size: 20px;
+}
+
+.result p {
+  margin: 0;
+}

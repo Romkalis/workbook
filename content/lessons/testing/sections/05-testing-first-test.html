@@ -1,0 +1,44 @@
+<section id="testing-first-test">
+<h2>Первый тест: подготовить, выполнить, проверить</h2>
+<p>AAA означает Arrange, Act, Assert: подготовьте данные, вызовите действие и проверьте наблюдаемый результат. Название теста должно объяснять условие и ожидаемое поведение.</p>
+<h3 id="testing-aaa">Проверяем итог корзины</h3>
+<p>Контракт примера: вход — массив уже проверенных товаров с неотрицательными числовыми price и целочисленными quantity. Сумма пустого массива равна 0. Здесь проверяем расчёт, а не валидацию входного JSON.</p>
+<pre><code>import test from 'node:test';
+import assert from 'node:assert/strict';
+
+function total(items) {
+  return items.reduce((sum, item) =&gt; sum + item.price * item.quantity, 0);
+}
+
+test('два товара: сумма учитывает количество', () =&gt; {
+  const items = [
+    { price: 100, quantity: 2 },
+    { price: 50, quantity: 1 }
+  ]; // Arrange
+  const actual = total(items); // Act
+  assert.equal(actual, 250); // Assert
+});
+
+test('пустая корзина: итог равен нулю', () =&gt; {
+  assert.equal(total([]), 0);
+});</code></pre>
+<p>Если убрать умножение на quantity, первый тест должен упасть. Это полезная мысленная проверка силы утверждения. Для понятных коротких тестов подписывать каждую строку AAA необязательно.</p>
+<h3 id="testing-assertions">Равенство, структура и исключение</h3>
+<p>В node:assert/strict <code>equal</code> сравнивает примитивные значения или идентичность объектов. Для структуры массива или объекта используйте <code>deepEqual</code>. Синхронное исключение проверяйте через <code>throws(() =&gt; действие())</code>: важно передать функцию, а не вызвать её до проверки.</p>
+<pre><code>import test from 'node:test';
+import assert from 'node:assert/strict';
+
+function parseQuantity(value) {
+  const quantity = Number(value);
+  if (value.trim() === '' || !Number.isInteger(quantity) || quantity &lt; 1) {
+    throw new RangeError('Нужно целое количество от 1');
+  }
+  return { quantity };
+}
+test('строка количества превращается в объект', () =&gt; {
+  assert.deepEqual(parseQuantity('2'), { quantity: 2 });
+});
+test('нулевое количество отклоняется', () =&gt; {
+  assert.throws(() =&gt; parseQuantity('0'), RangeError);
+});</code></pre><p>Вход этой функции — строка. Допустимость значений вроде «1e2» или «0x10» зависит от требований: Number понимает их как числа. Если разрешены только десятичные цифры, одного преобразования Number недостаточно.</p>
+</section>

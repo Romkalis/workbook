@@ -1,0 +1,15 @@
+<section id="ts-enums">
+<h2>Enum и альтернативы</h2>
+<p>В <code>enum Phase { Draft, Review, Done }</code> имена обозначают числа 0, 1 и 2. Прочитайте обе стороны: Phase.Review получает число 1, Phase[1] получает строку "Review". Это обратное отображение есть у числового enum, но не у строкового.</p>
+<p>Enum именует набор вариантов и обычно создаёт объект в JavaScript. Это отличает его от union строковых литералов, который существует только при проверке типов.</p><h3 id="ts-enum-numeric">Числовой и строковый enum</h3><pre><code>enum Phase { Draft, Review, Done }
+enum Role { Student = &quot;student&quot;, Mentor = &quot;mentor&quot; }
+console.log(Phase.Draft, Phase.Done, Phase[1]); // 0 2 Review
+console.log(Role.Student); // student
+</code></pre><p>Без инициализатора числовые значения идут от нуля; после явно заданного числа продолжают увеличиваться. Числовой enum создаёт обратное отображение: по 1 можно получить Review. У строкового enum обратного отображения нет, значения задаются явно. Избегайте смешанных enum без особой необходимости: их труднее читать.</p><h3 id="ts-enum-alternatives">Когда достаточно объекта или union</h3><pre><code>const Phase = { Draft: &quot;draft&quot;, Done: &quot;done&quot; } as const;
+type Phase = typeof Phase[keyof typeof Phase];
+function statusText(phase: Phase): string {
+  return phase === Phase.Done ? &quot;Готово&quot; : &quot;Черновик&quot;;
+}
+console.log(statusText(&quot;done&quot;));
+</code></pre><p>Объект нужен при выполнении, если требуется <code>Phase.Done</code> или перебор вариантов; union подходит, если нужен только контракт. <code>const enum</code> обычно встраивает значения в места использования и не создаёт обычного объекта enum. У него есть ограничения при сборке некоторыми инструментами, поэтому для первых упражнений проще обычный enum или объект <code>as const</code>. Учтите: в новых проектах иногда включают настройку <code>erasableSyntaxOnly</code>. Она разрешает только такой TypeScript, который можно превратить в JavaScript простым удалением типов. Enum так не превратить (он создаёт объект), поэтому с этой настройкой он запрещён.</p>
+</section>

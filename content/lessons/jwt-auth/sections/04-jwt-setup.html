@@ -1,0 +1,21 @@
+<section id="jwt-setup">
+<h2>Подготовка проекта</h2>
+<pre><code>npm install express mongoose bcrypt jsonwebtoken dotenv cookie-parser</code></pre>
+<div class="tbl"><table>
+<thead><tr><th>Пакет</th><th>Зачем</th></tr></thead>
+<tbody>
+<tr><td><code>express</code></td><td>Сервер и маршруты</td></tr>
+<tr><td><code>mongoose</code></td><td>Работа с MongoDB через модели</td></tr>
+<tr><td><code>bcrypt</code></td><td>Хеширование паролей. К JWT не относится, но всегда идёт рядом</td></tr>
+<tr><td><code>jsonwebtoken</code></td><td>Создание и проверка токенов</td></tr>
+<tr><td><code>dotenv</code></td><td>Читает секреты из файла <code>.env</code>, чтобы они не лежали в коде</td></tr>
+<tr><td><code>cookie-parser</code></td><td>Нужен, только если хранить токен в cookie (раздел «Где хранить токен»)</td></tr>
+</tbody></table></div>
+<p>Пакет <code>bcrypt</code> собирается из кода на C++, и на некоторых системах установка падает. Тогда ставьте <code>bcryptjs</code>: он написан на чистом JavaScript, медленнее, но методы те же (<code>hash</code>, <code>compare</code>). Примеры этого урока мы проверяли именно на нём.</p>
+<p>Файл <code>.env</code> в корне проекта:</p>
+<pre><code>JWT_SECRET=длинная-случайная-строка-не-короче-32-символов
+JWT_EXPIRES_IN=1d
+MONGO_URI=mongodb://localhost:27017/myapp</code></pre>
+<p>Секрет должен быть длинным и случайным. Получить такой можно командой <code>node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"</code>.</p>
+<div class="warn"><b>Не отправляйте .env в git</b><p>Добавьте строку <code>.env</code> в <code>.gitignore</code>. Кто знает <code>JWT_SECRET</code>, тот может выпустить токен от имени любого пользователя.</p></div>
+</section>

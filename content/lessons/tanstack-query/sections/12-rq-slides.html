@@ -1,0 +1,144 @@
+<section id="rq-slides">
+<h2>Презентация для повторения</h2>
+<p>Те же темы коротко, по слайду на тему. Удобно пролистать перед тестом. Ошибки исходной презентации курса исправлены, подробности в разделах выше.</p>
+<h3 id="rq-slides-how">Как листать</h3>
+<p>Кнопками под слайдом или стрелками ← и → на клавиатуре, когда презентация в фокусе (щёлкните по ней или перейдите клавишей Tab). Если JavaScript выключен, все слайды показаны подряд.</p>
+<figure class="deck" tabindex="0" aria-roledescription="презентация" aria-label="TanStack Query: повторение">
+<div class="deck-stage">
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="1">
+<span class="kick">01 · Зачем</span>
+<h4>Два вида состояния</h4>
+<div class="slide-cols">
+<div><p><strong>Состояние клиента</strong></p><ul><li>живёт только в браузере</li><li>вы им полностью управляете</li><li>модалка, вкладка, текст в поле</li><li>→ useState, Zustand</li></ul></div>
+<div><p><strong>Серверное состояние</strong></p><ul><li>хранится на сервере</li><li>может устареть в любой момент</li><li>нужны кеш и статусы</li><li>→ TanStack Query</li></ul></div>
+</div>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="2">
+<span class="kick">02 · Подключение</span>
+<h4>QueryClient и провайдер</h4>
+<pre><code>const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 60_000, retry: 2 } },
+});
+
+&lt;QueryClientProvider client={queryClient}&gt;
+  &lt;App /&gt;
+&lt;/QueryClientProvider&gt;</code></pre>
+<p>Один клиент на приложение, создаётся вне компонента. Без провайдера хуки не работают.</p>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="3">
+<span class="kick">03 · Ключи</span>
+<h4>queryKey — адрес в кеше</h4>
+<pre><code>['games']
+['game', gameId]
+['games', 'slots']
+['games', { page: 2, limit: 20 }]</code></pre>
+<p>Всегда массив, сравнивается по содержимому. Всё, от чего зависит ответ, кладём в ключ.</p>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="4">
+<span class="kick">04 · Чтение</span>
+<h4>useQuery и статусы</h4>
+<pre><code>const { data, isLoading, isFetching, isError, error } = useQuery({
+  queryKey: ['games', categoryId],
+  queryFn: () =&gt; fetchGames(categoryId),
+  enabled: !!categoryId,
+});</code></pre>
+<ul><li><strong>isLoading</strong> — данных нет и идёт запрос → скелетон</li><li><strong>isFetching</strong> — идёт любой запрос, в том числе фоновый</li><li><strong>isError</strong> — ошибка, подробности в error</li></ul>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="5">
+<span class="kick">05 · fetch</span>
+<h4>Проверяйте response.ok</h4>
+<pre><code>const res = await fetch(url);
+if (!res.ok) throw new Error(`Ошибка ${res.status}`);
+return res.json();</code></pre>
+<p>fetch не считает 404 и 500 ошибкой. Без проверки ответ с ошибкой попадёт в data.</p>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="6">
+<span class="kick">06 · Свежесть</span>
+<h4>staleTime и gcTime</h4>
+<p>fresh → <em>прошёл staleTime</em> → stale → <em>компонент ушёл</em> → inactive → <em>прошёл gcTime</em> → удалено</p>
+<div class="slide-cols">
+<div><p><strong>staleTime</strong>, по умолчанию 0</p><p>Пока данные свежие, повторного запроса нет. Справочники → Infinity.</p></div>
+<div><p><strong>gcTime</strong>, по умолчанию 5 минут</p><p>Сколько неиспользуемые данные лежат в памяти.</p></div>
+</div>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="7">
+<span class="kick">07 · Автообновление</span>
+<h4>Когда библиотека сама перезапрашивает</h4>
+<ul><li><strong>refetchOnMount</strong> — появился компонент</li><li><strong>refetchOnWindowFocus</strong> — вернулись во вкладку</li><li><strong>refetchOnReconnect</strong> — вернулся интернет</li><li><strong>refetchInterval</strong> — опрос каждые N мс, в фоне на паузе</li></ul>
+<p>Первые три срабатывают только для устаревших данных.</p>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="8">
+<span class="kick">08 · Изменение</span>
+<h4>useMutation</h4>
+<pre><code>const { mutate, isPending } = useMutation({
+  mutationFn: createGame,
+  onSuccess: () =&gt; queryClient.invalidateQueries({ queryKey: ['games'] }),
+  onError: (error) =&gt; showToast(error.message),
+});
+
+mutate({ title: 'Новая игра' });</code></pre>
+<p><strong>mutate</strong> — запустил и забыл. <strong>mutateAsync</strong> — Promise, нужен try/catch.</p>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="9">
+<span class="kick">09 · Инвалидация</span>
+<h4>invalidateQueries</h4>
+<pre><code>// ['games'], ['games', 'slots'], ['games', { page: 2 }]
+queryClient.invalidateQueries({ queryKey: ['games'] });
+
+// только ровно ['games']
+queryClient.invalidateQueries({ queryKey: ['games'], exact: true });</code></pre>
+<p>По умолчанию ключ сравнивается по началу. Активные запросы обновятся сразу, остальные — при следующем использовании.</p>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="10">
+<span class="kick">10 · Зависимости</span>
+<h4>enabled и select</h4>
+<pre><code>const { data: orders } = useQuery({
+  queryKey: ['orders', user?.id],
+  queryFn: () =&gt; fetchOrders(user.id),
+  enabled: !!user?.id,          // ждём id
+  select: (list) =&gt; list.slice(0, 5), // только первые пять
+});</code></pre>
+<p>select меняет то, что получит компонент. В кеше остаётся полный ответ.</p>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="11">
+<span class="kick">11 · По кнопке</span>
+<h4>Запрос после отправки формы</h4>
+<pre><code>const [input, setInput] = useState('');
+const [term, setTerm] = useState('');
+
+useQuery({
+  queryKey: ['search', term],
+  queryFn: () =&gt; searchGames(term),
+  enabled: term !== '',
+});
+// onSubmit: setTerm(input)</code></pre>
+<p>В ключе только отправленный текст, поэтому набор букв запросов не вызывает.</p>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="12">
+<span class="kick">12 · Ручной кеш</span>
+<h4>useQueryClient</h4>
+<div class="slide-cols">
+<div><p><strong>getQueryData</strong> — прочитать без запроса</p><p><strong>setQueryData</strong> — записать руками</p></div>
+<div><p><strong>prefetchQuery</strong> — загрузить заранее</p><p><strong>clear</strong> — очистить всё при выходе</p></div>
+</div>
+<p>Оптимистичное обновление: cancelQueries → запомнить старое → setQueryData → при ошибке вернуть → в конце invalidateQueries.</p>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="13">
+<span class="kick">13 · Шпаргалка</span>
+<h4>Что выбрать</h4>
+<ul><li>Справочник → <code>staleTime: Infinity</code></li><li>Мешает обновление при фокусе → <code>refetchOnWindowFocus: false</code></li><li>Изменили данные → <code>invalidateQueries</code></li><li>Обновить экран без сервера → <code>setQueryData</code></li><li>Не мигать при смене страницы → <code>placeholderData: keepPreviousData</code></li></ul>
+</div>
+<div class="slide" role="group" aria-roledescription="слайд" aria-label="14">
+<span class="kick">14 · Версии</span>
+<h4>v5 против v4</h4>
+<ul><li>Только объект: <code>useQuery({ queryKey, queryFn })</code></li><li><code>cacheTime</code> → <code>gcTime</code></li><li><code>isLoading</code> у мутаций → <code>isPending</code></li><li><code>onSuccess</code>/<code>onError</code> в useQuery убраны</li><li><code>keepPreviousData: true</code> → <code>placeholderData: keepPreviousData</code></li></ul>
+</div>
+</div>
+<div class="deck-nav">
+<button type="button" data-deck-step="-1">← Назад</button>
+<span class="deck-count" aria-live="polite">1 / 14</span>
+<button type="button" data-deck-step="1">Вперёд →</button>
+</div>
+<figcaption>Презентация повторяет разделы урока и не содержит ничего нового: всё, что на слайдах, объяснено текстом выше.</figcaption>
+</figure>
+</section>

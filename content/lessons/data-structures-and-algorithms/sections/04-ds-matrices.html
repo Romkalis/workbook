@@ -1,0 +1,31 @@
+<section id="ds-matrices">
+<h2>Матрицы: строки и столбцы</h2>
+<p>Матрицу в JavaScript удобно представить массивом строк: <code>matrix[row][col]</code>. У массива массивов строки вообще могут иметь разную длину. Прямоугольность — условие задачи, а не свойство языка.</p>
+<h3 id="ds-matrix-walk">Обход по строкам и главная диагональ</h3>
+<p>В прямоугольнике r × c обработка каждой ячейки занимает Θ(r × c). В квадрате главная диагональ состоит из позиций, где row равен col: для её суммы нужен один цикл из n шагов.</p>
+<pre><code>function sumMatrix(matrix) {
+  let sum = 0;
+  for (const row of matrix) {
+    for (const value of row) sum += value;
+  }
+  return sum;
+}
+function diagonalSum(square) {
+  const n = square.length;
+  if (!square.every(row =&gt; row.length === n)) {
+    throw new Error('Нужна квадратная матрица');
+  }
+  let sum = 0;
+  for (let i = 0; i &lt; n; i++) sum += square[i][i];
+  return sum;
+}
+console.log(sumMatrix([[1, 2], [3, 4]])); // 10
+console.log(diagonalSum([[1, 2], [3, 4]])); // 5</code></pre>
+<p>У первого примера время пропорционально общему числу ячеек даже для строк разной длины. У второго проверка размеров и сумма занимают Θ(n), дополнительная память O(1).</p>
+<h3 id="ds-matrix-alias">Почему строки иногда меняются вместе</h3>
+<p>Из общих знаний: <code>Array(3).fill([0, 0])</code> кладёт в три позиции одну и ту же ссылку. Изменение одной строки видно во всех. Создавайте каждую строку отдельно:</p>
+<pre><code>const matrix = Array.from({ length: 3 }, () =&gt; Array(2).fill(0));
+matrix[0][0] = 7;
+console.log(matrix[1][0]); // 0</code></pre>
+<details class="q"><summary>Как пройти побочную диагональ квадрата?</summary><div class="a"><p>Для строки i берите столбец n − 1 − i. В квадрате 3 × 3 это (0, 2), (1, 1), (2, 0). Если складываете обе диагонали, центральную ячейку нечётного квадрата обычно нужно учесть один раз — уточните условие.</p></div></details>
+</section>

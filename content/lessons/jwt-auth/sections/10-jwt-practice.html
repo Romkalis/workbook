@@ -1,0 +1,15 @@
+<section id="jwt-practice">
+<h2>Проверяем, что всё работает</h2>
+<p>Пройдите по шагам. Запросы удобно отправлять из Postman, Insomnia или вкладки Network в DevTools.</p>
+<ol>
+<li><code>POST /api/auth/register</code> с <code>{"email":"a@a.ru","password":"1234"}</code> → ответ 201. В MongoDB у документа в поле <code>password</code> строка, начинающаяся с <code>$2</code>, а не «1234».</li>
+<li><code>POST /api/auth/login</code> с теми же данными → в ответе строка из трёх частей через точки.</li>
+<li>Вставьте токен на <a href="https://jwt.io">jwt.io</a> → в разделе Payload видно <code>{ id, iat, exp }</code>.</li>
+<li><code>GET /api/user/profile</code> без заголовка → 401 «Токен не предоставлен».</li>
+<li>Тот же запрос с заголовком <code>Authorization: Bearer &lt;токен&gt;</code> → 200 и данные профиля без пароля.</li>
+<li>Измените в токене одну букву во второй части → 401: подпись больше не совпадает.</li>
+<li>Временно поставьте <code>JWT_EXPIRES_IN=5s</code>, войдите заново, подождите 6 секунд → 401: срок истёк.</li>
+<li>Вход с неверным паролем → 401 с тем же текстом, что и для несуществующего email.</li>
+</ol>
+<p>Шаги 6 и 7 мы проверили на библиотеке jsonwebtoken: подделанный токен даёт <code>invalid signature</code>, просроченный — <code>jwt expired</code>.</p>
+</section>

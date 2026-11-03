@@ -1,0 +1,23 @@
+<section id="ts-modules">
+<h2>Модули и namespaces</h2>
+<p>Модуль — файл со своей областью имён и явно указанными зависимостями. Export делает объявление доступным другим модулям, import подключает его. Различайте тип, нужный компилятору, и значение, которое должно существовать при выполнении: import type подключает только первое.</p>
+<p>Модуль ограничивает область видимости файла и явно объявляет зависимости. Для современного прикладного кода используйте стандартные import/export; правильный способ запуска зависит от Node.js, браузера или бандлера.</p><h3 id="ts-module-import-export">Именованный экспорт, default и import type</h3><p>Создайте два файла рядом. В примере путь .js в исходном TS предназначен для выходного файла после компиляции. Файлы проверены вместе и выполнены после компиляции в CommonJS; при выборе нативного ESM дополнительно согласуйте module, moduleResolution и package.json с окружением.</p><pre><code>// model.ts
+export interface Lesson { title: string }
+export const prefix = &quot;Урок: &quot;;
+export default function format(lesson: Lesson): string {
+  return prefix + lesson.title;
+}
+</code></pre><pre><code>// main.ts
+import format, { prefix } from &quot;./model.js&quot;;
+import type { Lesson } from &quot;./model.js&quot;;
+const lesson: Lesson = { title: &quot;TypeScript&quot; };
+console.log(format(lesson), prefix.length);
+</code></pre><p>Именованный импорт использует фигурные скобки и имя экспорта; default можно локально назвать иначе. <code>import type</code> явно отделяет типы и исчезает из выпущенного кода. Интерфейс нельзя передать в instanceof: во время выполнения его нет. <code>export type</code> аналогично экспортирует только тип. Если в файле нет ни одного <code>import</code> или <code>export</code>, TypeScript по умолчанию может считать его обычным скриптом, у которого все переменные общие с другими такими файлами. Тогда две переменные <code>count</code> в разных файлах дадут ошибку «уже объявлена». Пустой <code>export {}</code> в начале файла явно делает его модулем со своими переменными.</p><h3 id="ts-namespaces">Namespace не заменяет модульную систему</h3><pre><code>namespace Geometry {
+  export interface Point { x: number; y: number }
+  export function length(point: Point): number {
+    return Math.hypot(point.x, point.y);
+  }
+}
+console.log(Geometry.length({ x: 3, y: 4 })); // 5
+</code></pre><p>Namespace группирует имена, а его экспортированные члены доступны через имя контейнера. Namespace с исполняемыми членами обычно создаёт JS-объект. Этот механизм встречается в старом коде и декларациях типов; он не описывает загрузку файлов так, как ES-модули. Оборачивать каждый модуль ещё и в namespace обычно избыточно. Файлы <code>.d.ts</code> описывают существующий JS или API и сами реализацию не создают.</p>
+</section>

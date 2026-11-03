@@ -1,0 +1,73 @@
+<section id="news-loader">
+<h2>Этап 4. Типизируем загрузчик и контроллер</h2>
+<p>Начните перенос с типов и небольших модулей без DOM, затем двигайтесь к загрузчику, контроллеру, представлениям и точке входа. Переименовывайте файлы небольшими группами, сразу исправляя импорты и проверяя сборку. Для каждого метода определите параметры, результат и владельца данных.</p>
+<h3 id="news-unknown">Ответ сервера начинается с unknown</h3>
+<p>Аннотация или утверждение типа не проверяют JSON. Полученный результат сначала считайте unknown, затем проверьте необходимые поля и только после этого передавайте в интерфейс. Пример ниже проверяет минимальную модель из предыдущего раздела и принимает дополнительные поля.</p>
+<pre><code>function parseArticle(value: unknown): Article {
+  if (
+    typeof value !== "object" || value === null ||
+    !("title" in value) || typeof value.title !== "string" ||
+    !("url" in value) || typeof value.url !== "string" ||
+    !("description" in value) ||
+    (typeof value.description !== "string" &amp;&amp; value.description !== null)
+  ) {
+    throw new Error("Некорректная статья");
+  }
+  return {
+    title: value.title,
+    url: value.url,
+    description: value.description,
+  };
+}
+
+function parseArticlesResponse(value: unknown): Article[] {
+  if (
+    typeof value !== "object" || value === null ||
+    !("status" in value) || value.status !== "ok" ||
+    !("articles" in value) || !Array.isArray(value.articles)
+  ) {
+    throw new Error("Некорректный ответ с новостями");
+  }
+  const items: unknown[] = value.articles;
+  return items.map(parseArticle);
+}
+
+const articles = parseArticlesResponse({
+  status: "ok",
+  articles: [{ title: "Новость", url: "https://example.org/", description: null }],
+});
+console.log(articles[0]?.title);</code></pre>
+<p>Это минимальная проверка успешного конверта. В приложении отдельно разберите status error, проверьте code и message и покажите понятную ошибку. Если добавляете urlToImage, author или publishedAt, расширьте и модель, и проверку. Не превращайте отсутствующее поле в заведомо допустимое без решения о поведении интерфейса.</p>
+<h3 id="news-generics">Generic связывает проверку и результат</h3>
+<p>Параметр T должен передавать реальную связь типов. В этом примере тип результата определяется переданным парсером. В отличие от слепого утверждения JSON как T, функция действительно вызывает проверку.</p>
+<pre><code>type Decoder&lt;T&gt; = (value: unknown) =&gt; T;
+
+class NewsLoader {
+  public constructor(private readonly baseUrl: string) {}
+
+  public async get&lt;T&gt;(path: string, decode: Decoder&lt;T&gt;): Promise&lt;T&gt; {
+    const response = await fetch(new URL(path, this.baseUrl));
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const raw: unknown = await response.json();
+    return decode(raw);
+  }
+}
+
+async function loadArticles(loader: NewsLoader): Promise&lt;Article[]&gt; {
+  return loader.get("mocks/everything", parseArticlesResponse);
+}
+
+// Проверка без сети: подставляем контролируемый ответ.
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async () =&gt; new Response(JSON.stringify({
+  status: "ok", articles: [],
+}));
+loadArticles(new NewsLoader("https://example.org/"))
+  .then((items) =&gt; console.log(items.length))
+  .finally(() =&gt; { globalThis.fetch = originalFetch; });</code></pre>
+<p>Подмена fetch в конце нужна только для самостоятельного запуска учебного примера, в приложение её переносить не следует. Для реального API стройте параметры через URLSearchParams в отдельном месте и согласуйте путь с сервером. Начальный слеш в path заменяет путь baseUrl; относительный путь сохраняет его при корректном завершающем слеше базы.</p>
+<p>private закрывает доступ к полю в проверке TypeScript, public показывает внешний метод класса. Это не защита API-ключа в браузере. Подробнее: <a href="/lessons/typescript-basic#ts-class-inheritance">модификаторы доступа</a> и <a href="/lessons/typescript-basic#ts-generic-functions">generics</a>.</p>
+<p><b>Готово, когда:</b> успешный ответ и сбой проходят по понятным веткам, обработчики получают правильные типы, а в catch ошибка сужается из unknown через instanceof Error или другую проверку.</p>
+</section>

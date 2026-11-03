@@ -1,0 +1,30 @@
+<section id="ts-assertions">
+<h2>as, non-null assertion, as const и satisfies</h2>
+<p>Утверждение типа — просьба компилятору считать значение известным автору типом. Оно не проверяет данные. Сравните три задачи: Number(value) преобразует значение, typeof value проверяет его во время выполнения, а value as number лишь меняет представление для проверки типов.</p>
+<p>Эти конструкции похожи внешне, но решают разные задачи. Различайте проверку контракта и просьбу поверить программисту.</p><h3 id="ts-type-assertions">Утверждение as не проверяет значение</h3><pre><code>const raw: unknown = &quot;42&quot;;
+const asserted = raw as number;
+const converted = Number(raw);
+console.log(typeof asserted, typeof converted); // string number
+</code></pre><p><code>as number</code> не преобразовало строку в число. Для преобразования нужен Number, а для безопасности ещё и проверка результата, например Number.isFinite. Утверждения разрешаются при достаточном пересечении типов; двойное <code>as unknown as T</code> позволяет обойти ограничение и часто скрывает ошибку. Предпочитайте сужение проверкой, если форма данных заранее неизвестна.</p><h3 id="ts-non-null">Оператор !: ответственность на авторе</h3><pre><code>function size(value: string | null): number {
+  if (value === null) return 0;
+  return value.length;
+}
+const maybe: string | null = &quot;TS&quot;;
+console.log(maybe!.length, size(null)); // 2 0
+</code></pre><p><code>!</code> после выражения (<code>input!.value</code>) — это обещание компилятору: «здесь точно не null». TypeScript поверит на слово и ничего не проверит. Если обещание окажется ложным, программа упадёт при запуске, как в обычном JavaScript. Для DOM безопаснее проверить результат querySelector и при необходимости instanceof HTMLInputElement. <code>value?.length</code> безопасно возвращает undefined при отсутствии значения; это исполняемая операция, в отличие от утверждения !. Префиксный <code>!value</code> — обычное логическое отрицание JS.</p><h3 id="ts-const-assertions">as const сохраняет литералы</h3><pre><code>const options = { mode: &quot;read&quot;, size: 2 } as const;
+const directions = [&quot;up&quot;, &quot;down&quot;] as const;
+type Direction = typeof directions[number]; // &quot;up&quot; | &quot;down&quot;
+const direction: Direction = &quot;up&quot;;
+console.log(options.mode, direction);
+if (false) {
+  // @ts-expect-error: свойство стало readonly
+  options.size = 3;
+}
+</code></pre><p>Без <code>as const</code> запись <code>const roles = ["admin", "user"]</code> получает тип <code>string[]</code>: просто какие-то строки. С <code>as const</code> тип становится <code>readonly ["admin", "user"]</code>: TypeScript запоминает точные значения и запрещает менять массив. Как и <code>readonly</code>, это работает только при проверке типов. Заморозить объект в работающей программе может только <code>Object.freeze</code>.</p><h3 id="ts-satisfies">satisfies проверяет совместимость</h3><pre><code>type Channels = &quot;success&quot; | &quot;error&quot;;
+const colors = {
+  success: [0, 128, 0],
+  error: &quot;red&quot;
+} satisfies Record&lt;Channels, string | [number, number, number]&gt;;
+console.log(colors.error.toUpperCase(), colors.success[1]);
+</code></pre><p>При аннотации <code>: Record&lt;...&gt;</code> чтение каждого значения дало бы широкий union. <code>satisfies</code> проверяет контракт, сохраняя полезную конкретику выражения: error остаётся строкой, success — кортежем. Контекст может влиять на вывод, поэтому это не обещание «тип никогда не меняется». Оператор появился в TS 4.9; в видео 2021 года его не будет.</p><div class="tbl"><table><thead><tr><th scope="col">Запись</th><th scope="col">Задача</th><th scope="col">Проверка в runtime</th></tr></thead><tbody><tr><td><code>: T</code></td><td>Задать тип и проверить присваивание</td><td>Нет</td></tr><tr><td><code>as T</code> и <code>!</code></td><td>Утвердить то, что автор считает известным</td><td>Нет</td></tr><tr><td><code>as const</code></td><td>Сохранить литеральность и readonly</td><td>Нет</td></tr><tr><td><code>satisfies T</code></td><td>Проверить контракт выражения</td><td>Нет</td></tr><tr><td><code>typeof</code>, <code>instanceof</code></td><td>Проверить реальное значение и сузить тип</td><td>Да</td></tr></tbody></table></div>
+</section>

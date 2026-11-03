@@ -1,0 +1,29 @@
+<section id="rq-setup">
+<h2>Подключение: QueryClient и провайдер</h2>
+<p>Библиотека ставится одной командой:</p>
+<pre><code>npm install @tanstack/react-query</code></pre>
+<p><strong>QueryClient</strong> — это хранилище всех запросов и их ответов, то есть кеш. В приложении он один. В нём лежат данные, статусы и общие настройки.</p>
+<p><strong>QueryClientProvider</strong> передаёт этот клиент всем компонентам через React Context. Без провайдера <code>useQuery</code> и <code>useMutation</code> не найдут кеш и выбросят ошибку.</p>
+<pre><code>import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000, // данные свежие 1 минуту (для всех запросов)
+      retry: 2,             // при ошибке повторить 2 раза
+    },
+  },
+});
+
+export function App() {
+  return (
+    &lt;QueryClientProvider client={queryClient}&gt;
+      &lt;Routes /&gt;
+    &lt;/QueryClientProvider&gt;
+  );
+}</code></pre>
+<p><code>defaultOptions</code> избавляет от повторов: настройку, заданную здесь, получит каждый <code>useQuery</code>. Конкретный запрос всё равно может её переопределить.</p>
+<h3 id="rq-setup-once">Клиент создаётся один раз</h3>
+<p>Обратите внимание: <code>new QueryClient()</code> стоит вне компонента. Если написать его внутри функции компонента, при каждом рендере будет создаваться новый пустой кеш, и все данные пропадут. Если клиент всё же нужно создать внутри компонента (так делают в Next.js), его кладут в <code>useState(() =&gt; new QueryClient())</code>: тогда он создаётся один раз. <em>(из документации TanStack Query)</em></p>
+<div class="note"><b>Стандартные настройки</b><p>Если ничего не задавать: <code>staleTime</code> = 0, <code>gcTime</code> = 5 минут, неудачный запрос повторяется 3 раза с растущей паузой, обновление при фокусе окна, монтировании и восстановлении сети включено. Что это значит, разберём дальше.</p></div>
+</section>

@@ -1,0 +1,44 @@
+<section id="news-contracts">
+<h2>Этап 3. Описываем данные до переноса методов</h2>
+<p>Разделите три сущности: издатель из списка источников, статья и конверт ответа API. Объект source внутри статьи может содержать лишь id и name; не назначайте ему интерфейс полного издателя с обязательными country и category.</p>
+<h3 id="news-api-model">Контракты внешних данных</h3>
+<p>Сверьте <a href="https://newsapi.org/docs/endpoints/sources">Sources</a> и <a href="https://newsapi.org/docs/endpoints/everything">Everything</a> с ответами в Network. Выпишите используемые поля, а для отсутствующих значений предусмотрите null. Внутреннюю модель можно сделать уже ответа сервера, но не выдавайте её за полное описание API.</p>
+<p>Разместите общие контракты в отдельном модуле типов. Опишите успешный ответ источников, успешный ответ новостей и ошибку с code и message. Объедините их по литеральному status: после проверки status компилятор должен понимать, доступны ли articles, sources или сообщение ошибки.</p>
+<h3 id="news-card-model">Небольшая модель и полезные преобразования</h3>
+<p>Пример ниже — авторская <b>внутренняя модель карточки</b>, а не полный DTO News API. Он объединяет enum, interface, union, function type и три обязательных utility types. В следующих двух примерах используются эти объявления; проверяйте все три блока в одном TS-модуле.</p>
+<pre><code>enum LoadPhase {
+  Idle = "idle",
+  Loading = "loading",
+  Ready = "ready",
+  Failed = "failed",
+}
+
+interface Article {
+  title: string;
+  url: string;
+  description: string | null;
+}
+
+type Card = Readonly&lt;Pick&lt;Article, "title" | "url"&gt;&gt;;
+interface Filters { source: string; query: string }
+type FilterPatch = Partial&lt;Filters&gt;;
+type OnArticles = (articles: readonly Article[]) =&gt; void;
+type LoadState =
+  | { phase: LoadPhase.Idle }
+  | { phase: LoadPhase.Loading }
+  | { phase: LoadPhase.Ready; articles: readonly Article[] }
+  | { phase: LoadPhase.Failed; message: string };
+
+const filters: Filters = { source: "bbc-news", query: "" };
+const patch: FilterPatch = { query: "typescript" };
+const nextFilters: Filters = { ...filters, ...patch };
+const card: Card = { title: "Новость", url: "https://example.org/" };
+const onArticles: OnArticles = (articles) =&gt; {
+  console.log(articles.length);
+};
+const state: LoadState = { phase: LoadPhase.Ready, articles: [] };
+onArticles(state.articles);
+console.log(nextFilters.query, card.title);</code></pre>
+<p>Pick оставляет поля для карточки, Readonly запрещает их менять через этот тип, Partial описывает частичное обновление фильтров. Это статические ограничения: Readonly не замораживает объект в runtime. Объявления должны использоваться в приложении, а не лежать отдельным файлом ради баллов. Повторить: <a href="/lessons/typescript-basic#ts-utility-types">utility types</a> и <a href="/lessons/typescript-basic#ts-enums">enum</a>.</p>
+<p><b>Готово, когда:</b> формы данных согласованы между загрузчиком, контроллером и представлением, а null не спрятан утверждением типа.</p>
+</section>

@@ -1,0 +1,86 @@
+<section id="console">
+  <h2>Console <span class="src">Теория: Console overview; Log messages in the Console; Console reference → Persist messages</span></h2>
+<p>Лог — выведенное сообщение. Исключение — ошибка, которая прерывает обычное выполнение текущего кода. Стек вызовов показывает путь вложенных вызовов функций до места ошибки. Красная строка помогает найти причину, но сама по себе ещё не объясняет, как её исправить.</p>
+  <p>Консоль решает две задачи: показывает сообщения (ваши и браузера) и работает как командная строка JavaScript в контексте текущей страницы. Открыть её можно через вкладку Console, а на любой другой вкладке клавиша <code>Esc</code> выдвигает нижнюю панель Console drawer. Прямое сочетание: <code>Ctrl+Shift+J</code> (<code>Cmd+Option+J</code>).</p>
+
+  <figure class="shot"><button type="button" class="zoom" data-w="1500" aria-label="Открыть скриншот на весь экран: Console с сообщениями демо-страницы"><img src="/img/devtools/console.webp" alt="Console с сообщениями демо-страницы" width="1600" height="524"></button><figcaption><strong>Console с сообщениями демо-страницы.</strong> В журнале <code>log</code>, <code>warn</code>, <code>error</code>, группа «Фрукты» и 404 от самого браузера.<ol><li><b>1</b>Кнопка Clear console</li><li><b>2</b>Поле Filter</li><li><b>3</b>Выпадающий список Default levels</li><li><b>4</b>Ссылка <code>app.js:2</code> на источник сообщения</li><li><b>5</b>Шестерёнка Console settings</li></ol><p class="zoomhint">Нажмите на картинку, чтобы открыть крупно.</p></figcaption></figure>
+
+  <h3 id="kak-vyvesti-soobschenie">Как вывести сообщение</h3>
+  <p>Основной инструмент — объект <code>console</code>. Методы для разных случаев:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Метод</th><th>Что делает</th><th>Уровень</th></tr></thead>
+    <tbody>
+      <tr><td><code>console.log()</code>, <code>console.info()</code></td><td>Обычное сообщение</td><td>Info</td></tr>
+      <tr><td><code>console.debug()</code></td><td>Отладочное сообщение, по умолчанию скрыто</td><td>Verbose</td></tr>
+      <tr><td><code>console.warn()</code></td><td>Предупреждение, жёлтая строка</td><td>Warning</td></tr>
+      <tr><td><code>console.error()</code></td><td>Ошибка, красная строка со стеком вызовов</td><td>Error</td></tr>
+      <tr><td><code>console.table(data)</code></td><td>Массив объектов выводится таблицей</td><td>Info</td></tr>
+      <tr><td><code>console.group()</code> / <code>groupEnd()</code></td><td>Вкладывает сообщения друг в друга, со сворачиванием</td><td>Info</td></tr>
+      <tr><td><code>console.trace()</code></td><td>Печатает стек вызовов в этой точке</td><td>Info</td></tr>
+    </tbody>
+  </table></div>
+  <p>В строку можно подставлять значения: <code>console.log('Привет, %s', name)</code>; формат <code>%c</code> принимает CSS: <code>console.log('%cВажно', 'color: red; font-size: 20px')</code>. У каждого сообщения справа ссылка на файл и строку, из которой оно выведено (на скриншоте <code>app.js:2</code>), по ней можно перейти в Sources.</p>
+  <div class="note">
+    <b>Что видно на скриншотах</b>
+    <p><code>console.table</code>, вызванный до того, как DevTools был открыт, выводится как обычный массив <code>Array(2)</code>, а не как таблица. Таблица появляется, если открыть DevTools и перезагрузить страницу или вызвать метод заново. Это важно для практики: открывайте DevTools до загрузки страницы.</p>
+  </div>
+
+  <h3 id="soobscheniya-ot-samogo-brauzera">Сообщения от самого браузера</h3>
+  <p>Кроме ваших логов консоль показывает то, что генерирует браузер: ошибки загрузки ресурсов (<code>404 Not Found</code>), необработанные исключения (<code>Uncaught TypeError: ...</code>) с указанием строки и стека, предупреждения о производительности вроде <code>[Violation]</code>. На демо-странице вы увидите 404 для несуществующей <code>missing.png</code>. Красные сообщения это первое, что нужно прочесть, когда «страница сломалась».</p>
+
+  <h3 id="filtraciya-soobscheniy">Фильтрация сообщений</h3>
+  <p>Когда сообщений много, помогают фильтры в верхней панели:</p>
+  <ul>
+    <li><strong>выпадающий список Default levels</strong> включает и выключает уровни Verbose, Info, Warnings, Errors;</li>
+    <li><strong>поле Filter</strong> ищет по тексту; понимает регулярные выражения (в слешах, <code>/ошибка \d+/</code>), исключение через минус (<code>-текст</code>), фильтр по источнику <code>url:app.js</code> и его отрицание <code>-url:app.js</code>;</li>
+    <li><strong>боковая панель</strong> (значок слева сверху) группирует сообщения по файлам и типам;</li>
+    <li><strong>User messages</strong> оставляет только то, что вывел ваш код, без сообщений браузера.</li>
+  </ul>
+
+  <figure class="dg">
+    <p class="dg-title">Уровни сообщений и какие методы им соответствуют</p>
+    <ol class="seqlist" aria-hidden="true">
+      <li class="card lit" style="--i:0"><span class="hd">Verbose<span class="tag">выключен по умолчанию</span></span><span class="ln">console.debug()</span></li>
+      <li class="card lit" style="--i:1"><span class="hd">Info</span><span class="ln">console.log(), console.info(), console.table(), console.group()</span></li>
+      <li class="card lit no" style="--i:2"><span class="hd">Warnings</span><span class="ln">console.warn(), предупреждения браузера</span></li>
+      <li class="card lit no" style="--i:3"><span class="hd">Errors</span><span class="ln">console.error(), исключения, 404 и другие сбои загрузки</span></li>
+    </ol>
+    <figcaption>Каждый метод относится к определённому уровню, а фильтр уровней показывает или скрывает целые категории. Если вашего <code>console.debug</code> не видно, дело не в коде, а в том, что уровень Verbose выключен.</figcaption>
+  </figure>
+
+  <h3 id="upravlenie-zhurnalom">Управление журналом</h3>
+  <p>По умолчанию при каждой навигации (переходе на другую страницу или перезагрузке) консоль очищается. Если нужно сохранить сообщения, открывайте настройки консоли (значок шестерёнки) и включайте <strong>Keep log</strong>. В старых версиях Chrome и в статье для этого пункта используется название Preserve log: это одна и та же настройка, её переименовали. Вручную журнал чистится так:</p>
+  <ul>
+    <li>кнопка Clear console (значок «перечёркнутый круг»);</li>
+    <li><code>Ctrl+L</code> (на Mac <code>Cmd+K</code>);</li>
+    <li>из кода или консоли: <code>console.clear()</code> и просто <code>clear()</code>.</li>
+  </ul>
+
+  <figure class="shot"><button type="button" class="zoom" data-w="1500" aria-label="Открыть скриншот на весь экран: Настройки консоли"><img src="/img/devtools/console-settings.webp" alt="Настройки консоли" width="1600" height="582"></button><figcaption><strong>Настройки консоли.</strong> Открывается шестерёнкой справа вверху.<ol><li><b>1</b>Keep log</li><li><b>2</b>Network messages</li><li><b>3</b>Log XMLHttpRequests</li><li><b>4</b>Eager evaluation</li></ol><p class="zoomhint">Нажмите на картинку, чтобы открыть крупно.</p></figcaption></figure>
+
+  <p>Другие полезные настройки на этой панели:</p>
+  <ul>
+    <li><strong>Network messages</strong> (раньше Hide network): показывать ли сообщения о сетевых запросах;</li>
+    <li><strong>Log XMLHttpRequests</strong> — выводить в консоль каждый XHR-запрос;</li>
+    <li><strong>Eager evaluation</strong> — предпросмотр результата выражения ещё до нажатия Enter (серым под строкой ввода);</li>
+    <li><strong>Autocomplete from history</strong>, <strong>Group similar</strong> (схлопывает одинаковые сообщения в одну строку со счётчиком), <strong>Selected context only</strong>.</li>
+  </ul>
+
+  <h3 id="konsol-kak-komandnaya-stroka">Консоль как командная строка</h3>
+  <p>В строке ввода (внизу) можно выполнять любой JavaScript. Результат выражения печатается сразу. Важные трюки:</p>
+  <ul>
+    <li><code>Shift+Enter</code> переносит строку, не выполняя команду;</li>
+    <li>стрелка вверх возвращает прошлые команды;</li>
+    <li><code>$0</code> — выделенный в Elements элемент, <code>$_</code> — результат прошлого выражения;</li>
+    <li>вложенный объект раскрывается треугольником: собственные свойства отображаются жирным, унаследованные бледнее, плюс служебные <code>[[Prototype]]</code>; приватные поля показываются как <code>#name</code>;</li>
+    <li><strong>Live Expressions</strong> (значок глаза в панели) закрепляет выражение над журналом и пересчитывает его каждые 250 мс, показывая текущее значение без новых строк в журнале. В поле Live Expression <code>Shift+Enter</code> переносит выражение на новую строку;</li>
+    <li>выпадающий список <strong>JavaScript context</strong> (по умолчанию top) позволяет выполнять код внутри iframe или расширения;</li>
+    <li>утилита <code>debug(fn)</code> ставит брейкпоинт на первую строку функции <code>fn</code>, о брейкпоинтах дальше.</li>
+  </ul>
+  <p>Консоль — это <strong>REPL</strong> (read–eval–print loop): интерактивная среда, которая принимает выражение, выполняет его и показывает результат. Подсказка <strong>Autocomplete from history</strong> предлагает ранее введённые команды, пока вы печатаете; это поиск по истории консоли, а не только дополнение имён JavaScript.</p>
+  <h3 id="assert-v-konsoli">Проверка условия через <code>console.assert</code></h3>
+  <p><code>console.assert(condition, message)</code> выводит сообщение в консоль, только если условие ложно. В отличие от оператора <code>throw</code> он не выбрасывает исключение и не останавливает программу; когда условие истинно, сообщения нет.</p>
+  <pre><code>const total = 5 + 1;
+console.assert(total === 6, 'Сумма должна быть 6'); // ничего не выведет
+console.assert(total === 51, 'Ожидали ошибочную сумму'); // выведет сообщение об ошибке</code></pre>
+</section>

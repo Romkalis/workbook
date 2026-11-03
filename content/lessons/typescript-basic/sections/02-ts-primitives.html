@@ -1,0 +1,28 @@
+<section id="ts-primitives">
+<h2>Примитивы, массивы и кортежи</h2>
+<p>Примитив — простое значение вроде строки, числа или boolean, в отличие от объекта с полями. Union, или объединение, записывают через вертикальную черту: <code>string | null</code> разрешает строку либо null. Кортеж — массив с заранее заданным смыслом и типом каждой позиции.</p>
+<p>Аннотация задаёт множество допустимых значений. Пишите <code>string</code>, <code>number</code>, <code>boolean</code> со строчной буквы: <code>String</code>, <code>Number</code>, <code>Boolean</code> относятся к объектным обёрткам. Отдельных типов int и float нет.</p><h3 id="ts-primitive-values">Семь видов примитивных значений</h3><pre><code>let title: string = &quot;Учебник&quot;;
+let progress: number = 0.5;
+let finished: boolean = false;
+const big: bigint = 12n;
+const key: symbol = Symbol(&quot;lesson&quot;);
+let missing: undefined = undefined;
+let empty: null = null;
+console.log(title, progress, finished, big, typeof key, missing, empty);
+if (false) {
+  // @ts-expect-error: boolean не принимает строку
+  finished = &quot;false&quot;;
+}
+</code></pre><p><code>bigint</code> — целые произвольной точности, <code>symbol</code> — уникальные идентификаторы. Для литералов bigint нужен подходящий target, здесь ES2020. <code>null</code> и <code>undefined</code> при строгой проверке не подставляются произвольно вместо строки или числа. Если отсутствие допустимо, добавьте его явно через объединение: <code>string | null</code>.</p><h3 id="ts-arrays-tuples">Массив — повторяющиеся элементы, кортеж — известные позиции</h3><pre><code>const scores: number[] = [80, 95];
+const names: Array&lt;string&gt; = [&quot;Анна&quot;, &quot;Лев&quot;];
+const pair: [string, number] = [&quot;Анна&quot;, 95];
+const point: readonly [number, number] = [10, 20];
+console.log(scores.map(n =&gt; n + 1), names.join(&quot;, &quot;), pair[1], point[0]);
+if (false) {
+  // @ts-expect-error: массив принимает только числа
+  scores.push(&quot;100&quot;);
+  // @ts-expect-error: readonly запрещает запись через point
+  point[0] = 5;
+}
+</code></pre><p><code>number[]</code> и <code>Array&lt;number&gt;</code> равнозначны. В кортеже <code>[string, number]</code> первый элемент — строка, второй — число; порядок важен. <code>readonly</code> запрещает запись только на этапе проверки: редактор подчеркнёт <code>scores[0] = 5</code>. После компиляции типов не остаётся, и в работающей программе массив можно изменить, как обычно. Ещё одна ловушка: для массива <code>number[]</code> TypeScript считает, что <code>scores[100]</code> — это <code>number</code>, хотя на деле там <code>undefined</code>. Флаг <code>noUncheckedIndexedAccess</code> в tsconfig исправляет это: тип становится <code>number | undefined</code>, и компилятор заставит проверить значение.</p><details class="q"><summary>Когда нужен кортеж вместо массива?</summary><div class="a"><p>Когда позиции имеют разный смысл и известный порядок: например, координаты или пара «имя, балл». Для списка учеников нужен массив объектов.</p></div></details>
+</section>

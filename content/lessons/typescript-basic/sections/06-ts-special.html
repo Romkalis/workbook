@@ -1,0 +1,21 @@
+<section id="ts-special">
+<h2>any, unknown, never и void</h2>
+<p>Разделяйте две ситуации: неизвестно, что пришло снаружи (unknown), и значение вообще невозможно получить на данном пути (never). Void описывает результат, который вызывающий код не использует. Ни один из этих типов не является командой преобразовать реальные данные.</p>
+<h3 id="ts-any-unknown">Доверять данным или проверять их</h3><p><code>any</code> отключает значимую проверку операций: можно обращаться к несуществующим полям и передавать значение дальше почти куда угодно. Ошибка обнаружится лишь при выполнении. <code>unknown</code> тоже принимает любое значение, но не позволяет пользоваться им до проверки. Для непроверенных внешних данных это удобная отправная точка.</p><pre><code>function readTitle(value: unknown): string {
+  if (typeof value === &quot;object&quot; &amp;&amp; value !== null &amp;&amp; &quot;title&quot; in value) {
+    if (typeof value.title === &quot;string&quot;) return value.title;
+  }
+  throw new Error(&quot;Ожидался объект со строковым title&quot;);
+}
+const raw: unknown = JSON.parse(&#x27;{&quot;title&quot;:&quot;Учебник&quot;}&#x27;);
+console.log(readTitle(raw));
+try { readTitle({ title: 5 }); }
+catch { console.log(&quot;Некорректные данные отклонены&quot;); }
+</code></pre><p><code>JSON.parse</code> обычно возвращает any. Явно сохранив результат как unknown, мы обязуемся проверить форму. Предикат <code>value is Student</code> может оформить такую проверку в переиспользуемую функцию, но его реализация должна действительно проверять нужные поля: компилятор доверяет написанному предикату.</p><h3 id="ts-never-void">Невозможный результат и игнорируемый результат</h3><p><code>never</code> не содержит ни одного значения: функция всегда бросает исключение или не заканчивает выполнение, либо ветка логически недостижима. <code>void</code> в контракте колбэка означает, что вызывающий код не использует результат. <code>undefined</code> — конкретное значение, это другая идея.</p><pre><code>function fail(message: string): never { throw new Error(message); }
+const items: string[] = [];
+const save: (text: string) =&gt; void = text =&gt; items.push(text);
+save(&quot;TS&quot;);
+console.log(items.length); // 1
+try { fail(&quot;Нет урока&quot;); } catch { console.log(&quot;Ошибка обработана&quot;); }
+</code></pre><p><code>push</code> возвращает число, но функция подходит колбэку с результатом void: контракт позволяет проигнорировать число. Из этого не следует, что функция с явной аннотацией <code>function f(): void</code> может возвращать любое значение.</p>
+</section>

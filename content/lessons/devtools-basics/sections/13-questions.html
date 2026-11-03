@@ -1,0 +1,50 @@
+<section id="questions">
+  <h2>Вопросы для самопроверки</h2>
+  <p>Сначала отвечайте вслух, потом открывайте ответ. Если ответ звучит как «ну, там такая кнопка...», вернитесь в раздел и повторите действие руками.</p>
+  <p><button class="btn" data-toggle-answers type="button">Раскрыть все ответы</button></p>
+
+  <p class="qgroup">Общее</p>
+  <details class="q"><summary>Как открыть DevTools и чем это можно заменить, если F12 не работает?</summary><div class="a"><p><code>F12</code>, <code>Ctrl+Shift+I</code> (<code>Cmd+Option+I</code>), правая кнопка → Inspect или меню Chrome → More tools → Developer tools.</p></div></details>
+  <details class="q"><summary>Для чего нужно командное меню?</summary><div class="a"><p>Запуск любых действий DevTools по названию: переключение панелей, скриншоты, блокировка запросов, запуск сниппетов.</p></div></details>
+  <details class="q"><summary>Что общего у всех правок, сделанных в DevTools?</summary><div class="a"><p>Они локальные и временные: меняют только вашу вкладку и пропадают при перезагрузке. Исключение: Workspace, который сохраняет правки в файлы на диске.</p></div></details>
+
+  <p class="qgroup">Elements</p>
+  <details class="q"><summary>Чем Elements отличается от «Просмотра кода страницы»?</summary><div class="a"><p>Elements показывает живой DOM, то есть результат работы скриптов, а не исходный файл с сервера.</p></div></details>
+  <details class="q"><summary>Как быстро найти элемент на странице в дереве DOM?</summary><div class="a"><p>Правая кнопка → Inspect либо инструмент выбора <code>Ctrl+Shift+C</code>. Искать по дереву можно через <code>Ctrl+F</code>: текст, селектор или XPath.</p></div></details>
+  <details class="q"><summary>Как изменить HTML целого узла вместе с вложенным содержимым?</summary><div class="a"><p>Контекстное меню → Edit as HTML, применить правку <code>Ctrl+Enter</code>.</p></div></details>
+  <details class="q"><summary>Что такое <code>$0</code>?</summary><div class="a"><p>Последний выделенный в Elements узел, доступный в консоли как переменная. Для сохранения узла есть ещё Store as global variable.</p></div></details>
+  <details class="q"><summary>Как посмотреть стили, которые есть только при наведении курсора?</summary><div class="a"><p>Кнопка <code>:hov</code> в Styles (или Force state в меню узла) принудительно включает <code>:hover</code>, <code>:active</code>, <code>:focus</code>.</p></div></details>
+  <details class="q"><summary>Что значит зачёркнутое свойство в Styles? А бледное?</summary><div class="a"><p>Зачёркнутое: перебито более приоритетным правилом или значение невалидно (тогда есть значок предупреждения). Бледное: валидно, но не действует в этом контексте, значок «i» объяснит почему.</p></div></details>
+  <details class="q"><summary>Как узнать, в каком файле и строке объявлено свойство?</summary><div class="a"><p>По ссылке справа от блока правила (<code>style.css:8</code>) либо <code>Ctrl</code>-клик по имени свойства.</p></div></details>
+  <details class="q"><summary>Что показывает Computed и чем он лучше Styles?</summary><div class="a"><p>Итоговые вычисленные значения после каскада и наследования, с возможностью развернуть свойство и увидеть, какое правило победило. Styles показывает исходные правила, Computed отвечает на вопрос «что в итоге».</p></div></details>
+
+  <p class="qgroup">Console</p>
+  <details class="q"><summary>Какие уровни сообщений есть в консоли и какие методы к ним относятся?</summary><div class="a"><p>Verbose (<code>debug</code>), Info (<code>log</code>, <code>info</code>), Warnings (<code>warn</code>), Errors (<code>error</code>). Verbose по умолчанию скрыт.</p></div></details>
+  <details class="q"><summary>Как вывести массив объектов таблицей?</summary><div class="a"><p><code>console.table(array)</code>. Если DevTools открыт уже после вызова, таблицы может не быть, а будет обычный вывод массива.</p></div></details>
+  <details class="q"><summary>Как оставить в консоли только сообщения вашего кода, без браузерных?</summary><div class="a"><p>Включить фильтр User messages в боковой панели, либо фильтровать по <code>url:app.js</code>.</p></div></details>
+  <details class="q"><summary>Что делает Keep log (Preserve log) и когда он нужен?</summary><div class="a"><p>Не очищает консоль при перезагрузке и переходах. Нужен, когда ошибка происходит как раз в момент навигации или отправки формы.</p></div></details>
+  <details class="q"><summary>Как очистить консоль?</summary><div class="a"><p>Кнопка Clear, <code>Ctrl+L</code>, <code>console.clear()</code> или <code>clear()</code>.</p></div></details>
+  <details class="q"><summary>Что такое Live Expressions?</summary><div class="a"><p>Выражение, значение которого консоль пересчитывает постоянно и показывает над журналом. Подходит для слежения за переменной, не засоряя консоль.</p></div></details>
+
+  <p class="qgroup">Sources</p>
+  <details class="q"><summary>Как устроено дерево файлов на вкладке Page?</summary><div class="a"><p>Верхний уровень (top) → источник (origin) → папки и файлы. У iframe свой отдельный раздел.</p></div></details>
+  <details class="q"><summary>Сохранятся ли изменения кода, сделанные в редакторе Sources?</summary><div class="a"><p>Нет, если не подключён Workspace: они действуют до перезагрузки. В JS применяется только изменённое тело функций, и нужно нажать <code>Ctrl+S</code>.</p></div></details>
+  <details class="q"><summary>Назовите виды брейкпоинтов.</summary><div class="a"><p>На строку, условный, logpoint, на событие (Event listener), на изменение DOM, на XHR/fetch, на исключение.</p></div></details>
+  <details class="q"><summary>Чем Step over отличается от Step into?</summary><div class="a"><p>Step over выполняет строку целиком, не заходя в функции. Step into заходит внутрь вызванной функции.</p></div></details>
+  <details class="q"><summary>Как найти код, обрабатывающий клик по кнопке, если не знаешь где он?</summary><div class="a"><p>Event Listener Breakpoints → Mouse → <code>click</code>, затем кликнуть: отладчик остановится на первом обработчике.</p></div></details>
+  <details class="q"><summary>Как устроена отладка «5 + 1 = 51»?</summary><div class="a"><p>Ставим брейкпоинт в функцию, шагаем и смотрим Scope: <code>addend1</code> и <code>addend2</code> — строки (<code>.value</code> возвращает строку), и плюс их склеивает. Решение: привести к числу.</p></div></details>
+  <details class="q"><summary>Зачем нужен Focus on your code / ignore list?</summary><div class="a"><p>Чтобы отладчик не заходил в код библиотек и фреймворков при шагах.</p></div></details>
+
+  <p class="qgroup">Network</p>
+  <details class="q"><summary>Почему на вкладке Network пусто после открытия DevTools?</summary><div class="a"><p>Запись идёт только при открытом DevTools. Перезагрузите страницу при открытой вкладке.</p></div></details>
+  <details class="q"><summary>Как оставить только запросы к API?</summary><div class="a"><p>Кнопка Fetch/XHR либо фильтр по домену (<code>domain:</code>) или подстроке URL.</p></div></details>
+  <details class="q"><summary>Как найти запрос по тексту внутри ответа?</summary><div class="a"><p>Вкладка Search (<code>Ctrl+F</code> в Network): она ищет по заголовкам и телам записанных запросов.</p></div></details>
+  <details class="q"><summary>Какие вкладки есть у отдельного запроса и что смотреть в каждой?</summary><div class="a"><p>Headers (заголовки), Payload (отправленные данные), Preview и Response (ответ), Initiator (кто вызвал), Timing (время по фазам), Cookies.</p></div></details>
+  <details class="q"><summary>Что значит длинная фаза «Waiting for server response»?</summary><div class="a"><p>Сервер долго готовит ответ. Раньше эту фазу называли TTFB (time to first byte). Проблема на стороне сервера, а не клиента или сети.</p></div></details>
+  <details class="q"><summary>Как проверить, как страница работает на медленном интернете?</summary><div class="a"><p>Throttling: Slow 4G, 3G и другие пресеты. Для полного отсутствия связи — Offline.</p></div></details>
+  <details class="q"><summary>Зачем Disable cache?</summary><div class="a"><p>Чтобы быть уверенным, что браузер берёт свежие файлы с сервера, а не из кэша.</p></div></details>
+
+  <p class="qgroup">Application</p>
+  <details class="q"><summary>Как изменить значение в localStorage и убедиться, что страница его увидела?</summary><div class="a"><p>Двойной клик по ячейке в Application → Local storage, ввести значение, обновить страницу.</p></div></details>
+  <details class="q"><summary>Какие ограничения у localStorage?</summary><div class="a"><p>Только строки, около 5 МБ, привязка к origin. Объекты — через <code>JSON.stringify</code> и <code>JSON.parse</code>.</p></div></details>
+</section>

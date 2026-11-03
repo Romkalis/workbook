@@ -1,0 +1,39 @@
+.button {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* По умолчанию (светлая тема) показываем луну: она означает «переключить на тёмную» */
+.sun {
+  display: none;
+}
+
+:global(:root[data-theme='dark']) .sun {
+  display: block;
+}
+
+:global(:root[data-theme='dark']) .moon {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .sun {
+    display: block;
+  }
+  :global(:root:not([data-theme])) .moon {
+    display: none;
+  }
+}

@@ -1,0 +1,98 @@
+<section id="classes">
+  <h2>Классы и объекты<span class="src">Источники: oop-overview, freeCodeCamp, MDN, Eloquent JavaScript</span></h2>
+  <p><strong>Класс</strong> это шаблон: он описывает, какие данные будут у объектов и что они смогут делать. <strong>Объект</strong> (экземпляр) это конкретная «штуковина», созданная по шаблону, со своими значениями. Аналогия простая: чертёж дома и дома на улице. Чертёж один, домов много, и в каждом свой номер и цвет стен.</p>
+
+  <figure class="dg">
+    <p class="dg-title">Один класс — много объектов</p>
+    <div class="inst" aria-hidden="true">
+      <div class="card">
+        <span class="hd">class Person</span>
+        <span class="ln">поля: name, age</span>
+        <span class="ln">метод: sayHi()</span>
+      </div>
+      <div class="arr">→</div>
+      <div class="objs">
+        <div class="card obj" style="--i:0"><span class="hd">new Person('Анна', 30)</span><span class="ln">name: 'Анна', age: 30</span></div>
+        <div class="card obj" style="--i:1"><span class="hd">new Person('Олег', 25)</span><span class="ln">name: 'Олег', age: 25</span></div>
+        <div class="card obj" style="--i:2"><span class="hd">new Person('Ира', 41)</span><span class="ln">name: 'Ира', age: 41</span></div>
+      </div>
+    </div>
+    <figcaption>Класс описывает форму, объекты появляются по очереди при каждом <code>new</code>. У объектов свои значения полей, а код метода <code>sayHi</code> общий, он хранится один раз в прототипе класса.</figcaption>
+  </figure>
+
+  <pre><code>class Person {
+  constructor(name, age) {
+    this.name = name;
+    this.age = age;
+  }
+  sayHi() {
+    return `Привет, я ${this.name}`;
+  }
+}
+
+const anna = new Person('Анна', 30);
+const oleg = new Person('Олег', 25);
+anna.sayHi();  // 'Привет, я Анна'
+oleg.sayHi();  // 'Привет, я Олег'</code></pre>
+
+  <h3 id="iz-chego-sostoit-klass">Из чего состоит класс</h3>
+  <ul>
+    <li><strong>Конструктор</strong> (<code>constructor</code>) вызывается при <code>new</code> и задаёт начальное состояние. Если не написать его, JavaScript добавит конструктор по умолчанию: у базового класса он пустой, а у наследника передаёт аргументы родителю.</li>
+    <li><strong>Поля</strong> (свойства) хранят данные экземпляра.</li>
+    <li><strong>Методы</strong> описывают поведение. Внутри метода <code>this</code> указывает на объект, у которого метод вызвали.</li>
+    <li><strong>Статические члены</strong> (<code>static</code>) принадлежат самому классу, а не экземплярам: <code>Temperature.fromFahrenheit(212)</code>, а не <code>obj.fromFahrenheit()</code>.</li>
+    <li><strong>Геттеры и сеттеры</strong> выглядят как поля, но выполняют код. Это удобная точка для проверок.</li>
+  </ul>
+
+  <pre><code>class Temperature {
+  #celsius = 0;
+  constructor(c) { this.celsius = c; }
+  get celsius() { return this.#celsius; }
+  set celsius(v) {
+    if (typeof v !== 'number' || Number.isNaN(v)) {
+      throw new TypeError('нужно число');
+    }
+    this.#celsius = v;
+  }
+  get fahrenheit() { return this.#celsius * 1.8 + 32; }
+  static fromFahrenheit(f) {
+    return new Temperature((f - 32) / 1.8);
+  }
+}
+new Temperature(100).fahrenheit;       // 212
+Temperature.fromFahrenheit(212).celsius; // 100</code></pre>
+
+  <h3 id="staticheskie-chleny">Статические члены подробнее</h3>
+  <p>Поля экземпляра хранятся в конкретном объекте: у двух Person могут быть разные name. Обычный метод, объявленный в теле класса, хранится в <code>Person.prototype</code> и доступен обоим объектам через цепочку прототипов. Член с static находится на самом классе: его вызывают как <code>Person.method()</code>, а не через экземпляр.</p>
+  <pre><code>class Counter {
+  static created = 0;          // одно значение на весь класс
+  static LIMIT = 3;            // константа, общая для всех
+
+  constructor() {
+    Counter.created++;         // обращаемся через имя класса
+  }
+  static isFull() {            // метод класса, не объекта
+    return Counter.created &gt;= Counter.LIMIT;
+  }
+}
+
+new Counter(); new Counter();
+Counter.created;      // 2
+Counter.isFull();     // false
+new Counter().created; // undefined — у экземпляра этого поля нет</code></pre>
+  <p>Внутри статического метода <code>this</code> указывает на сам класс, а не на объект, поэтому полей экземпляра (<code>this.name</code>) там нет. Зато можно спокойно вызывать другие статические члены.</p>
+  <p>Статику используют в трёх случаях:</p>
+  <ul>
+    <li><strong>Константы класса:</strong> границы, значения по умолчанию, которые одинаковы для всех экземпляров.</li>
+    <li><strong>Общая вспомогательная логика:</strong> проверки и расчёты, которым не нужны данные конкретного объекта.</li>
+    <li><strong>Фабрики:</strong> альтернативные способы создать объект, как <code>Temperature.fromFahrenheit</code> выше.</li>
+  </ul>
+  <p>К статическим членам тоже можно добавить <code>#</code>: <code>static #MIN = 100</code> и <code>static #validate(ms)</code> доступны только внутри тела этого класса, снаружи их не видно. Обращаться к ним нужно по-прежнему через имя класса: <code>Timer.#MIN</code>. Именно так устроен пример с таймером в разделе про инкапсуляцию.</p>
+
+  <div class="note">
+    <b>Класс без <code>new</code> не вызвать</b>
+    <p>Вызов <code>Person()</code> без <code>new</code> бросит <code>TypeError</code>: Class constructor Person cannot be invoked without 'new'. Это отличает классы от старых функций-конструкторов, которые молча работали бы не так, как задумано.</p>
+  </div>
+
+<p>Когда написано <code>person.sayHi()</code>, внутри обычного метода this равен person. Если передать метод отдельно как функцию, эта связь сама не сохранится. Геттер выполняет код при чтении свойства, сеттер — при присваивании; это позволяет добавить проверку, сохранив привычную запись доступа.</p>
+</section>

@@ -1,0 +1,10 @@
+<section id="news-commits">
+<h2>Коммиты по правилам RS School</h2>
+<p>По <a href="https://rs.school/docs/git-convention">Git convention RS School</a> сообщение имеет вид <code>type(scope): description</code>; scope необязателен. После двоеточия нужен пробел. Тип пишите строчными буквами, описание — кратким действием в настоящем времени и повелительном наклонении: add, fix, migrate.</p>
+<div class="tbl"><table><thead><tr><th>Тип</th><th>Когда использовать</th></tr></thead><tbody>
+<tr><td>feat</td><td>Новая возможность</td></tr><tr><td>fix</td><td>Исправление ошибки</td></tr><tr><td>refactor</td><td>Изменение устройства кода без смены поведения</td></tr><tr><td>docs</td><td>Документация</td></tr><tr><td>style</td><td>Форматирование кода; не оформление интерфейса</td></tr><tr><td>test</td><td>Тесты</td></tr><tr><td>build</td><td>Сборка и зависимости</td></tr><tr><td>ci</td><td>Автоматические проверки</td></tr><tr><td>perf</td><td>Производительность</td></tr><tr><td>chore</td><td>Служебные изменения</td></tr><tr><td>revert</td><td>Отмена предыдущего изменения</td></tr>
+</tbody></table></div>
+<p>Отдельный init сейчас не рекомендуется; его использование по старым материалам школа не считает ошибкой. Обычных типов достаточно с первого коммита.</p>
+<p>Авторские примеры для News API <b>из общих знаний</b>: <code>build: configure TypeScript loader</code>, <code>refactor(api): migrate loader to TypeScript</code>, <code>fix(news): ignore stale responses</code>, <code>feat(ui): add loading indicator</code>, <code>docs: describe deployment steps</code>. Выбирайте тип по фактическому изменению. Запись <code>style: add responsive cards</code> вводит в заблуждение: адаптивность меняет интерфейс, а style относится к форматированию кода.</p>
+<p>Делайте коммиты по завершённым шагам, проверяя diff перед фиксацией. Не выдумывайте минимальное число коммитов: в присланном условии News API оно не задано. Нужна история разработки, а не искусственное дробление готовой работы.</p>
+</section>

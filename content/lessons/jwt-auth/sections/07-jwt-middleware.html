@@ -1,0 +1,72 @@
+<section id="jwt-middleware">
+<h2>Защищённые маршруты: middleware</h2>
+<p><strong>Middleware</strong> в Express — функция, которая выполняется до обработчика маршрута. Она может пропустить запрос дальше (<code>next()</code>) или сразу ответить сама. Для авторизации это идеальное место: проверяем токен один раз и подключаем проверку к нужным маршрутам.</p>
+<pre><code>// middleware/auth.js
+const jwt = require('jsonwebtoken');
+
+module.exports = function authMiddleware(req, res, next) {
+  // 1. Достаём токен из заголовка "Authorization: Bearer xxx.yyy.zzz"
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Токен не предоставлен' });
+  }
+  const token = authHeader.split(' ')[1];
+
+  try {
+    // 2. Проверяем подпись и срок
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    // decoded: { id: '664f2a', iat: ..., exp: ... }
+
+    // 3. Кладём id в req, чтобы обработчик маршрута мог им пользоваться
+    req.userId = decoded.id;
+    next();
+  } catch (err) {
+    // подпись не совпала или срок истёк
+    return res.status(401).json({ message: 'Невалидный или просроченный токен' });
+  }
+};</code></pre>
+<h3 id="jwt-middleware-verify">Что делает jwt.verify</h3>
+<ol>
+<li>Разбивает токен на три части.</li>
+<li>Сам заново считает подпись от первых двух частей своим секретом.</li>
+<li>Сравнивает её с подписью в токене. Не совпала — ошибка <code>invalid signature</code>.</li>
+<li>Смотрит на <code>exp</code>. Срок прошёл — ошибка <code>jwt expired</code>.</li>
+<li>Если всё в порядке, возвращает payload как обычный объект.</li>
+</ol>
+<p>Важная деталь: при неудаче <code>jwt.verify</code> <strong>выбрасывает исключение</strong>, а не возвращает false. Поэтому нужен <code>try/catch</code>, а не <code>if</code>.</p>
+<p>Опция <code>algorithms: ['HS256']</code> говорит библиотеке принимать только наш алгоритм. Её нет в исходном материале, но её советует документация jsonwebtoken: так сервер не примет токен, подписанный другим способом.</p>
+<h3 id="jwt-middleware-use">Подключаем к маршруту</h3>
+<pre><code>// routes/user.js
+const router = require('express').Router();
+const authMiddleware = require('../middleware/auth');
+const User = require('../models/User');
+
+router.get('/profile', authMiddleware, async (req, res) =&gt; {
+  try {
+    // req.userId положил authMiddleware
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+});
+
+module.exports = router;</code></pre>
+<p><code>.select('-password')</code> убирает хеш пароля из ответа. Пользователя всё равно ищем в базе: токен говорит, <em>кто</em> пришёл, но актуальные данные профиля лежат в базе. Пользователя могли удалить уже после того, как токен был выдан, — для этого и проверка на 404.</p>
+<h3 id="jwt-middleware-app">Собираем приложение</h3>
+<pre><code>// app.js
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+
+const app = express();
+app.use(express.json()); // без этого req.body будет undefined
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/user', require('./routes/user'));
+
+mongoose.connect(process.env.MONGO_URI)
+  .then(() =&gt; app.listen(3000, () =&gt; console.log('Server on :3000')))
+  .catch(console.error);</code></pre>
+<p><code>dotenv</code> подключается первой строкой: переменные из <code>.env</code> должны появиться раньше, чем их прочитает остальной код.</p>
+</section>

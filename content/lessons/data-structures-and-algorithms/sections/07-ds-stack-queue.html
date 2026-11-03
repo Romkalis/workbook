@@ -1,0 +1,41 @@
+<section id="ds-stack-queue">
+<h2>Стек и очередь: порядок извлечения</h2>
+<p>Стек работает по LIFO: последним пришёл — первым вышел. В очереди FIFO: первым пришёл — первым вышел. Это правила доступа, а не конкретные классы языка. Их можно реализовать и массивом, и узлами со ссылками.</p>
+<h3 id="ds-stack">Стек для вложенных скобок</h3>
+<p>Каждая открывающая скобка ждёт свою закрывающую. Последняя открытая должна закрыться первой, поэтому стек подходит естественно. В примере учитываются только круглые скобки; остальные символы игнорируются.</p>
+<pre><code>function balanced(text) {
+  const stack = [];
+  for (const char of text) {
+    if (char === '(') stack.push(char);
+    if (char === ')') {
+      if (stack.length === 0) return false;
+      stack.pop();
+    }
+  }
+  return stack.length === 0;
+}
+console.log(balanced('(a + (b))')); // true
+console.log(balanced(')(')); // false</code></pre><p>Время O(n), память O(n) в худшем случае. Из общих знаний: для одних круглых скобок достаточно счётчика O(1) памяти. Стек особенно нужен для разных типов, когда важно помнить не только количество, но и порядок.</p>
+<h3 id="ds-queue">Очередь без постоянного shift</h3>
+<p>Из общих знаний: хранить индекс головы дешевле, чем каждый раз сдвигать массив. Ниже хвост указывает на следующую свободную позицию, голова — на следующий элемент для выдачи. Хранилище Map позволяет удалять выданные записи.</p>
+<pre><code>class Queue {
+  #items = new Map();
+  #head = 0;
+  #tail = 0;
+  get size() { return this.#tail - this.#head; }
+  enqueue(value) { this.#items.set(this.#tail++, value); }
+  dequeue() {
+    if (this.size === 0) return undefined;
+    const value = this.#items.get(this.#head);
+    this.#items.delete(this.#head++);
+    if (this.size === 0) this.#head = this.#tail = 0;
+    return value;
+  }
+}
+const queue = new Queue();
+queue.enqueue('Анна');
+queue.enqueue('Борис');
+console.log(queue.dequeue()); // Анна
+console.log(queue.size); // 1</code></pre>
+<p>При обычной хеш-реализации Map операции ожидаемо O(1), память O(k), где k — текущая длина очереди. Это не гарантия константного времени ECMAScript. Для учебной очереди считаем, что числовые индексы остаются в пределах безопасных целых. Возврат undefined не отличает пустоту от сохранённого undefined — проверяйте size, если это важно.</p>
+</section>

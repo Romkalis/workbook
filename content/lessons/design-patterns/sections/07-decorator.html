@@ -1,0 +1,30 @@
+<section id="decorator">
+<h2>Decorator — Декоратор</h2>
+<p><b>Структурный паттерн.</b> Хотим комбинировать добавки к представлению заголовка без класса на каждое сочетание: сначала скобки, затем отметку избранного или наоборот.</p>
+<div class="note"><b>Простыми словами</b><p>Чехол на телефон: телефон тот же, но появилась защита. Можно надеть ещё и кольцо-держатель — обёртки складываются. Декоратор оборачивает объект и добавляет ему поведение, не меняя сам объект.</p></div>
+<h3 id="decorator-roles">Участники и направление вызовов</h3>
+<p>Компонент Label и его обёртки имеют один интерфейс text. Каждый декоратор хранит другой Label, делегирует ему вызов и добавляет собственное поведение. Клиент работает с самым внешним слоем.</p>
+<h3 id="decorator-example">Пример на TypeScript</h3>
+<pre><code>interface Label { text(): string }
+class TitleLabel implements Label {
+  text(): string { return &quot;TS&quot;; }
+}
+class Brackets implements Label {
+  constructor(private inner: Label) {}
+  text(): string { return `[${this.inner.text()}]`; }
+}
+class Favorite implements Label {
+  constructor(private inner: Label) {}
+  text(): string { return `★ ${this.inner.text()}`; }
+}
+const first = new Favorite(new Brackets(new TitleLabel()));
+const second = new Brackets(new Favorite(new TitleLabel()));
+console.log(first.text(), second.text()); // ★ [TS] [★ TS]
+</code></pre>
+<p>Порядок слоёв изменил результат. В обоих случаях клиент вызывает один и тот же метод text, не зная всех внутренних обёрток.</p>
+<h3 id="decorator-tradeoffs">Когда применять и что учитывать</h3>
+<p>Подходит для независимых комбинируемых возможностей. Следите за порядком, исключениями и вызовом внутреннего объекта ровно нужное число раз. Большая вложенность затрудняет отладку; одной функции форматирования иногда достаточно. GoF Decorator не равен синтаксису <code>@decorator</code> в TypeScript: механизм языка и паттерн проектирования — разные понятия.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/decorator">Decorator — Декоратор</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>Читайте вложенность изнутри: TitleLabel даёт TS, Brackets превращает его в [TS], Favorite добавляет звезду. Если переставить обёртки, скобки охватят и звезду. Одинаковое имя метода позволяет строить такую цепочку.</p>
+</section>

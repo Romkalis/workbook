@@ -1,0 +1,85 @@
+/* Дизайн-токены. Единственное место, где живут цвета, шрифты, размеры и отступы.
+   Компоненты используют только var(--...), никаких «сырых» значений. Описание: docs/design-system.md */
+
+:root {
+  /* Цвета: светлая тема */
+  --bg: #f3f6f8;
+  --surface: #ffffff;
+  --fg: #16212a;
+  --muted: #53626e;
+  --line: #d8e0e6;
+  --accent: #0a7d74;
+  --accent-soft: #d8efec;
+  --code-bg: #e8eef2;
+  --warn: #a8480a;
+  --warn-soft: #fae8d7;
+  --overlay: rgba(10, 16, 20, 0.55);
+  color-scheme: light;
+
+  /* Шрифты (--font-onest и др. задаёт next/font в layout.tsx) */
+  --font-body: var(--font-onest), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-unbounded), var(--font-onest), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Типографика */
+  --fs-sm: 14px;
+  --fs-base: 17px;
+  --fs-lead: 19px;
+  --lh-base: 1.65;
+
+  /* Отступы (шкала 4px) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  /* Скругления */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-pill: 999px;
+
+  /* Раскладка */
+  --header-h: 56px;
+  --sidebar-w: 300px;
+  --content-w: 78ch;
+  --z-header: 20;
+  --z-drawer: 30;
+}
+
+/* Тёмная тема включается атрибутом data-theme="dark" на <html>.
+   Без JS работает системная настройка (пока атрибут не выставлен). */
+:root[data-theme='dark'] {
+  --bg: #0e151a;
+  --surface: #151f27;
+  --fg: #e3ebf0;
+  --muted: #97a8b4;
+  --line: #25343f;
+  --accent: #4fd1c0;
+  --accent-soft: #123339;
+  --code-bg: #1b2931;
+  --warn: #f0a35e;
+  --warn-soft: #38291a;
+  --overlay: rgba(0, 0, 0, 0.65);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #0e151a;
+    --surface: #151f27;
+    --fg: #e3ebf0;
+    --muted: #97a8b4;
+    --line: #25343f;
+    --accent: #4fd1c0;
+    --accent-soft: #123339;
+    --code-bg: #1b2931;
+    --warn: #f0a35e;
+    --warn-soft: #38291a;
+    --overlay: rgba(0, 0, 0, 0.65);
+    color-scheme: dark;
+  }
+}

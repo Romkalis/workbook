@@ -1,0 +1,30 @@
+<section id="application">
+  <h2>Application: localStorage <span class="src">Теория: View and edit local storage</span></h2>
+<p>Пример origin: у <code>https://example.com:443</code> схема https, домен example.com и порт 443. Другая схема, домен или порт означают другой origin. Сериализация — превращение объекта в строку через JSON.stringify; JSON.parse выполняет обратный разбор.</p>
+  <p>Вкладка Application показывает всё, что приложение хранит в браузере: cookies, кэши, IndexedDB, service workers. В модуле нужен один раздел, <strong>Storage → Local storage</strong>. Под ним список источников (origin), выберите свой, и справа откроется таблица пар «ключ → значение».</p>
+
+  <figure class="shot"><button type="button" class="zoom" data-w="1500" aria-label="Открыть скриншот на весь экран: Application: Local storage"><img src="/img/devtools/application.webp" alt="Application: Local storage" width="1600" height="713"></button><figcaption><strong>Application: Local storage.</strong> Таблица Local storage: ключи <code>lang</code>, <code>theme</code>, <code>user</code>, <code>visits</code>.<p class="zoomhint">Нажмите на картинку, чтобы открыть крупно.</p></figcaption></figure>
+
+  <p><code>localStorage</code> — хранилище типа «ключ-значение», доступное из JavaScript. Обычно данные сохраняются после закрытия вкладки и перезапуска браузера. Пользователь или настройки браузера могут их удалить; в приватном режиме срок хранения отличается. Для разработчика важны три свойства (это общие знания, в статьях модуля они расписаны подробнее): значения хранятся <em>только как строки</em> (объекты нужно сериализовать через <code>JSON.stringify</code> и разбирать через <code>JSON.parse</code>), объём ограничен примерно 5 МБ на источник, хранилище привязано к origin (схема + домен + порт), и страница с другого origin его не увидит.</p>
+  <p>В DevTools можно посмотреть, отредактировать и удалить пары ключ-значение: измените ячейку двойным щелчком или удалите выбранную строку клавишей <code>Delete</code>. Поле <strong>Filter</strong> над таблицей отбирает записи по имени ключа. Те же данные доступны JavaScript-коду в панели Console:</p>
+  <pre><code>localStorage.setItem('theme', 'dark'); // добавить или заменить
+localStorage.getItem('theme');         // 'dark'
+localStorage.removeItem('theme');      // удалить один ключ
+localStorage.clear();                  // удалить все ключи текущего origin</code></pre>
+  <p>В демо-странице выше видны ключи <code>lang</code>, <code>theme</code>, <code>visits</code> и <code>user</code> — последний хранит JSON-строку <code>{"name":"Анна","role":"student"}</code>.</p>
+
+  <figure class="dg">
+    <p class="dg-title">Что можно делать с записью в панели и в консоли</p>
+    <ol class="seqlist n5" aria-hidden="true">
+      <li class="card lit" style="--i:0"><span class="hd">Посмотреть</span><span class="ln">клик по строке: значение в панели предпросмотра. Консоль: <code>localStorage.getItem('theme')</code></span></li>
+      <li class="card lit" style="--i:1"><span class="hd">Найти</span><span class="ln">поле Filter над таблицей. Кнопка обновления перечитывает хранилище</span></li>
+      <li class="card lit" style="--i:2"><span class="hd">Добавить</span><span class="ln">двойной клик по пустому месту таблицы. Консоль: <code>localStorage.setItem('k', 'v')</code></span></li>
+      <li class="card lit" style="--i:3"><span class="hd">Изменить</span><span class="ln">двойной клик по ячейке, после правки обновите страницу, чтобы приложение увидело новое значение</span></li>
+      <li class="card lit no" style="--i:4"><span class="hd">Удалить</span><span class="ln">выделить строку → Delete, либо Clear all. Консоль: <code>removeItem('k')</code>, <code>clear()</code></span></li>
+    </ol>
+    <figcaption>Правка в панели меняет хранилище мгновенно, но код страницы узнает о ней, только когда прочитает значение заново. Поэтому для проверки удобнее обновить страницу.</figcaption>
+  </figure>
+
+  <h3 id="hranilische-drugogo-sayta-iz-konsoli">Хранилище другого сайта из консоли</h3>
+  <p>Из консоли <code>localStorage</code> указывает на источник текущего контекста. Чтобы поработать с хранилищем iframe или другого origin, переключите JavaScript context (выпадающий список в панели Console) на нужный.</p>
+</section>

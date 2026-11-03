@@ -1,0 +1,43 @@
+<section id="state">
+<h2>State — Состояние</h2>
+<p><b>Поведенческий паттерн.</b> Операция publish ведёт себя по-разному в черновике, на проверке и после публикации. Не хотим дублировать switch по состоянию в каждом методе.</p>
+<div class="note"><b>Простыми словами</b><p>Кнопка «Play» в плеере делает разное: если музыка стоит — включает, если играет — ставит на паузу. Вместо большого <code>if</code> по состоянию каждое состояние становится отдельным объектом со своим поведением, а плеер просто переключается между ними.</p></div>
+<h3 id="state-roles">Участники и направление вызовов</h3>
+<p>Контекст Article хранит текущее состояние и делегирует ему publish. Конкретные состояния реализуют общий контракт и определяют допустимые переходы. Состояние может заменить себя через контекст.</p>
+<h3 id="state-example">Пример на TypeScript</h3>
+<pre><code>interface ArticleState {
+  readonly name: string;
+  publish(article: Article): void;
+}
+class Article {
+  constructor(private state: ArticleState = new Draft()) {}
+  get status(): string { return this.state.name; }
+  transition(state: ArticleState): void { this.state = state; }
+  publish(): void { this.state.publish(this); }
+}
+class Draft implements ArticleState {
+  readonly name = &quot;draft&quot;;
+  publish(article: Article): void { article.transition(new Review()); }
+}
+class Review implements ArticleState {
+  readonly name = &quot;review&quot;;
+  publish(article: Article): void { article.transition(new Published()); }
+}
+class Published implements ArticleState {
+  readonly name = &quot;published&quot;;
+  publish(_article: Article): void { /* повторная публикация ничего не меняет */ }
+}
+const article = new Article();
+const statuses = [article.status];
+article.publish(); statuses.push(article.status);
+article.publish(); statuses.push(article.status);
+article.publish(); statuses.push(article.status);
+console.log(statuses.join(&quot; → &quot;)); // draft → review → published → published
+</code></pre>
+<p>Один и тот же вызов переместил черновик на проверку, затем опубликовал, затем ничего не изменил. Это упрощённый учебный процесс без ролей пользователей и сетевых операций.</p>
+<h3 id="state-tradeoffs">Когда применять и что учитывать</h3>
+<p>Удобен при нескольких состояниях с разным поведением и переходами. Явно опишите разрешённые переходы и ошибки; наличие строки status само по себе не означает State. Для пары простых состояний таблица переходов или switch может читаться лучше. В реальном процессе публикации отдельно проверяют права и согласуют состояние с сохранением данных.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/state">State — Состояние</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>Контекст — здесь Article, объект с меняющимся поведением. Draft, Review и Published — отдельные объекты состояния. При publish контекст передаёт действие текущему состоянию; то выбирает следующий переход либо оставляет состояние прежним.</p>
+</section>

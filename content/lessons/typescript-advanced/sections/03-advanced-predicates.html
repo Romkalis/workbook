@@ -1,0 +1,45 @@
+<section id="advanced-predicates">
+<h2>Type predicates и проверка неизвестных данных</h2>
+<p>Предикат типа — функция-проверка с результатом вроде <code>value is NewsItem</code>. Читать его можно так: «если функция вернула true, считай value объектом NewsItem». Сама функция возвращает обычный boolean. Компилятор не доказывает истинность такого обещания: ошибочная реализация сделает типизацию ненадёжной. Проверяйте всё, что тип обещает клиенту.</p>
+<h3 id="advanced-validation">От unknown к проверенному объекту</h3>
+<p>Тип unknown означает: значение получено, но его форма пока неизвестна. Проверка isRecord сначала убеждается, что перед нами объект, не null и не массив. Запись <code>Record&lt;string, unknown&gt;</code> позволяет затем читать его строковые поля, не считая их содержимое заранее известным.</p>
+
+<pre><code>interface NewsItem { title: string; url: string; description: string | null }
+function isRecord(value: unknown): value is Record&lt;string, unknown&gt; {
+  return typeof value === &quot;object&quot; &amp;&amp; value !== null &amp;&amp; !Array.isArray(value);
+}
+function isNewsItem(value: unknown): value is NewsItem {
+  return isRecord(value)
+    &amp;&amp; typeof value.title === &quot;string&quot;
+    &amp;&amp; typeof value.url === &quot;string&quot;
+    &amp;&amp; (typeof value.description === &quot;string&quot; || value.description === null);
+}
+const input: unknown[] = [
+  { title: &quot;TS&quot;, url: &quot;/ts&quot;, description: null },
+  { title: 42, url: &quot;/bad&quot;, description: &quot;текст&quot; },
+  null
+];
+const items = input.filter(isNewsItem);
+console.log(items.map(item =&gt; item.title.toUpperCase())); // [&quot;TS&quot;]
+</code></pre>
+<p>Метод filter вызывает isNewsItem для каждого элемента. Для первого объекта проверка возвращает true, для второго — false из-за числового title, для null — false уже на первом шаге. В items остаётся один объект, а TypeScript знает тип массива <code>NewsItem[]</code>. Проверка подтверждает форму, но не безопасность ссылки или непустой заголовок: бизнес-правила проверяют отдельно. Типы DTO должны учитывать реальные null и пропуски, а не только удачный ответ сервера.</p>
+<h3 id="advanced-assertion-functions">Функция утверждения: продолжить только с правильными данными</h3>
+<p>Иногда после неверных данных нужно остановить операцию, а не вернуть false. Для этого подходит assertion function — функция утверждения. Запись <code>asserts value is string</code> означает: «если вызов завершился без исключения, дальше value можно использовать как string».</p>
+
+<pre><code>function assertString(value: unknown): asserts value is string {
+  if (typeof value !== &quot;string&quot;) throw new Error(&quot;Нужна строка&quot;);
+}
+function shout(value: unknown): string {
+  assertString(value);
+  return value.toUpperCase();
+}
+try { shout(null); }
+catch (error: unknown) {
+  console.log(error instanceof Error ? error.message : &quot;Неизвестная ошибка&quot;);
+}
+console.log(shout(&quot;ts&quot;));
+</code></pre>
+<p>После успешного возврата assertString значение сужено до string. При нарушении обещания функция обязана прервать обычный путь выполнения, например бросить исключение. Это не то же самое, что <code>as string</code>: утверждение типа не добавляет проверки. <code>fetchJson&lt;T&gt;()</code>, возвращающая <code>json as T</code>, также ничего не валидирует.</p>
+<p>Вызов <code>shout(null)</code> бросает Error с сообщением «Нужна строка»; catch перехватывает его. Вызов <code>shout("ts")</code> успешно возвращает «TS». Значение ошибки тоже проверяется: JavaScript позволяет бросить не только объект Error.</p>
+
+</section>

@@ -1,0 +1,32 @@
+<section id="facade">
+<h2>Facade — Фасад</h2>
+<p><b>Структурный паттерн.</b> Для открытия урока клиенту приходится читать хранилище, форматировать заголовок и готовить результат. Хочется дать ему одну понятную операцию.</p>
+<div class="note"><b>Простыми словами</b><p>Администратор в отеле: вы говорите «организуйте ужин и такси», а он сам договаривается с кухней, рестораном и водителем. Фасад даёт одну простую функцию вместо десятка вызовов сложной системы.</p></div>
+<h3 id="facade-roles">Участники и направление вызовов</h3>
+<p>Фасад LessonFacade знает последовательность действий подсистемы. Store и Formatter выполняют свои задачи и не обязаны знать о фасаде. Клиент использует open.</p>
+<h3 id="facade-example">Пример на TypeScript</h3>
+<pre><code>class LessonStore {
+  read(id: number): string {
+    if (id !== 1) throw new Error(&quot;Урок не найден&quot;);
+    return &quot;TypeScript&quot;;
+  }
+}
+class Formatter {
+  heading(title: string): string { return `Урок: ${title}`; }
+}
+class LessonFacade {
+  constructor(private store: LessonStore, private formatter: Formatter) {}
+  open(id: number): string {
+    return this.formatter.heading(this.store.read(id));
+  }
+}
+const facade = new LessonFacade(new LessonStore(), new Formatter());
+console.log(facade.open(1)); // Урок: TypeScript
+</code></pre>
+<p>Клиент больше не собирает последовательность сам. Ошибка хранилища по-прежнему возможна: упрощение интерфейса не означает, что операция всегда успешна.</p>
+<h3 id="facade-tradeoffs">Когда применять и что учитывать</h3>
+<p>Полезен для частого сценария сложной подсистемы. Он предоставляет более удобный интерфейс, а не обязан сохранять прежний, как Proxy или Decorator. Не сваливайте все операции приложения в один фасад: разделяйте их по сценариям. Доступ к продвинутым возможностям подсистемы при необходимости может остаться отдельным.</p>
+<p>Источник: <a href="https://refactoring.guru/design-patterns/facade">Facade — Фасад</a>. Пример авторский, адаптирован для учебного каталога.</p>
+
+<p>Вызов open скрывает два шага: получить заголовок из LessonStore и оформить его через Formatter. Клиенту нужен итоговый сценарий, а не знание, какой служебный объект вызвать первым.</p>
+</section>

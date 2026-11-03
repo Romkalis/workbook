@@ -1,0 +1,32 @@
+<section id="ts-objects">
+<h2>Объекты, interface и type</h2>
+<p>Структурная совместимость означает проверку полей, а не только имён типов: если функция требует id и name, объект с такими полями может подойти, даже если его объявили отдельно. Знак ? делает поле необязательным; readonly запрещает запись через соответствующую типизированную ссылку.</p>
+<p>Объектный тип описывает доступные свойства и методы. Совместимость в TypeScript в основном структурная: важно наличие нужных членов, а не имя объявления.</p><h3 id="ts-interface">Обязательные, optional и readonly свойства</h3><pre><code>interface Student {
+  readonly id: number;
+  name: string;
+  nickname?: string;
+}
+function label(student: Student): string {
+  return student.nickname ?? student.name;
+}
+const student = { id: 1, name: &quot;Маша&quot;, group: &quot;RS&quot; };
+console.log(label(student)); // Маша
+if (false) {
+  // @ts-expect-error: у свежего литерала проверяются лишние свойства
+  label({ id: 1, name: &quot;Маша&quot;, group: &quot;RS&quot; });
+}
+</code></pre><p><code>nickname?</code> можно не передавать; при чтении получится <code>string | undefined</code>. Оператор <code>??</code> выбирает запасное значение только при null или undefined. <code>readonly id</code> запрещает менять id через ссылку типа Student. Лишние поля у уже существующей переменной не мешают совместимости, а у свежего объектного литерала проверяются строже. Тип не удаляет лишние поля из реального объекта.</p><h3 id="ts-type-interface">Как выбрать interface или type</h3><pre><code>interface Named { name: string }
+interface Named { active: boolean } // слияние объявлений
+interface Member extends Named { id: number }
+type Identifier = string | number;
+type WithScore = Member &amp; { score: number };
+const member: WithScore = { name: &quot;Маша&quot;, active: true, id: 1, score: 95 };
+console.log(member.name, member.score);
+</code></pre><p><code>interface</code> удобно расширять через <code>extends</code>; повторные объявления одного имени объединяются. <code>type</code> даёт имя любому типу, включая union, кортеж и функцию; повторно объявить его с тем же именем нельзя. Оба подходят для объектов, методов и generics. Не выбирайте по мифу «type для примитивов, interface для всего остального»: выбирайте нужные возможности и стиль проекта.</p><h3 id="ts-dictionaries">Индексная сигнатура и словарь</h3><pre><code>interface Counts { [name: string]: number }
+const counts: Counts = { html: 2, typescript: 4 };
+const statusLabels: Record&lt;&quot;draft&quot; | &quot;done&quot;, string&gt; = {
+  draft: &quot;Черновик&quot;, done: &quot;Готово&quot;
+};
+console.log(counts.typescript, statusLabels.done);
+</code></pre><p>Индексная сигнатура допускает строковые ключи с одинаковым типом значений. Она не гарантирует, что любой ключ существует. <code>Record&lt;K, V&gt;</code> полезен для словаря с известным набором ключей: в примере пропуск done станет ошибкой. <code>object</code> означает непримитивное значение, а не объект с любыми полями; пустой тип <code>{}</code> при strictNullChecks допускает почти любое значение, кроме null и undefined.</p>
+</section>

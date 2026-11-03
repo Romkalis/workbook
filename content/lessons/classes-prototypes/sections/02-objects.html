@@ -1,0 +1,37 @@
+<section id="objects">
+  <h2>Объекты и свойства<span class="src">Источники: JavaScript.info, MDN</span></h2>
+<p>Различайте три действия: создать объект, записать в него собственное свойство и найти свойство при чтении. Если <code>Object.hasOwn(obj, "name")</code> даёт false, свойство name всё ещё может быть доступно через прототип. Оператор in учитывает и собственные, и унаследованные свойства.</p>
+  <p>Объект — это набор свойств. У свойства есть ключ и значение: ключом обычно служит строка или символ, а значением может быть любой тип, в том числе функция. Когда функция хранится в объекте и вызывается через него, её обычно называют методом.</p>
+  <pre><code>const user = {
+  name: 'Лена',
+  'favorite color': 'синий',
+  greet() {
+    return `Привет, я ${this.name}`;
+  },
+};
+
+user.name;                  // 'Лена'
+user['favorite color'];     // 'синий'
+user.greet();               // 'Привет, я Лена'
+Object.hasOwn(user, 'name'); // true</code></pre>
+  <p>Свойства могут быть собственными — записанными прямо в объекте — или унаследованными от его прототипа. Оператор <code>in</code> проверяет оба случая, а <code>Object.hasOwn</code> — только собственные свойства.</p>
+  <pre><code>const animal = { eats: true };
+const rabbit = Object.create(animal);
+rabbit.jumps = true;
+
+Object.hasOwn(rabbit, 'jumps'); // true
+Object.hasOwn(rabbit, 'eats');  // false
+'eats' in rabbit;               // true</code></pre>
+  <h3 id="klyuchi-i-znacheniya">Ключи и значения</h3>
+  <p>Для обычных строковых ключей подходят точечная и квадратная нотация. Квадратные скобки нужны, если имя содержит пробел или хранится в переменной. Проверяйте собственность свойства явно, если важно отличить его от унаследованного.</p>
+  <h3 id="this-v-metode">Откуда берётся <code>this</code></h3>
+  <p>В вызове <code>user.greet()</code> значение <code>this</code> — объект слева от точки, то есть <code>user</code>. Если отделить метод от объекта, связь теряется:</p>
+  <pre><code>'use strict';
+const user = {
+  name: 'Лена',
+  greet() { return `Привет, я ${this.name}`; },
+};
+const greet = user.greet;
+greet(); // TypeError: в строгом режиме this будет undefined</code></pre>
+  <p>Чтобы сохранить контекст, передайте функцию-обёртку <code>() =&gt; user.greet()</code> или заранее привяжите его через <code>user.greet.bind(user)</code>.</p>
+</section>
