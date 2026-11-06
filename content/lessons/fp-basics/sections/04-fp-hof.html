@@ -1,0 +1,38 @@
+<section id="fp-hof">
+<h2>Функции первого класса и функции высшего порядка</h2>
+<p>В JavaScript функции — <strong>граждане первого класса</strong> (first-class functions): с функцией можно делать всё то же, что с числом или строкой. Положить в переменную, передать аргументом, вернуть из другой функции, хранить в массиве.</p>
+<pre><code>const greet = (name) =&gt; `Привет, ${name}`; // функция в переменной
+const actions = [greet, (name) =&gt; name.toUpperCase()]; // в массиве
+actions.map((fn) =&gt; fn('Аня')); // ['Привет, Аня', 'АНЯ']</code></pre>
+<p><strong>Функция высшего порядка</strong> (higher-order function, HOF) — функция, которая принимает другую функцию аргументом или возвращает функцию. Функцию, которую передали аргументом, называют <strong>колбэком</strong>.</p>
+<pre><code>// Принимает функцию и возвращает новую
+const twice = (fn) =&gt; (x) =&gt; fn(fn(x));
+const inc = (x) =&gt; x + 1;
+twice(inc)(5); // 7</code></pre>
+<p>Самые частые HOF — методы массивов: <code>map</code> (преобразовать каждый элемент), <code>filter</code> (оставить подходящие), <code>reduce</code> (свернуть в одно значение), <code>some</code>, <code>every</code>, <code>find</code>. Функция, которая возвращает <code>true</code> или <code>false</code>, называется <strong>предикатом</strong>: <code>filter</code> и <code>every</code> принимают предикаты.</p>
+<h3 id="fp-own-map">Как устроены map и filter</h3>
+<p>Две задачи Codewars из модуля просят написать <code>map</code> и <code>filter</code> самостоятельно. Вот чистые версии через <code>reduce</code>:</p>
+<pre><code>const map = (arr, fn) =&gt;
+  arr.reduce((acc, x, i) =&gt; [...acc, fn(x, i, arr)], []);
+
+const filter = (arr, predicate) =&gt;
+  arr.reduce((acc, x, i) =&gt; (predicate(x, i, arr) ? [...acc, x] : acc), []);
+
+map([1, 2, 3], (x) =&gt; x * 2);          // [2, 4, 6]
+filter([1, 2, 3, 4], (x) =&gt; x % 2 === 0); // [2, 4]</code></pre>
+<p><code>reduce</code> идёт по массиву и каждый раз передаёт в колбэк «накопленное» (<code>acc</code>) и текущий элемент. Что вернёт колбэк, то станет новым <code>acc</code>. Второй аргумент <code>reduce</code> — начальное значение, здесь пустой массив.</p>
+<p class="note">Копирование <code>[...acc, x]</code> на каждом шаге делает эти версии O(n²) по времени (см. Big O в уроке <a href="/lessons/data-structures-and-algorithms">«Алгоритмы и структуры данных»</a>). Для учебного примера это неважно, а встроенные <code>map</code> и <code>filter</code> работают за O(n). Внутри своей функции мутировать <em>локальный</em> массив, который никто снаружи не видит, допустимо: чистота оценивается снаружи.</p>
+<h3 id="fp-closure">Замыкание</h3>
+<p>Когда функция возвращает другую функцию, внутренняя помнит переменные внешней даже после того, как внешняя завершилась. Это называется <strong>замыканием</strong> (closure). На замыканиях держатся каррирование и мемоизация, поэтому разберём на счётчике:</p>
+<pre><code>const createCounter = () =&gt; {
+  let count = 0;           // живёт в замыкании
+  return () =&gt; ++count;
+};
+
+const counter = createCounter();
+counter(); // 1
+counter(); // 2
+counter(); // 3
+createCounter()(); // 1 — у нового счётчика своя переменная</code></pre>
+<p>Снаружи до <code>count</code> не добраться, изменить его можно только через возвращённую функцию. Обратите внимание: <code>counter</code> не чистая — одинаковый вызов без аргументов возвращает разное. Замыкание — инструмент, а не гарантия чистоты. Подробнее о замыканиях и областях видимости — в <a href="https://learn.javascript.ru/closure">учебнике learn.javascript.ru</a>.</p>
+</section>

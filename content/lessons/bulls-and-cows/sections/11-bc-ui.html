@@ -30,6 +30,14 @@ export const el = &lt;K extends keyof HTMLElementTagNameMap&gt;(
   node.append(...children);
   return node;
 };</code></pre>
+<p>Как это читать:</p>
+<ul>
+<li><code>K extends keyof HTMLElementTagNameMap</code> — <code>K</code> может быть только именем настоящего тега: <code>'div'</code>, <code>'input'</code>, <code>'select'</code>. <code>HTMLElementTagNameMap</code> — встроенный в TypeScript словарь «тег → тип элемента». Поэтому <code>el('input')</code> возвращает именно <code>HTMLInputElement</code>, и у результата есть <code>.value</code> и <code>.maxLength</code>.</li>
+<li><code>{ className, text, ...attrs }</code> — деструктуризация: из объекта настроек достаём <code>className</code> и <code>text</code>, остальное собираем в <code>attrs</code>.</li>
+<li><code>Object.assign(node, attrs)</code> копирует оставшиеся свойства в элемент: <code>{ type: 'text' }</code> превратится в <code>node.type = 'text'</code>.</li>
+<li><code>node.append(...children)</code> добавляет дочерние элементы, spread раскладывает массив в отдельные аргументы.</li>
+</ul>
+<p>Пример: <code>el('button', { text: 'Старт', type: 'submit' })</code> создаёт <code>&lt;button type="submit"&gt;Старт&lt;/button&gt;</code>. Если дженерики пока сложны, напишите хелпер на обычных <code>document.createElement</code> — критерии этого не требуют.</p>
 <h3 id="bc-screens">Экраны и перерисовка</h3>
 <p>Удобная схема: в <code>main.ts</code> лежит одна переменная с текущим состоянием и функция <code>render</code>, которая по состоянию строит нужный экран и заменяет содержимое корня через <code>root.replaceChildren(...)</code>. Экранов три: настройки, игра, победа. Таблица рекордов показывается на экране настроек и после победы.</p>
 <pre><code>// src/main.ts (скелет)
@@ -45,6 +53,7 @@ const setScreen = (next: Screen): void =&gt; {
 };
 
 setScreen(screen);</code></pre>
+<p><code>type Screen = A | B</code> — <a href="/lessons/typescript-basic#ts-discriminated">размеченное объединение</a>: экран либо настройки, либо игра, и поле <code>kind</code> говорит, какой именно. Внутри <code>if (screen.kind === 'game')</code> TypeScript знает, что у <code>screen</code> есть <code>game</code>. <code>replaceChildren</code> удаляет всё старое содержимое элемента и вставляет новое — это простая замена «перерисовке» без фреймворка.</p>
 <p>Изменяемая переменная <code>screen</code> здесь допустима: это оболочка, «нечистый» край программы. Ядро в <code>game.ts</code> и <code>state.ts</code> про DOM ничего не знает.</p>
 <h3 id="bc-settings-ui">Настройки</h3>
 <p>Два <code>select</code>: длина 2–6 и система счисления. Длина не может быть больше числа цифр системы, а в двоичной цифр всего две, поэтому при <code>base = 2</code> все длины, кроме 2, получают <code>disabled</code>. Если игрок выбрал длину 4, а потом переключил систему на bin, сбросьте длину на 2, иначе выбранным останется недоступный вариант.</p>
@@ -74,6 +83,7 @@ input.addEventListener('beforeinput', (event) =&gt; {
   const { data } = event;
   if (data &amp;&amp; ![...data].every(isDigit)) event.preventDefault();
 });</code></pre>
+<p>По шагам: <code>createDigitValidator(base)</code> один раз создаёт предикат для текущей системы. Событие <code>beforeinput</code> приходит до того, как символ попадёт в поле, а в <code>event.data</code> лежит то, что пользователь пытается ввести. Если хоть один символ не прошёл проверку, <code>event.preventDefault()</code> отменяет ввод — поле не изменится. <code>maxLength</code> не даст набрать больше цифр, чем длина секрета.</p>
 <p><code>data</code> равен <code>null</code> при удалении символов, такие события пропускаем. Вставка из буфера тоже проходит через <code>beforeinput</code> с вставляемым текстом в <code>data</code>, поэтому мусор не вставится целиком. Для подстраховки можно дополнительно чистить значение в обработчике <code>input</code> (из общих знаний: некоторые мобильные клавиатуры с автоподстановкой ведут себя непредсказуемо).</p>
 <p>На отправке формы проверяем <code>isValidGuess</code> и, если всё в порядке, вызываем <code>applyGuess</code>. Если состояние вернулось той же ссылкой (<code>next === game</code>), значит попытка уже была — покажите сообщение вместо новой строки истории.</p>
 <pre><code>form.addEventListener('submit', (event) =&gt; {

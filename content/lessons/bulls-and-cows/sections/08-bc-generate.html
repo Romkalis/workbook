@@ -39,6 +39,7 @@
   };
   return pick([...ALPHABET.slice(0, base)], length).join('');
 };</code></pre>
+<p>Как работает <code>pick(pool, left)</code>: «выбери <code>left</code> цифр из <code>pool</code>». Если выбирать больше нечего (<code>left === 0</code>) — <a href="/lessons/fp-basics#fp-recursion">базовый случай</a>, возвращаем пустой массив. Иначе берём случайный индекс, получаем пул без выбранной цифры и просим <code>pick</code> выбрать из него на одну цифру меньше. Результат — выбранная цифра плюс всё, что вернул рекурсивный вызов. <code>Math.floor(random() * pool.length)</code> превращает число от 0 до 1 в индекс от 0 до <code>pool.length − 1</code>. <code>as string</code> нужен из-за флага <code>noUncheckedIndexedAccess</code>: TypeScript считает, что <code>pool[index]</code> может быть <code>undefined</code>, а мы знаем, что индекс в пределах массива.</p>
 <p>Секрет хранится строкой, а не числом: число <code>0123</code> превратилось бы в <code>123</code> и потеряло ведущий ноль. Строка также естественна для hex.</p>
 <p class="note">Строго говоря, функция с <code>Math.random</code> по умолчанию остаётся нечистой, когда её вызывают без третьего аргумента. Чистой она становится при переданном детерминированном <code>random</code>. Эффект не исчез, его вынесли на край программы — туда, где игра стартует раунд. Об этом стоит честно написать в <code>DESIGN.md</code>.</p>
 </section>

@@ -1,0 +1,59 @@
+<section id="fp-immutability">
+<h2>Иммутабельность</h2>
+<p><strong>Иммутабельность</strong> (неизменяемость) — правило «данные не меняем, а создаём новые». Нужно поменять поле — делаем копию объекта с новым значением, а старый оставляем как был.</p>
+<h3 id="fp-value-reference">Значения и ссылки</h3>
+<p>В JavaScript два вида данных:</p>
+<ul>
+<li><strong>Примитивы</strong> — числа, строки, булевы значения, <code>null</code>, <code>undefined</code>, <code>symbol</code>, <code>bigint</code>. Они неизменяемы сами по себе: <code>'abc'.toUpperCase()</code> не меняет строку, а возвращает новую <code>'ABC'</code>.</li>
+<li><strong>Объекты</strong>, в том числе массивы и функции. Они изменяемы, а переменная хранит не сам объект, а <em>ссылку</em> на него.</li>
+</ul>
+<pre><code>const a = { count: 1 };
+const b = a;     // скопировалась ссылка, объект один
+b.count = 2;
+console.log(a.count); // 2</code></pre>
+<p class="note">Статья о мутабельности из материалов модуля пишет, что у примитивов «нет свойств и методов». Это неточно: у строк и чисел есть методы (<code>'abc'.toUpperCase()</code>), JS временно оборачивает примитив в объект. Верная формулировка: примитив нельзя изменить. Попытка <code>str[0] = 'z'</code> в обычном скрипте молча ничего не сделает, а в модуле или в <code>'use strict'</code> бросит <code>TypeError</code> (проверено в Node 22).</p>
+<h3 id="fp-const">const не делает объект неизменяемым</h3>
+<pre><code>const settings = { theme: 'light' };
+settings.theme = 'dark'; // можно!
+settings = {};           // TypeError: Assignment to constant variable</code></pre>
+<p><code>const</code> запрещает переприсвоить <em>переменную</em>, но не менять объект, на который она указывает.</p>
+<h3 id="fp-copy">Копирование: поверхностное и глубокое</h3>
+<p>Spread-синтаксис <code>...</code> «распаковывает» объект или массив в новый: <code>{ ...user }</code>, <code>[...list]</code>. Но копия <strong>поверхностная</strong>: вложенные объекты остаются общими.</p>
+<pre><code>const user = { name: 'Ann', address: { city: 'Minsk' } };
+const copy = { ...user };
+copy.address.city = 'Vilnius';
+console.log(user.address.city); // 'Vilnius' — вложенный объект общий!</code></pre>
+<p>Правильное обновление вложенного поля — копировать каждый уровень на пути к нему:</p>
+<pre><code>const moved = {
+  ...user,
+  address: { ...user.address, city: 'Kyiv' },
+};
+// user не тронут, moved — новый объект с новым address</code></pre>
+<p>Для полной (глубокой) копии есть встроенная функция <code>structuredClone(user)</code> (из общих знаний: работает в браузерах и Node 17+, но не копирует функции). Статья модуля этого не показывает и вообще не упоминает, что копия через spread поверхностная, — будьте внимательны.</p>
+<h3 id="fp-freeze">Object.freeze</h3>
+<p><code>Object.freeze(obj)</code> запрещает добавлять, удалять и менять свойства объекта. Две детали, которые легко упустить:</p>
+<ul>
+<li>Заморозка <strong>поверхностная</strong>: вложенные объекты остаются изменяемыми.</li>
+<li>Попытка изменить замороженный объект в нестрогом режиме молча игнорируется, а в строгом (ES-модули, классы, <code>'use strict'</code>) бросает <code>TypeError</code>. Статья модуля говорит только про «молча».</li>
+</ul>
+<pre><code>const config = Object.freeze({ port: 3000, db: { host: 'localhost' } });
+config.port = 80;        // в модуле: TypeError
+config.db.host = 'prod'; // сработает: db не заморожен
+
+const deepFreeze = (obj) =&gt; {
+  Object.values(obj).forEach((value) =&gt; {
+    if (typeof value === 'object' &amp;&amp; value !== null) deepFreeze(value);
+  });
+  return Object.freeze(obj);
+};</code></pre>
+<p>Проверка <code>value !== null</code> важна: <code>typeof null</code> возвращает <code>'object'</code>. В версии из статьи модуля этой проверки нет, и объект с полем, равным <code>null</code>, ломает функцию.</p>
+<h3 id="fp-array-methods">Методы массивов: какие меняют исходный</h3>
+<div class="tbl"><table><thead><tr><th scope="col">Меняют массив (избегать)</th><th scope="col">Возвращают новый</th></tr></thead><tbody>
+<tr><td><code>push</code>, <code>pop</code>, <code>shift</code>, <code>unshift</code></td><td><code>[...arr, x]</code>, <code>arr.slice(1)</code>, <code>[x, ...arr]</code></td></tr>
+<tr><td><code>splice</code></td><td><code>toSpliced</code>, <code>filter</code>, <code>slice</code></td></tr>
+<tr><td><code>sort</code></td><td><code>toSorted</code>, <code>[...arr].sort()</code></td></tr>
+<tr><td><code>reverse</code></td><td><code>toReversed</code></td></tr>
+<tr><td><code>arr[i] = x</code></td><td><code>arr.with(i, x)</code>, <code>map</code></td></tr>
+</tbody></table></div>
+<p><code>toSorted</code>, <code>toReversed</code>, <code>toSpliced</code> и <code>with</code> появились в ES2023 (из общих знаний), в Node 20+ и современных браузерах они есть.</p>
+</section>

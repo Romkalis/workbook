@@ -1,6 +1,6 @@
 <section id="bc-evaluate">
 <h2>Шаг 5. evaluateGuess: быки и коровы через filter</h2>
-<p>Задание запрещает ручные циклы со счётчиками и требует методы массивов. Самый короткий путь — посчитать две величины:</p>
+<p>Задание запрещает ручные циклы со счётчиками и требует методы массивов — <a href="/lessons/fp-basics#fp-hof">функции высшего порядка</a> <code>filter</code>, <code>map</code>, <code>reduce</code>. Самый короткий путь — посчитать две величины:</p>
 <ul>
 <li><strong>быки</strong> — сколько позиций совпадает: символ попытки равен символу секрета с тем же индексом;</li>
 <li><strong>общие цифры</strong> — сколько цифр попытки вообще есть в секрете, неважно где.</li>
@@ -37,5 +37,6 @@ export const evaluateGuess = (secret: string, guess: string): Score =&gt; {
 
   return { bulls, cows: common - bulls };
 };</code></pre>
+<p><code>filter</code> возвращает новый массив только из тех элементов, для которых колбэк вернул <code>true</code>; <code>.length</code> этого массива и есть счётчик. Второй аргумент колбэка <code>i</code> — индекс элемента, по нему сравниваем позиции. <code>Set</code> — коллекция уникальных значений с быстрой проверкой <code>has</code> (см. <a href="/lessons/data-structures-and-algorithms#ds-object-map">Object, Map и Set</a>).</p>
 <p><code>Set</code> из цифр секрета превращает проверку «есть ли цифра в секрете» в O(1) вместо прохода по строке. При длине до 6 разницы не заметить, но в <code>DESIGN.md</code> это хороший аргумент: функция линейная, O(n). Можно написать то же через один <code>reduce</code>, который возвращает объект <code>{ bulls, cows }</code>, но два <code>filter</code> читаются проще.</p>
 </section>

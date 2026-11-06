@@ -1,0 +1,38 @@
+<section id="bc-prereq">
+<h2>Что нужно знать заранее</h2>
+<p>Задание собирает темы из нескольких модулей. Если какое-то слово ниже незнакомо, сначала прочитайте раздел по ссылке: без этого шаги будут казаться набором магических команд.</p>
+<h3 id="bc-prereq-fp">Функциональное программирование</h3>
+<p>Всё ядро игры держится на этих понятиях. Подробно и с примерами они разобраны в уроке <a href="/lessons/fp-basics">«Основы ФП»</a>.</p>
+<ul>
+<li><a href="/lessons/fp-basics#fp-pure"><strong>Чистая функция</strong></a> — при одинаковых аргументах всегда возвращает одинаковый результат и ничего не меняет снаружи. <code>(a, b) =&gt; a + b</code> чистая, а функция с <code>Math.random()</code> внутри — нет.</li>
+<li><a href="/lessons/fp-basics#fp-side-effects"><strong>Побочный эффект</strong></a> — всё, что функция делает кроме возврата значения: меняет переменные снаружи, пишет в DOM или <code>localStorage</code>, выводит в консоль.</li>
+<li><a href="/lessons/fp-basics#fp-immutability"><strong>Иммутабельность</strong></a> — данные не меняют, а создают изменённую копию: <code>[...history, entry]</code> вместо <code>history.push(entry)</code>. Три точки — это <a href="/lessons/fp-basics#fp-copy">spread</a>, он «раскладывает» массив или объект в новый.</li>
+<li><a href="/lessons/fp-basics#fp-hof"><strong>Функция высшего порядка (HOF)</strong></a> — принимает функцию аргументом или возвращает функцию. <code>map</code>, <code>filter</code>, <code>reduce</code>, <code>every</code> — HOF. Функцию, которая отвечает <code>true</code>/<code>false</code>, называют <strong>предикатом</strong>.</li>
+<li><a href="/lessons/fp-basics#fp-closure"><strong>Замыкание</strong></a> — внутренняя функция помнит переменные внешней. На нём работают каррирование и мемоизация.</li>
+<li><a href="/lessons/fp-basics#fp-currying"><strong>Каррирование</strong></a> — превращение <code>f(a, b)</code> в <code>f(a)(b)</code>: можно передать первый аргумент заранее и получить готовую функцию.</li>
+<li><a href="/lessons/fp-basics#fp-recursion"><strong>Рекурсия</strong></a> — функция вызывает саму себя с задачей поменьше, пока не дойдёт до базового случая.</li>
+<li><a href="/lessons/fp-basics#fp-memo"><strong>Мемоизация</strong></a> — запоминание результатов функции по аргументам, чтобы не считать повторно.</li>
+</ul>
+<h3 id="bc-prereq-testing">Тесты и TDD</h3>
+<ul>
+<li><a href="/lessons/testing#testing-tdd-cycle"><strong>TDD</strong></a> (Test-Driven Development) — сначала пишем тест, видим, что он падает («красный»), потом пишем код, чтобы он прошёл («зелёный»).</li>
+<li><a href="/lessons/testing#testing-first"><strong>FIRST</strong></a> — пять свойств хороших тестов: быстрые, независимые, повторяемые, самопроверяющиеся, написанные вовремя.</li>
+<li><a href="/lessons/testing#testing-runner"><strong>Тестовый раннер</strong></a> — программа, которая находит и запускает тесты. Здесь это Vitest. В тестах используются <code>describe</code> (группа), <code>it</code> (один тест) и <code>expect(...).toBe(...)</code> (проверка); см. <a href="/lessons/testing#testing-aaa">структуру теста</a>.</li>
+</ul>
+<h3 id="bc-prereq-ts">TypeScript</h3>
+<ul>
+<li><a href="/lessons/typescript-basic#ts-objects"><strong>type</strong></a> описывает форму объекта: <code>type Score = { bulls: number; cows: number }</code>.</li>
+<li><a href="/lessons/typescript-advanced#advanced-partial-required-readonly"><strong>Readonly</strong></a> и <code>readonly T[]</code> запрещают компилятору менять поля и массивы — страховка иммутабельности.</li>
+<li><a href="/lessons/typescript-basic#ts-generics"><strong>Дженерики</strong></a> <code>&lt;T&gt;</code> — функции, которые работают с любым типом. Встретятся в <code>memoize</code> и хелпере <code>el</code>. Если пока сложно, можно писать эти функции без дженериков и вернуться к ним позже.</li>
+<li><a href="/lessons/typescript-advanced#advanced-tsconfig"><strong>tsconfig.json</strong></a> — настройки компилятора <code>tsc</code>.</li>
+</ul>
+<h3 id="bc-prereq-tools">Инструменты и процесс</h3>
+<ul>
+<li><a href="/lessons/data-structures-and-algorithms#ds-complexity"><strong>Big O</strong></a> — оценка, как растёт время работы с ростом входных данных. Нужна для <code>DESIGN.md</code>.</li>
+<li><a href="/lessons/clean-code#cc-conventional"><strong>Конвенция коммитов</strong></a> — формат сообщений <code>тип: описание</code>.</li>
+<li><a href="/lessons/typescript-advanced#advanced-eslint"><strong>ESLint</strong></a> находит ошибки и плохие практики в коде, <strong>Prettier</strong> автоматически форматирует его (отступы, кавычки).</li>
+<li><strong>Git-хук</strong> — скрипт, который git запускает сам в определённый момент: перед коммитом (pre-commit) или перед отправкой (pre-push). <strong>Husky</strong> помогает хранить такие скрипты в репозитории, <strong>lint-staged</strong> запускает линтер только на файлах, которые попадут в коммит.</li>
+<li><strong>Бандлер</strong> (Webpack, Vite) — склеивает много файлов в один для браузера. Здесь он не нужен.</li>
+<li><strong>Кросс-чек</strong> — проверка вашей работы другими студентами курса по критериям задания.</li>
+</ul>
+</section>

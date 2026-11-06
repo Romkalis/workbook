@@ -1,0 +1,41 @@
+<section id="fp-recursion">
+<h2>Рекурсия</h2>
+<p><strong>Рекурсия</strong> — когда функция вызывает саму себя. Задача решается так: сводим её к такой же задаче поменьше, пока не дойдём до совсем простой, ответ на которую известен сразу.</p>
+<p>У каждой рекурсивной функции две части:</p>
+<ul>
+<li><strong>Базовый случай</strong> — условие остановки, где ответ возвращается без рекурсии.</li>
+<li><strong>Рекурсивный шаг</strong> — вызов себя с «уменьшенными» данными.</li>
+</ul>
+<pre><code>// Сумма чисел от 1 до n
+const sumTo = (n) =&gt; (n === 1 ? 1 : n + sumTo(n - 1));
+sumTo(4); // 4 + 3 + 2 + 1 = 10
+sumTo(100); // 5050</code></pre>
+<figure class="dg"><div class="dg-title">Вызов sumTo(3)</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0">sumTo(3) ждёт sumTo(2): 3 + ?</li><li class="card lit" style="--i:1">sumTo(2) ждёт sumTo(1): 2 + ?</li><li class="card lit" style="--i:2">sumTo(1) = 1 — базовый случай. Ответы поднимаются обратно: 2 + 1 = 3, затем 3 + 3 = 6.</li></ol><figcaption>Каждый вызов sumTo ждёт результата следующего, поэтому все незавершённые вызовы хранятся в стеке вызовов. Когда доходим до базового случая sumTo(1), ответы собираются в обратном порядке: сначала 2 + 1, потом 3 + 3 = 6.</figcaption></figure>
+<h3 id="fp-call-stack">Стек вызовов и его предел</h3>
+<p>Каждый незавершённый вызов занимает место в <strong>стеке вызовов</strong> — внутренней памяти движка, где он хранит, кто кого вызвал и куда вернуться. Стек не бесконечный:</p>
+<pre><code>sumTo(100000); // RangeError: Maximum call stack size exceeded</code></pre>
+<p>Если забыть базовый случай или он никогда не наступает, ошибка будет та же. Для простых линейных задач вроде <code>sumTo</code> цикл или формула надёжнее. Рекурсия хороша там, где данные сами устроены рекурсивно.</p>
+<p class="note">В других языках длинную рекурсию спасает оптимизация хвостового вызова. В стандарте JavaScript она есть, но из общих знаний: V8 (Chrome, Node) её не реализует, на неё рассчитывать нельзя.</p>
+<h3 id="fp-recursive-data">Рекурсивные структуры</h3>
+<p>Пример из статьи javascript.info из материалов модуля: в компании есть отделы, у отделов могут быть подотделы, у подотделов свои подотделы. Глубина заранее неизвестна, поэтому цикл не подходит, а рекурсия — естественно.</p>
+<pre><code>const company = {
+  sales: [{ name: 'John', salary: 1000 }, { name: 'Alice', salary: 1600 }],
+  development: {
+    sites: [{ name: 'Peter', salary: 2000 }, { name: 'Alex', salary: 1800 }],
+    internals: [{ name: 'Jack', salary: 1300 }],
+  },
+};
+
+const sumSalaries = (department) =&gt;
+  Array.isArray(department)
+    ? department.reduce((sum, employee) =&gt; sum + employee.salary, 0) // базовый случай
+    : Object.values(department).reduce((sum, sub) =&gt; sum + sumSalaries(sub), 0);
+
+sumSalaries(company); // 7700</code></pre>
+<p>Ещё пример — «расплющить» массив любой вложенности:</p>
+<pre><code>const flatten = (arr) =&gt;
+  arr.reduce((acc, x) =&gt; (Array.isArray(x) ? [...acc, ...flatten(x)] : [...acc, x]), []);
+
+flatten([1, [2, [3, [4]]], 5]); // [1, 2, 3, 4, 5]</code></pre>
+<p>Дерево DOM, JSON, файловая система и бинарные деревья (урок <a href="/lessons/basic-js-ds">BasicJS: Data Structures</a>) устроены так же.</p>
+</section>
