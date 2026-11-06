@@ -1,0 +1,50 @@
+<section id="bc-validator">
+<h2>Шаг 3. createDigitValidator: каррированная фабрика</h2>
+<p>Функция принимает систему счисления и возвращает другую функцию — предикат «этот символ допустимая цифра?». Это и есть каррирование: вместо <code>isDigit(base, char)</code> мы пишем <code>createDigitValidator(base)(char)</code>. Выгода практическая: систему счисления фиксируем один раз при старте раунда, а получившийся <code>isHexDigit</code> отдаём туда, где нужен только символ — в <code>every</code> внутри <code>isValidGuess</code> и в обработчик ввода. Критерий так и звучит: фабрика используется минимум в двух местах.</p>
+<h3 id="bc-validator-tests">Тесты (красный коммит)</h3>
+<pre><code>// src/game.test.ts
+import { describe, it, expect } from 'vitest';
+import { createDigitValidator } from './game.js';
+
+describe('createDigitValidator', () =&gt; {
+  it('returns a function', () =&gt; {
+    expect(typeof createDigitValidator(10)).toBe('function');
+  });
+
+  it('accepts only 0 and 1 in binary', () =&gt; {
+    const isBin = createDigitValidator(2);
+    expect(isBin('0')).toBe(true);
+    expect(isBin('1')).toBe(true);
+    expect(isBin('2')).toBe(false);
+  });
+
+  it('rejects 8 and 9 in octal', () =&gt; {
+    const isOct = createDigitValidator(8);
+    expect(isOct('7')).toBe(true);
+    expect(isOct('8')).toBe(false);
+  });
+
+  it('treats hex letters case-insensitively', () =&gt; {
+    const isHex = createDigitValidator(16);
+    expect(isHex('a')).toBe(true);
+    expect(isHex('F')).toBe(true);
+    expect(isHex('g')).toBe(false);
+  });
+
+  it('rejects empty strings and several characters', () =&gt; {
+    const isDec = createDigitValidator(10);
+    expect(isDec('')).toBe(false);
+    expect(isDec('12')).toBe(false);
+  });
+});</code></pre>
+<p>Последний тест не для галочки. Если проверять через <code>alphabet.includes(char)</code> без проверки длины, то пустая строка и <code>'01'</code> окажутся «цифрами»: <code>'0123'.includes('')</code> и <code>'0123'.includes('01')</code> равны <code>true</code>.</p>
+<h3 id="bc-validator-impl">Реализация (зелёный коммит)</h3>
+<pre><code>// src/game.ts
+export const ALPHABET = '0123456789abcdef';
+
+export const createDigitValidator =
+  (base: number) =&gt;
+  (char: string): boolean =&gt;
+    char.length === 1 &amp;&amp; ALPHABET.slice(0, base).includes(char.toLowerCase());</code></pre>
+<p>Одна строка <code>ALPHABET</code> обслуживает все четыре системы: для <code>base = 2</code> берём <code>'01'</code>, для 8 — <code>'01234567'</code>, для 16 — всю строку. Регистр приводится через <code>toLowerCase</code>, поэтому <code>A</code> и <code>a</code> — одна цифра, как требует задание.</p>
+</section>

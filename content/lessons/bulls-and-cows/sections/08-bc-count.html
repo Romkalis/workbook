@@ -1,0 +1,41 @@
+<section id="bc-count">
+<h2>Шаг 7. countPossibleSecrets: рекурсия и мемоизация</h2>
+<p>Сколько существует секретов длины <code>length</code> в системе <code>base</code>? Это число размещений без повторений: на первое место подходит любая из <code>base</code> цифр, на второе — любая из оставшихся <code>base − 1</code>, и так далее. Ведущий ноль разрешён, поэтому ничего вычитать не нужно. Для 4 цифр в dec: 10 × 9 × 8 × 7 = 5040.</p>
+<p>Рекурсивная запись прямо следует из этого рассуждения: <code>count(length, base) = base × count(length − 1, base − 1)</code>. Базовый случай: <code>count(0, base) = 1</code> — пустое число можно составить одним способом.</p>
+<h3 id="bc-count-tests">Тесты</h3>
+<pre><code>describe('countPossibleSecrets', () =&gt; {
+  it('counts permutations without repetition', () =&gt; {
+    expect(countPossibleSecrets(4, 10)).toBe(5040);
+    expect(countPossibleSecrets(2, 2)).toBe(2);
+    expect(countPossibleSecrets(6, 16)).toBe(5765760);
+  });
+
+  it('returns 1 for zero length', () =&gt; {
+    expect(countPossibleSecrets(0, 10)).toBe(1);
+  });
+
+  it('returns 0 when length is greater than base', () =&gt; {
+    expect(countPossibleSecrets(3, 2)).toBe(0);
+  });
+});</code></pre>
+<h3 id="bc-count-impl">Реализация</h3>
+<p>Мемоизацию лучше написать отдельной функцией высшего порядка: она принимает функцию и возвращает её версию с кэшем. Ключ кэша — аргументы, сериализованные в строку.</p>
+<pre><code>export const memoize = &lt;A extends unknown[], R&gt;(fn: (...args: A) =&gt; R) =&gt; {
+  const cache = new Map&lt;string, R&gt;();
+  return (...args: A): R =&gt; {
+    const key = JSON.stringify(args);
+    if (!cache.has(key)) cache.set(key, fn(...args));
+    return cache.get(key) as R;
+  };
+};
+
+export const countPossibleSecrets: (length: number, base: number) =&gt; number = memoize(
+  (length: number, base: number): number =&gt; {
+    if (length &gt; base) return 0;
+    if (length === 0) return 1;
+    return base * countPossibleSecrets(length - 1, base - 1);
+  },
+);</code></pre>
+<p>Обратите внимание: рекурсивный вызов идёт к <strong>мемоизированной</strong> <code>countPossibleSecrets</code>, а не к внутренней функции. Поэтому в кэш попадают и промежуточные результаты: после <code>count(4, 10)</code> там уже лежат <code>count(3, 9)</code>, <code>count(2, 8)</code> и так далее. Аннотация типа у константы нужна, потому что TypeScript не может вывести тип переменной, которая ссылается на себя в собственном инициализаторе.</p>
+<p class="note">Кэш внутри <code>memoize</code> — изменяемое состояние, но оно скрыто в замыкании и не влияет на результат: снаружи функция по-прежнему чистая, одинаковые аргументы дают одинаковый ответ. Честно говоря, для чисел до 16 мемоизация здесь — учебное упражнение, вычисление и так занимает микросекунды. Задание это понимает и просит именно приём.</p>
+</section>

@@ -1,0 +1,41 @@
+<section id="bc-evaluate">
+<h2>Шаг 5. evaluateGuess: быки и коровы через filter</h2>
+<p>Задание запрещает ручные циклы со счётчиками и требует методы массивов. Самый короткий путь — посчитать две величины:</p>
+<ul>
+<li><strong>быки</strong> — сколько позиций совпадает: символ попытки равен символу секрета с тем же индексом;</li>
+<li><strong>общие цифры</strong> — сколько цифр попытки вообще есть в секрете, неважно где.</li>
+</ul>
+<p>Тогда коровы — это общие цифры минус быки. Формула верна только потому, что цифры в секрете и попытке уникальны: каждая цифра попытки может совпасть максимум с одной цифрой секрета. В классической игре с повторами так считать нельзя.</p>
+<h3 id="bc-evaluate-tests">Тесты</h3>
+<pre><code>describe('evaluateGuess', () =&gt; {
+  it('counts bulls and cows', () =&gt; {
+    expect(evaluateGuess('1234', '1243')).toEqual({ bulls: 2, cows: 2 });
+  });
+
+  it('returns zeros when nothing matches', () =&gt; {
+    expect(evaluateGuess('0123', '4567')).toEqual({ bulls: 0, cows: 0 });
+  });
+
+  it('returns only bulls for the exact secret', () =&gt; {
+    expect(evaluateGuess('1234', '1234')).toEqual({ bulls: 4, cows: 0 });
+  });
+
+  it('ignores the case of hex digits', () =&gt; {
+    expect(evaluateGuess('ab', 'BA')).toEqual({ bulls: 0, cows: 2 });
+  });
+});</code></pre>
+<h3 id="bc-evaluate-impl">Реализация</h3>
+<pre><code>export type Score = Readonly&lt;{ bulls: number; cows: number }&gt;;
+
+export const evaluateGuess = (secret: string, guess: string): Score =&gt; {
+  const secretChars = normalize(secret);
+  const guessChars = normalize(guess);
+  const secretDigits = new Set(secretChars);
+
+  const bulls = guessChars.filter((ch, i) =&gt; ch === secretChars[i]).length;
+  const common = guessChars.filter((ch) =&gt; secretDigits.has(ch)).length;
+
+  return { bulls, cows: common - bulls };
+};</code></pre>
+<p><code>Set</code> из цифр секрета превращает проверку «есть ли цифра в секрете» в O(1) вместо прохода по строке. При длине до 6 разницы не заметить, но в <code>DESIGN.md</code> это хороший аргумент: функция линейная, O(n). Можно написать то же через один <code>reduce</code>, который возвращает объект <code>{ bulls, cows }</code>, но два <code>filter</code> читаются проще.</p>
+</section>

@@ -1,0 +1,46 @@
+<section id="bc-submit">
+<h2>Шаг 11. Деплой, PR и сдача</h2>
+<h3 id="bc-deploy">Деплой</h3>
+<p>Сайт статический: <code>index.html</code>, <code>style.css</code> и папка <code>dist/</code> после <code>npm run build</code>. Подойдёт любой хостинг статики.</p>
+<p class="warn">Репозиторий приватный, а GitHub Pages для приватных репозиториев на бесплатном аккаунте недоступен (из общих знаний о тарифах GitHub; проверьте свой аккаунт — у GitHub Education Pro он может работать). Самый простой выход — Netlify или Vercel: подключаете приватный репозиторий, указываете ветку <code>bulls-and-cows</code>, команду сборки <code>npm run build</code> и корень публикации <code>.</code>. Ещё вариант — Netlify Drop: собрать проект локально и перетащить папку в браузер.</p>
+<p>После деплоя откройте ссылку в режиме инкогнито и пройдите игру целиком. Частая ошибка — 404 на <code>dist/main.js</code> или на импортах без <code>.js</code>: смотрите вкладку Network.</p>
+<h3 id="bc-checklist">Чек-лист поведения</h3>
+<ul>
+<li>Длина 2–6 и bin/oct/dec/hex доступны до старта и недоступны во время раунда.</li>
+<li>В bin недоступны все длины, кроме 2.</li>
+<li>Поле не принимает недопустимые символы; <code>A–F</code> принимаются наравне с <code>a–f</code>.</li>
+<li>После каждой попытки появляется запись с bulls/cows; повтор не задваивает историю.</li>
+<li>Угаданное число завершает игру, показываются попытки и время.</li>
+<li>Рекорд виден после перезагрузки страницы.</li>
+<li>«Новая игра» возвращает к настройкам без перезагрузки.</li>
+</ul>
+<h3 id="bc-pr">Pull Request</h3>
+<p>Откройте PR из <code>bulls-and-cows</code> в <code>main</code> своего репозитория и <strong>не мержите</strong>. Описание — по <a href="https://rs.school/docs/mentoring/pull-request-review-process#pull-request-requirements-pr">шаблону RS School</a> (ссылка на задание, скриншот, деплой, дата сдачи, самооценка), плюс четыре пункта из задания:</p>
+<ol>
+<li>ссылка на деплой;</li>
+<li>подтверждение порядка коммитов — удобно таблицей «функция → хэш теста → хэш реализации»;</li>
+<li>ссылка на <code>DESIGN.md</code>;</li>
+<li>пройденный чек-лист поведения с отметками.</li>
+</ol>
+<p>Хэши для таблицы даёт команда:</p>
+<pre><code>git log --oneline --reverse main..bulls-and-cows</code></pre>
+<p>Ожидаемая картина истории:</p>
+<pre><code>chore: set up typescript, vitest, eslint, prettier and husky
+test: add failing tests for createDigitValidator
+feat: implement createDigitValidator
+test: add failing tests for isValidGuess
+feat: implement isValidGuess
+test: add failing tests for evaluateGuess
+feat: implement evaluateGuess
+test: add failing tests for generateSecret
+feat: implement generateSecret
+test: add failing tests for countPossibleSecrets
+feat: implement countPossibleSecrets
+test: add failing tests for game state and records
+feat: add immutable game state and records
+feat: add settings, game and records screens
+docs: add design document</code></pre>
+<p>Приватный репозиторий проверяющие не увидят, пока вы не дадите им доступ. Как именно его выдавать в этом потоке, уточняйте в чате курса: в README задания про это не сказано.</p>
+<h3 id="bc-rs-app">Сдача</h3>
+<p>Ссылку на PR отправьте в <a href="https://app.rs.school/">RS App</a> → <strong>Cross-Check: Submit</strong>. Задание проверяется кросс-чеком: другие студенты пройдут ваш чек-лист на деплое, посмотрят коммиты и запустят <code>npm test</code>. Поэтому <code>npm ci &amp;&amp; npm test</code> на чистом клоне должен проходить без дополнительных действий.</p>
+</section>

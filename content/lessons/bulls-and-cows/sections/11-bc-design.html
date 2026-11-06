@@ -1,0 +1,32 @@
+<section id="bc-design">
+<h2>Шаг 10. DESIGN.md</h2>
+<p>Документ в корне репозитория стоит 20 баллов, и критерии требуют конкретики: не «использованы чистые функции», а «<code>evaluateGuess</code> в <code>src/game.ts</code> — чистая функция, потому что…». Ниже шаблон с содержанием, которое можно адаптировать под свой код. Обозначения: <code>n</code> — длина секрета, <code>b</code> — система счисления, <code>h</code> — число попыток в истории.</p>
+<h3 id="bc-design-data">Структуры данных и алгоритмы</h3>
+<ul>
+<li><strong>Секрет и попытка</strong> — строки. Сохраняют ведущий ноль и hex-буквы; для сравнения разворачиваются в массив символов.</li>
+<li><strong>Состояние игры</strong> — неизменяемый объект <code>GameState</code>. Каждое действие возвращает новый объект, поэтому старые версии остаются целыми, а отладка и тесты проще.</li>
+<li><strong>История</strong> — массив <code>Attempt[]</code>: порядок важен, добавление только в конец через spread.</li>
+<li><strong>Set</strong> — в <code>isValidGuess</code> для поиска повторов и в <code>evaluateGuess</code> для проверки «цифра есть в секрете» за O(1).</li>
+<li><strong>Map</strong> — кэш в <code>memoize</code>.</li>
+<li><strong>Алгоритм evaluateGuess</strong>: быки — число совпадающих позиций; общие — число цифр попытки, которые есть в секрете; коровы = общие − быки. Корректно, потому что цифры уникальны.</li>
+<li><strong>Алгоритм countPossibleSecrets</strong>: размещения без повторений, P(b, n) = b × P(b − 1, n − 1), P(b, 0) = 1; результаты кэшируются.</li>
+</ul>
+<h3 id="bc-design-bigo">Сложность</h3>
+<div class="tbl"><table><thead><tr><th scope="col">Функция</th><th scope="col">Время</th><th scope="col">Обоснование</th></tr></thead><tbody>
+<tr><td><code>generateSecret</code></td><td>O(n · b)</td><td>n шагов рекурсии, на каждом <code>filter</code> копирует пул из не более чем b символов. Глубина рекурсии n, память O(n · b) на копии пула.</td></tr>
+<tr><td><code>evaluateGuess</code></td><td>O(n)</td><td>Построение <code>Set</code> — O(n), два прохода <code>filter</code> по n символов, проверка <code>has</code> — O(1).</td></tr>
+<tr><td><code>isValidGuess</code></td><td>O(n)</td><td>Проверка длины O(1), <code>every</code> по n символам, каждый вызов валидатора — поиск в строке алфавита длиной до 16, то есть константа; <code>Set</code> — O(n).</td></tr>
+<tr><td><code>countPossibleSecrets</code></td><td>O(n) первый вызов, O(1) повторный</td><td>Рекурсия уменьшает length на 1, глубина n. Затем ответ берётся из <code>Map</code>. Ключ <code>JSON.stringify</code> короткий, это константа.</td></tr>
+</tbody></table></div>
+<p>Поиск повтора в <code>applyGuess</code> — O(h), его тоже можно упомянуть. Если хранить ещё и <code>Set</code> угаданных строк, станет O(1), но для десятков попыток это лишнее усложнение (YAGNI) — так и напишите.</p>
+<h3 id="bc-design-clean">Принципы чистого кода</h3>
+<p>Каждый пункт — с указанием места:</p>
+<ul>
+<li><strong>Single responsibility</strong>: <code>game.ts</code> — правила, <code>state.ts</code> — переходы состояния, <code>storage.ts</code> — <code>localStorage</code>, <code>dom.ts</code> и <code>main.ts</code> — интерфейс.</li>
+<li><strong>DRY</strong>: <code>createDigitValidator</code> — единственное место, которое знает, что такое цифра системы; <code>normalize</code> — единственное место приведения регистра.</li>
+<li><strong>KISS</strong>: коровы считаются вычитанием, а не вложенным перебором.</li>
+<li><strong>Говорящие имена</strong>: <code>secretDigits</code>, <code>applyGuess</code>, <code>compareRecords</code>.</li>
+<li><strong>Нет магических значений</strong>: <code>ALPHABET</code>, <code>LENGTHS</code>, <code>BASES</code>, ключ <code>localStorage</code> — именованные константы.</li>
+<li><strong>Побочные эффекты на краях</strong>: случайность и время передаются параметрами, DOM и хранилище вынесены из ядра.</li>
+</ul>
+</section>

@@ -1,0 +1,98 @@
+<section id="bc-state">
+<h2>Шаг 8. Иммутабельное состояние и рекорды</h2>
+<p>Состояние раунда — один объект: настройки, секрет, история попыток, статус и время. Мы его никогда не меняем. Каждое действие игрока — это чистая функция «старое состояние + действие → новое состояние». Такая функция легко тестируется без браузера, а интерфейс просто хранит ссылку на текущее состояние и перерисовывается по нему. Эти функции не входят в обязательные пять, но тесты на них стоит написать тем же порядком: тест, потом код.</p>
+<h3 id="bc-state-types">Типы и создание раунда</h3>
+<pre><code>// src/state.ts
+import { evaluateGuess, type Score } from './game.js';
+
+export type Settings = Readonly&lt;{ length: number; base: number }&gt;;
+export type Attempt = Readonly&lt;{ guess: string; score: Score }&gt;;
+export type GameState = Readonly&lt;{
+  settings: Settings;
+  secret: string;
+  history: readonly Attempt[];
+  status: 'playing' | 'won';
+  startedAt: number;
+  finishedAt: number | null;
+}&gt;;
+
+export const startGame = (settings: Settings, secret: string, now: number): GameState =&gt; ({
+  settings,
+  secret,
+  history: [],
+  status: 'playing',
+  startedAt: now,
+  finishedAt: null,
+});</code></pre>
+<p><code>Readonly</code> и <code>readonly Attempt[]</code> — подсказка компилятору: если где-то случайно написать <code>state.history.push(...)</code>, TypeScript выдаст ошибку. Время <code>now</code> приходит параметром по той же причине, что и <code>random</code>: <code>Date.now()</code> внутри сделал бы функцию непредсказуемой.</p>
+<h3 id="bc-state-guess">Ход игрока</h3>
+<pre><code>export const applyGuess = (state: GameState, rawGuess: string, now: number): GameState =&gt; {
+  const guess = rawGuess.toLowerCase();
+  if (state.status !== 'playing') return state;
+  if (state.history.some((attempt) =&gt; attempt.guess === guess)) return state;
+
+  const score = evaluateGuess(state.secret, guess);
+  const won = score.bulls === state.settings.length;
+
+  return {
+    ...state,
+    history: [...state.history, { guess, score }],
+    status: won ? 'won' : 'playing',
+    finishedAt: won ? now : null,
+  };
+};</code></pre>
+<p>Здесь закрыты сразу три пункта чек-листа. История растёт через <code>[...history, entry]</code>, старые записи не трогаются. Повтор уже введённой попытки возвращает то же состояние без новой записи — интерфейс может показать подсказку «уже было». Победа фиксирует время, и число попыток равно <code>history.length</code>.</p>
+<pre><code>it('does not mutate the previous state', () =&gt; {
+  const s0 = startGame({ length: 2, base: 10 }, '12', 1000);
+  const s1 = applyGuess(s0, '13', 2000);
+  expect(s0.history).toHaveLength(0);
+  expect(s1.history).toHaveLength(1);
+  expect(applyGuess(s1, '13', 2500)).toBe(s1);
+});
+
+it('finishes the game on all bulls', () =&gt; {
+  const s0 = startGame({ length: 2, base: 10 }, '12', 1000);
+  const won = applyGuess(applyGuess(s0, '13', 2000), '12', 5000);
+  expect(won.status).toBe('won');
+  expect(won.finishedAt! - won.startedAt).toBe(4000);
+});</code></pre>
+<h3 id="bc-records">Таблица рекордов</h3>
+<p>Рекорд — запись с числом попыток, временем и настройками. Сортировка: меньше попыток лучше, при равенстве меньше время. Трюк с <code>||</code>: если разница попыток равна нулю (ложь), сравнение переходит к времени.</p>
+<pre><code>export type RecordEntry = Readonly&lt;{
+  attempts: number;
+  timeMs: number;
+  length: number;
+  base: number;
+  date: number;
+}&gt;;
+
+export const compareRecords = (a: RecordEntry, b: RecordEntry): number =&gt;
+  a.attempts - b.attempts || a.timeMs - b.timeMs;
+
+export const addRecord = (
+  records: readonly RecordEntry[],
+  entry: RecordEntry,
+  limit = 10,
+): RecordEntry[] =&gt; [...records, entry].sort(compareRecords).slice(0, limit);</code></pre>
+<p><code>sort</code> меняет массив на месте, но здесь он сортирует свежую копию из <code>[...records, entry]</code>, так что исходный массив цел. В новых браузерах есть <code>toSorted</code>, который сразу возвращает копию.</p>
+<p>Задание разрешает два варианта: отдельная таблица на каждую пару длина/система или один список с бейджем настроек у каждой записи. Второй проще — в записи уже есть <code>length</code> и <code>base</code>, их достаточно вывести рядом с результатом.</p>
+<p>Работа с <code>localStorage</code> — это побочный эффект, поэтому она живёт отдельно от ядра, в маленьком модуле:</p>
+<pre><code>// src/storage.ts
+import type { RecordEntry } from './state.js';
+
+const KEY = 'bulls-and-cows:records';
+
+export const loadRecords = (): RecordEntry[] =&gt; {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(KEY) ?? '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveRecords = (records: readonly RecordEntry[]): void =&gt; {
+  localStorage.setItem(KEY, JSON.stringify(records));
+};</code></pre>
+<p><code>try/catch</code> нужен на случай испорченного JSON в хранилище: без него игра упадёт при загрузке, а за неработающее приложение штраф −50.</p>
+</section>

@@ -1,0 +1,42 @@
+<section id="bc-valid-guess">
+<h2>Шаг 4. isValidGuess: три условия</h2>
+<p>Попытка корректна, если совпадает длина, каждый символ — допустимая цифра и цифры не повторяются. Эти три условия и превращаются в три группы тестов.</p>
+<h3 id="bc-valid-guess-tests">Тесты</h3>
+<pre><code>describe('isValidGuess', () =&gt; {
+  it('accepts a correct guess, including a leading zero', () =&gt; {
+    expect(isValidGuess('0123', 4, 10)).toBe(true);
+  });
+
+  it('rejects a wrong length', () =&gt; {
+    expect(isValidGuess('012', 4, 10)).toBe(false);
+    expect(isValidGuess('01234', 4, 10)).toBe(false);
+  });
+
+  it('rejects digits outside the base', () =&gt; {
+    expect(isValidGuess('18', 2, 8)).toBe(false);
+    expect(isValidGuess('1g', 2, 16)).toBe(false);
+  });
+
+  it('rejects repeated digits', () =&gt; {
+    expect(isValidGuess('0113', 4, 10)).toBe(false);
+  });
+
+  it('treats a and A as the same hex digit', () =&gt; {
+    expect(isValidGuess('aB', 2, 16)).toBe(true);
+    expect(isValidGuess('aA', 2, 16)).toBe(false);
+  });
+});</code></pre>
+<h3 id="bc-valid-guess-impl">Реализация</h3>
+<pre><code>const normalize = (value: string): string[] =&gt; [...value.toLowerCase()];
+
+export const isValidGuess = (guess: string, length: number, base: number): boolean =&gt; {
+  const isDigit = createDigitValidator(base);
+  const chars = normalize(guess);
+  return (
+    chars.length === length &amp;&amp;
+    chars.every(isDigit) &amp;&amp;
+    new Set(chars).size === chars.length
+  );
+};</code></pre>
+<p>Повторы ловит <code>Set</code>: он хранит только уникальные значения, и если его размер меньше длины массива, значит какая-то цифра встретилась дважды. Приведение к нижнему регистру делается до <code>Set</code>, иначе <code>'aA'</code> прошла бы как две разные цифры. <code>chars.every(isDigit)</code> — первое из двух мест, где работает каррированный валидатор: в <code>every</code> передаётся готовый предикат.</p>
+</section>

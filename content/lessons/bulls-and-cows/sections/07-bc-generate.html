@@ -1,0 +1,44 @@
+<section id="bc-generate">
+<h2>Шаг 6. generateSecret: случайность как параметр</h2>
+<p>Функция с <code>Math.random()</code> внутри не чистая: на одинаковых аргументах она возвращает разные результаты, и тест на конкретное значение написать невозможно. Приём из задания простой: источник случайности приходит третьим параметром со значением по умолчанию <code>Math.random</code>. В игре его не передают, а в тестах передают функцию, которая всегда возвращает известные числа.</p>
+<p>Алгоритм: берём алфавит системы (<code>'0123456789'</code> для dec), выбираем случайный индекс, забираем этот символ и повторяем на оставшихся символах. Так цифры никогда не повторятся. Повторение «на оставшихся» естественно записывается рекурсией, а «оставшиеся» получаются через <code>filter</code> — новый массив без выбранного элемента, без <code>splice</code>.</p>
+<h3 id="bc-generate-tests">Тесты</h3>
+<pre><code>describe('generateSecret', () =&gt; {
+  it('takes the first free digit each time when random returns 0', () =&gt; {
+    expect(generateSecret(4, 10, () =&gt; 0)).toBe('0123');
+  });
+
+  it('takes the last free digit each time when random is close to 1', () =&gt; {
+    expect(generateSecret(3, 16, () =&gt; 0.999)).toBe('fed');
+  });
+
+  it('follows a scripted sequence of random values', () =&gt; {
+    const values = [0.5, 0, 0.99];
+    let call = 0;
+    const random = () =&gt; values[call++] ?? 0;
+    expect(generateSecret(3, 10, random)).toBe('509');
+  });
+
+  it('always returns a valid secret', () =&gt; {
+    const secret = generateSecret(6, 16, () =&gt; 0.3);
+    expect(isValidGuess(secret, 6, 16)).toBe(true);
+  });
+});</code></pre>
+<p>Разберём третий тест. Пул <code>0–9</code>, <code>0.5 × 10 = 5</code> → берём <code>5</code>. Пул из девяти цифр без пятёрки, <code>0 × 9 = 0</code> → <code>0</code>. Пул из восьми цифр <code>1,2,3,4,6,7,8,9</code>, <code>floor(0.99 × 8) = 7</code> → <code>9</code>. Итог <code>'509'</code>. Счётчик <code>call</code> живёт внутри теста, поэтому тесты не зависят друг от друга.</p>
+<h3 id="bc-generate-impl">Реализация</h3>
+<pre><code>export const generateSecret = (
+  length: number,
+  base: number,
+  random: () =&gt; number = Math.random,
+): string =&gt; {
+  const pick = (pool: readonly string[], left: number): string[] =&gt; {
+    if (left === 0) return [];
+    const index = Math.floor(random() * pool.length);
+    const rest = pool.filter((_, i) =&gt; i !== index);
+    return [pool[index] as string, ...pick(rest, left - 1)];
+  };
+  return pick([...ALPHABET.slice(0, base)], length).join('');
+};</code></pre>
+<p>Секрет хранится строкой, а не числом: число <code>0123</code> превратилось бы в <code>123</code> и потеряло ведущий ноль. Строка также естественна для hex.</p>
+<p class="note">Строго говоря, функция с <code>Math.random</code> по умолчанию остаётся нечистой, когда её вызывают без третьего аргумента. Чистой она становится при переданном детерминированном <code>random</code>. Эффект не исчез, его вынесли на край программы — туда, где игра стартует раунд. Об этом стоит честно написать в <code>DESIGN.md</code>.</p>
+</section>

@@ -1,0 +1,15 @@
+{
+  "slug": "bulls-and-cows",
+  "title": "Bulls and Cows: решение",
+  "stage": 2,
+  "order": 10.5,
+  "kicker": "RS School · Fullstack · задание",
+  "heading": "Bulls and Cows: полное решение задания по шагам",
+  "lead": "Собираем игру «Быки и коровы» на TypeScript в функциональном стиле: настраиваем ESLint, Prettier, Husky и Vitest, по TDD пишем пять обязательных чистых функций, делаем иммутабельное состояние, интерфейс без innerHTML, DESIGN.md с Big O и сдаём PR.",
+  "chips": [
+    "150 баллов",
+    "12 шагов",
+    "код ядра проверен в Node 22",
+    "10 вопросов с объяснениями"
+  ]
+}

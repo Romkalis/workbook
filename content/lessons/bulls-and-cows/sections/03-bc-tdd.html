@@ -1,0 +1,27 @@
+<section id="bc-tdd">
+<h2>Шаг 2. Как работать по TDD в этом задании</h2>
+<p>Для каждой из пяти обязательных функций в истории должны быть два соседних коммита. Проверяющий открывает вкладку Commits и смотрит, что тест появился раньше реализации и что в «красном» коммите тесты действительно падают.</p>
+<figure class="dg"><div class="dg-title">Цикл для одной функции</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0">Красный: файл с тестами и заглушка, которая бросает ошибку. npm test падает. Коммит test: …</li><li class="card lit" style="--i:1">Зелёный: настоящая реализация. npm test проходит. Коммит feat: …</li><li class="card lit" style="--i:2">git push: pre-push запускает тесты, оба коммита уходят вместе.</li></ol><figcaption>Каждая функция проходит три шага. Сначала коммит с тестами и заглушкой, на котором тесты падают. Затем коммит с реализацией, после которого они зелёные. Только после этого push: хук pre-push не пропустит отправку, пока тесты красные.</figcaption></figure>
+<p>Заглушка нужна, чтобы тесты падали по делу, на проверке значения, а не из-за того, что нечего импортировать. Падение на «модуль не найден» тоже падение, но заглушка нагляднее для проверяющего:</p>
+<pre><code>// src/game.ts — красный коммит
+export const createDigitValidator =
+  (_base: number) =&gt;
+  (_char: string): boolean =&gt; {
+    throw new Error('Not implemented');
+  };</code></pre>
+<p>Перед коммитом обязательно запустите <code>npm test</code> и убедитесь, что тесты красные. Затем:</p>
+<pre><code>git add src/game.ts src/game.test.ts
+git commit -m "test: add failing tests for createDigitValidator"
+# пишем реализацию, npm test зелёный
+git commit -am "feat: implement createDigitValidator"
+git push -u origin bulls-and-cows</code></pre>
+<h3 id="bc-first">Тесты по FIRST</h3>
+<ul>
+<li><strong>Fast.</strong> Чистые функции проверяются за миллисекунды, никакого DOM и таймеров.</li>
+<li><strong>Independent.</strong> Тесты не делят состояние: каждый создаёт свои данные сам, порядок запуска не важен.</li>
+<li><strong>Repeatable.</strong> Никакого настоящего <code>Math.random</code> и <code>Date.now</code> в проверках. Случайность и время передаются параметром.</li>
+<li><strong>Self-validating.</strong> Результат — <code>expect</code>, а не <code>console.log</code>, который надо читать глазами.</li>
+<li><strong>Timely.</strong> Тесты написаны до кода. Это видно по коммитам.</li>
+</ul>
+<p class="note">Порядок функций я выбрал от простой к сложной и так, чтобы следующая могла опираться на предыдущую: <code>isValidGuess</code> использует <code>createDigitValidator</code>. Исправить уже отправленную историю можно только через <code>rebase</code> и <code>push --force</code>, лучше до этого не доводить.</p>
+</section>

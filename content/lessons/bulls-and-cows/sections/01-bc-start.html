@@ -1,0 +1,23 @@
+<section id="bc-start">
+<h2>Что нужно сделать</h2>
+<p>Компьютер загадывает число из неповторяющихся цифр, игрок угадывает. После каждой попытки он получает подсказку: <strong>быки</strong> (bulls) — цифры, которые угаданы и стоят на своём месте, <strong>коровы</strong> (cows) — цифры, которые в числе есть, но стоят в другом месте. Секрет <code>1234</code>, попытка <code>1243</code>: единица и двойка на местах (2 быка), тройка и четвёрка есть, но переставлены (2 коровы).</p>
+<p>Интерфейс в задании простой, проверяют не его. Проверяют архитектуру: ядро игры написано чистыми функциями без классов, состояние меняется иммутабельно, а каждая обязательная функция появилась в истории git по TDD — сначала коммит с падающими тестами, потом коммит с реализацией. Теория по этим темам есть в уроках <a href="/lessons/testing">«Тестирование JavaScript»</a>, <a href="/lessons/data-structures-and-algorithms">«Алгоритмы и структуры данных»</a> и <a href="/lessons/clean-code">«Clean Code»</a>.</p>
+<h3 id="bc-score">Откуда берутся 150 баллов</h3>
+<div class="tbl"><table><thead><tr><th scope="col">Блок</th><th scope="col">Баллы</th><th scope="col">Где проверяют</th></tr></thead><tbody>
+<tr><td>Настройка проекта: TS, ESLint + Prettier, Husky, тестовый раннер</td><td>20</td><td>Конфиги и <code>package.json</code></td></tr>
+<tr><td>TDD: тесты раньше реализации для пяти функций, FIRST</td><td>30</td><td>Вкладка Commits в PR, <code>npm test</code></td></tr>
+<tr><td>Функциональное программирование</td><td>50</td><td>Файлы ядра игры</td></tr>
+<tr><td><code>DESIGN.md</code>: структуры данных, Big O, чистый код</td><td>20</td><td>Файл в корне</td></tr>
+<tr><td>Игровая механика и интерфейс</td><td>30</td><td>Деплой, ручной чек-лист</td></tr>
+</tbody></table></div>
+<p class="warn">Штрафы по −50: PR не по шаблону или без рабочего деплоя, коммиты не по конвенции, нарушен порядок «тесты → реализация», приложение не работает. Порядок коммитов задним числом не исправишь без переписывания истории, поэтому про него нужно помнить с самого первого коммита.</p>
+<h3 id="bc-plan">План работы</h3>
+<ol>
+<li>Репозиторий и ветка <code>bulls-and-cows</code>.</li>
+<li>Инструменты: TypeScript, Vitest, ESLint, Prettier, Husky, lint-staged.</li>
+<li>Пять пар коммитов «тест → реализация»: <code>createDigitValidator</code>, <code>isValidGuess</code>, <code>evaluateGuess</code>, <code>generateSecret</code>, <code>countPossibleSecrets</code>.</li>
+<li>Иммутабельное состояние игры и таблица рекордов.</li>
+<li>Интерфейс на DOM API.</li>
+<li><code>DESIGN.md</code>, деплой, PR, сдача в RS App.</li>
+</ol>
+</section>
