@@ -1,0 +1,21 @@
+<section id="fp-practice">
+<h2>Практика модуля</h2>
+<p>Модуль рассчитан примерно на 10 часов. Практика — тест «[St2] FP-basics» в RS App (раздел Auto Test) и 15 задач Codewars. Задачи сдаются тоже через RS App: Auto Test → Codewars-2023Q4-FP → Submit. Перед этим проверьте, что ваш ник на Codewars совпадает с указанным в RS App. Сдавать можно сколько угодно раз, засчитывается последняя попытка.</p>
+<div class="tbl"><table><thead><tr><th scope="col">Задача</th><th scope="col">Уровень</th><th scope="col">Тема и подсказка</th></tr></thead><tbody>
+<tr><td><a href="https://www.codewars.com/kata/first-class-function-factory">first-class-function-factory</a></td><td>7 kyu</td><td>Функция возвращает функцию: <a href="#fp-closure">замыкание</a>.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/javascript-from-the-inside-number-1-map">map</a>, <a href="https://www.codewars.com/kata/javascript-from-the-inside-number-2-filter">filter</a></td><td>6 kyu</td><td>Свои <a href="#fp-own-map">map и filter</a>; обычно их добавляют в <code>Array.prototype</code>, внутри <code>this</code> — массив.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/power-bind">power-bind</a></td><td>6 kyu</td><td>Как работает <code>bind</code> и почему повторный <code>bind</code> не меняет <code>this</code>.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/closures-and-scopes">closures-and-scopes</a></td><td>6 kyu</td><td>Классика про <code>var</code> в цикле и замыкания; <code>let</code> создаёт новую переменную на каждой итерации.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/function-composition">function-composition</a>, <a href="https://www.codewars.com/kata/function-composition-1">function-composition-1</a></td><td>6 kyu</td><td><a href="#fp-composition">compose</a> через <code>reduceRight</code>.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/reusable-memoisation">reusable-memoisation</a></td><td>6 kyu</td><td>Универсальный <a href="#fp-memo">memoize</a>.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/once">once</a></td><td>6 kyu</td><td><a href="#fp-once">once</a>.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/multifilter">multifilter</a></td><td>6 kyu</td><td>Объединить несколько предикатов в один через <code>every</code>.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/combinator-flip">combinator-flip</a></td><td>6 kyu</td><td>Вернуть функцию, которая получает аргументы в обратном порядке: <code>(...args) =&gt; fn(...args.reverse())</code>.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/function-cache">function-cache</a></td><td>5 kyu</td><td>Мемоизация с ключом из нескольких аргументов.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/a-chain-adding-function">a-chain-adding-function</a></td><td>5 kyu</td><td><code>add(1)(2)(3) == 6</code>: функция, которая ведёт себя как число через <code>valueOf</code>.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/lazy-repeater">lazy-repeater</a></td><td>5 kyu</td><td>Замыкание с индексом, который идёт по кругу.</td></tr>
+<tr><td><a href="https://www.codewars.com/kata/currying-vs-partial-application">currying-vs-partial-application</a></td><td>4 kyu</td><td>Универсальный <a href="#fp-curry-helper">curry</a>, который понимает и частичное применение.</td></tr>
+</tbody></table></div>
+<p>Баллы: 1 за задачу 7 kyu, 4 за каждую из десяти 6 kyu, 5 за каждую из трёх 5 kyu и 8 за 4 kyu, всего 64. Подсказки к задачам — из общих знаний: формулировки на Codewars я не открывал, сверяйтесь с условием.</p>
+<p class="note">Решайте сами, а потом сравнивайте с решениями других на Codewars. Списанное решение не даст навыка, который проверят в задании <a href="/lessons/bulls-and-cows">Bulls and Cows</a> и на собеседовании.</p>
+</section>

@@ -1,0 +1,25 @@
+<section id="fp-composition">
+<h2>Композиция функций</h2>
+<p><strong>Композиция</strong> — соединение функций в цепочку, где результат одной становится аргументом следующей. Из маленьких функций собирается большая, как труба из отрезков.</p>
+<pre><code>const trim = (s) =&gt; s.trim();
+const lower = (s) =&gt; s.toLowerCase();
+const toSlug = (s) =&gt; s.replace(/\s+/g, '-');
+
+// Вручную: читать изнутри наружу неудобно
+toSlug(lower(trim('  Hello Big World '))); // 'hello-big-world'</code></pre>
+<p>Чтобы не плодить скобки, пишут вспомогательные функции <code>pipe</code> и <code>compose</code>. Обе принимают список функций и возвращают новую функцию:</p>
+<pre><code>// pipe: слева направо, в порядке выполнения
+const pipe = (...fns) =&gt; (x) =&gt; fns.reduce((acc, fn) =&gt; fn(acc), x);
+
+// compose: справа налево, как в математике f(g(x))
+const compose = (...fns) =&gt; (x) =&gt; fns.reduceRight((acc, fn) =&gt; fn(acc), x);
+
+const slugify = pipe(trim, lower, toSlug);
+slugify('  Hello Big World '); // 'hello-big-world'
+compose(toSlug, lower, trim)('  Hello Big World '); // то же самое</code></pre>
+<p>Порядок важен. При <code>inc = x =&gt; x + 1</code> и <code>double = x =&gt; x * 2</code>:</p>
+<pre><code>pipe(inc, double)(3);    // (3 + 1) * 2 = 8
+compose(inc, double)(3); // 3 * 2 + 1 = 7</code></pre>
+<p>Композиция хорошо работает, когда каждая функция принимает <strong>один</strong> аргумент. Функции с несколькими аргументами приводят к одному с помощью каррирования — оно в разделе ниже. Две задачи Codewars модуля (function-composition) как раз про реализацию <code>compose</code>.</p>
+<p class="note"><code>orders.filter(...).map(...).reduce(...)</code> из первого раздела — тоже композиция, только через цепочку методов. <code>pipe</code> нужен, когда функции не являются методами одного объекта.</p>
+</section>
