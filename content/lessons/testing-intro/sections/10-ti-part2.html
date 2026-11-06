@@ -1,0 +1,80 @@
+<section id="ti-part2">
+<h2>Часть 2: корзина по готовым тестам</h2>
+<p>Теперь наоборот: тесты в <code>tests/cart/cart.test.js</code> уже есть, а в <code>src/cart.js</code> только заглушки. Это TDD в чистом виде, только тесты за вас написал автор задания. Запустите <code>npm run test:cart</code>: все 19 тестов красные. Наша задача — сделать их зелёными, <strong>не меняя тесты</strong>.</p>
+<h3 id="ti-read-tests">Сначала читаем тесты как требования</h3>
+<p>Прежде чем писать код, выпишите из тестов правила. В начале файла объявлены два товара:</p>
+<pre><code>const headphones = { id: 1, name: 'Наушники', price: 49900, stock: 8 };
+const lamp = { id: 4, name: 'Настольная лампа', price: 27900, stock: 3 };</code></pre>
+<p>Товар в корзине — тот же объект товара плюс поле <code>quantity</code>: <code>{ ...headphones, quantity: 2 }</code>. Из названий и ожиданий тестов получается список:</p>
+<ul>
+<li><code>addToCart(cart, product, quantity)</code>: новый товар добавляется с количеством; повторный — увеличивает количество; 0 или больше остатка — <code>RangeError</code>.</li>
+<li><code>changeQuantity(cart, productId, quantity)</code>: меняет количество; 0 или больше остатка — <code>RangeError</code>; товара нет — корзина без изменений.</li>
+<li><code>removeFromCart(cart, productId)</code>: убирает товар; если его нет — корзина та же.</li>
+<li><code>calculateCartSubtotal(cart)</code>: сумма «цена × количество»; пустая корзина — 0.</li>
+<li><code>calculateOrderTotal(cart, promoCode)</code>: объект <code>{ subtotal, discount, delivery, total }</code>. <code>SAVE10</code> даёт 10% при сумме от 20 000; доставка 30 000, если сумма меньше 50 000, иначе бесплатно.</li>
+</ul>
+<p>Удобно идти от простого к сложному и после каждой функции запускать тесты: <code>removeFromCart</code> → <code>calculateCartSubtotal</code> → <code>calculateOrderTotal</code> → <code>changeQuantity</code> → <code>addToCart</code>.</p>
+<h3 id="ti-cart-constants">Константы правил</h3>
+<p>Числа 20000, 50000, 30000 и 0.1 лучше не разбрасывать по коду, а назвать. Так их видно в одном месте и понятно, что они значат (принцип «нет магических чисел» из <a href="/lessons/clean-code">Clean Code</a>):</p>
+<pre><code>const PROMO_CODE = 'SAVE10';
+const PROMO_RATE = 0.1;
+const PROMO_MIN_SUBTOTAL = 20000;
+const FREE_DELIVERY_FROM = 50000;
+const DELIVERY_PRICE = 30000;</code></pre>
+<h3 id="ti-remove-subtotal">removeFromCart и calculateCartSubtotal</h3>
+<pre><code>function removeFromCart(cart, productId) {
+  return cart.filter((item) =&gt; item.id !== productId);
+}
+
+function calculateCartSubtotal(cart) {
+  return cart.reduce((sum, item) =&gt; sum + item.price * item.quantity, 0);
+}</code></pre>
+<p><code>filter</code> оставляет всё, кроме товара с этим ID, и возвращает <em>новый</em> массив. <code>reduce</code> проходит по корзине и копит сумму, начиная с <code>0</code> — поэтому пустая корзина сразу даёт 0. Проверка из теста: 49 900 × 1 + 27 900 × 2 = 105 700.</p>
+<h3 id="ti-order-total">calculateOrderTotal</h3>
+<pre><code>function calculateOrderTotal(cart, promoCode) {
+  const subtotal = calculateCartSubtotal(cart);
+  const discount =
+    promoCode === PROMO_CODE &amp;&amp; subtotal &gt;= PROMO_MIN_SUBTOTAL
+      ? Math.round(subtotal * PROMO_RATE)
+      : 0;
+  const delivery = subtotal &gt;= FREE_DELIVERY_FROM ? 0 : DELIVERY_PRICE;
+  return { subtotal, discount, delivery, total: subtotal - discount + delivery };
+}</code></pre>
+<p>Сверим с тестом «применяет SAVE10 к заказу от 20 000 копеек»: сумма 49 900, скидка 4 990, сумма меньше 50 000 — доставка 30 000, итог 49 900 − 4 990 + 30 000 = 74 910. Совпадает.</p>
+<p class="note">В условии не сказано, от какой суммы считать бесплатную доставку — до скидки или после. Тесты этого не различают: во всех случаях со скидкой сумма меньше 50 000 и до, и после. Я считаю от суммы товаров (<code>subtotal</code>), как написано в README: «при сумме меньше 50 000 копеек». <code>Math.round</code> — страховка: 10% от суммы, не кратной 10, дало бы дробные копейки.</p>
+<h3 id="ti-quantity">Проверка количества</h3>
+<p><code>addToCart</code> и <code>changeQuantity</code> одинаково проверяют количество. Вынесем проверку в отдельную функцию, чтобы не повторяться:</p>
+<pre><code>function assertQuantity(quantity, stock) {
+  if (!Number.isInteger(quantity) || quantity &lt; 1 || quantity &gt; stock) {
+    throw new RangeError(`Количество должно быть от 1 до ${stock}`);
+  }
+}</code></pre>
+<p><code>throw new RangeError(...)</code> — «бросить» ошибку. Выполнение функции прерывается, и тест с <code>toThrow(RangeError)</code> её поймает. <code>Number.isInteger</code> заодно отсекает <code>1.5</code> и <code>NaN</code> — тестов на это нет, но в реальной корзине пригодится.</p>
+<h3 id="ti-change">changeQuantity</h3>
+<pre><code>function changeQuantity(cart, productId, quantity) {
+  const existing = cart.find((item) =&gt; item.id === productId);
+  if (!existing) return cart;
+  assertQuantity(quantity, existing.stock);
+  return cart.map((item) =&gt; (item.id === productId ? { ...item, quantity } : item));
+}</code></pre>
+<p>Порядок важен: сначала ищем товар. Если его нет, тест ждёт ту же корзину, а не ошибку. Если есть — проверяем количество по его остатку (<code>stock</code> лежит прямо в товаре корзины) и через <code>map</code> собираем новую корзину, где у нужного товара новый <code>quantity</code>. <code>{ ...item, quantity }</code> — копия товара с заменённым полем; старый объект не меняется.</p>
+<h3 id="ti-add">addToCart</h3>
+<pre><code>function addToCart(cart, product, quantity = 1) {
+  const existing = cart.find((item) =&gt; item.id === product.id);
+  const nextQuantity = (existing ? existing.quantity : 0) + quantity;
+  assertQuantity(quantity, product.stock);
+  assertQuantity(nextQuantity, product.stock);
+
+  if (!existing) return [...cart, { ...product, quantity }];
+  return cart.map((item) =&gt;
+    item.id === product.id ? { ...item, quantity: nextQuantity } : item,
+  );
+}</code></pre>
+<ul>
+<li>Сначала проверяем само добавляемое количество: 0 не пропускаем.</li>
+<li>Затем итоговое количество: если в корзине уже 2 лампы из 3, добавить ещё 2 нельзя. Тестов на этот случай в задании нет, но иначе можно обойти ограничение склада, добавляя по одной.</li>
+<li>Нового товара нет в корзине — добавляем его копию с <code>quantity</code> в конец. Уже есть — увеличиваем количество через <code>map</code>.</li>
+</ul>
+<p>Запустите <code>npm test</code>: все тесты зелёные. Я прогнал это решение вместе с тестами каталога из первой части — 64 из 64. Откройте <code>cart.html</code> в браузере: корзина заработала, и это приятный момент — тесты вели вас, а интерфейс подтверждает результат.</p>
+<p class="note">Все функции возвращают новые массивы и не меняют переданную корзину. Тесты этого прямо не требуют, но так безопаснее, и так устроен готовый интерфейс задания. Почему — в уроке <a href="/lessons/fp-basics#fp-immutability">об иммутабельности</a>.</p>
+</section>
