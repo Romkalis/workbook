@@ -12,7 +12,7 @@ git push -u origin main
 git switch -c bulls-and-cows</code></pre>
 <p>Сообщения коммитов пишите по <a href="https://rs.school/docs/git-convention">конвенции RS School</a>: префикс типа (<code>init</code>, <code>feat</code>, <code>fix</code>, <code>refactor</code>, <code>docs</code>, <code>test</code>, <code>chore</code>), двоеточие, затем что сделано в повелительном наклонении. Подробнее — в разделе про git урока <a href="/lessons/clean-code">Clean Code</a>.</p>
 <h3 id="bc-deps">Зависимости и скрипты</h3>
-<p>Бандлер не нужен: TypeScript компилируется обычным <code>tsc</code> в ES-модули, и результат подключается в <code>index.html</code> через <code>&lt;script type="module"&gt;</code>. Я беру Vitest, а не Jest: он понимает TypeScript и ES-модули без дополнительной настройки (из общих знаний; Jest тоже разрешён).</p>
+<p>Бандлер не нужен: TypeScript компилируется обычным <code>tsc</code> в ES-модули, и результат подключается в <code>index.html</code> через <code>&lt;script type="module"&gt;</code>. Бандлер — инструмент вроде Webpack или Vite, который склеивает модули в один файл; в этом задании без него можно. Я беру Vitest, а не Jest: он понимает TypeScript и ES-модули без дополнительной настройки (из общих знаний; Jest тоже разрешён).</p>
 <pre><code>npm init -y
 npm i -D typescript vitest eslint @eslint/js typescript-eslint prettier eslint-config-prettier husky lint-staged</code></pre>
 <p>В <code>package.json</code> добавьте <code>"type": "module"</code> и скрипты. Обязательные — <code>lint</code>, <code>format</code>, <code>test</code>:</p>
@@ -65,6 +65,7 @@ export default tseslint.config(
 <pre><code>// .prettierrc
 { "singleQuote": true, "printWidth": 100 }</code></pre>
 <h3 id="bc-husky">Husky: два хука с разными задачами</h3>
+<p><strong>Git-хук</strong> — скрипт, который git запускает сам: перед коммитом (<code>pre-commit</code>) или перед отправкой на GitHub (<code>pre-push</code>). Если скрипт завершился с ошибкой, git отменяет действие. Husky хранит хуки в папке <code>.husky/</code> внутри репозитория, чтобы они работали у всех, кто склонировал проект. Скрипт <code>prepare</code> в <code>package.json</code> подключает их автоматически после <code>npm install</code>.</p>
 <pre><code>npx husky init
 echo "npx lint-staged" &gt; .husky/pre-commit
 echo "npm test" &gt; .husky/pre-push</code></pre>

@@ -1,6 +1,6 @@
 <section id="bc-validator">
 <h2>Шаг 3. createDigitValidator: каррированная фабрика</h2>
-<p>Функция принимает систему счисления и возвращает другую функцию — предикат «этот символ допустимая цифра?». Это и есть каррирование: вместо <code>isDigit(base, char)</code> мы пишем <code>createDigitValidator(base)(char)</code>. Выгода практическая: систему счисления фиксируем один раз при старте раунда, а получившийся <code>isHexDigit</code> отдаём туда, где нужен только символ — в <code>every</code> внутри <code>isValidGuess</code> и в обработчик ввода. Критерий так и звучит: фабрика используется минимум в двух местах.</p>
+<p>Функция принимает систему счисления и возвращает другую функцию — предикат «этот символ допустимая цифра?». Это и есть <a href="/lessons/fp-basics#fp-currying">каррирование</a>: вместо <code>isDigit(base, char)</code> мы пишем <code>createDigitValidator(base)(char)</code>. Выгода практическая: систему счисления фиксируем один раз при старте раунда, а получившийся <code>isHexDigit</code> отдаём туда, где нужен только символ — в <code>every</code> внутри <code>isValidGuess</code> и в обработчик ввода. Критерий так и звучит: фабрика используется минимум в двух местах.</p>
 <h3 id="bc-validator-tests">Тесты (красный коммит)</h3>
 <pre><code>// src/game.test.ts
 import { describe, it, expect } from 'vitest';
