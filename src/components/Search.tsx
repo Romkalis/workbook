@@ -43,7 +43,7 @@ export function Search() {
 
   useEffect(() => {
     if (!open || index) return;
-    fetch('/search-index.json')
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/search-index.json`)
       .then((r) => r.json() as Promise<SearchEntry[]>)
       .then(setIndex)
       .catch(() => setIndex([]));

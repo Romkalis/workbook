@@ -9,8 +9,15 @@ function readJson<T>(file: string): T {
   return JSON.parse(fs.readFileSync(file, 'utf-8')) as T;
 }
 
+/** Абсолютные ссылки и картинки в HTML контента дополняются префиксом basePath. */
+function withBasePath(html: string): string {
+  const base = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+  return base ? html.replace(/(href|src)="\/(?!\/)/g, `$1="${base}/`) : html;
+}
+
 /** Делит HTML раздела на текст до первой подтемы и список подтем (h3). */
-function parseSection(html: string): Section {
+function parseSection(raw: string): Section {
+  const html = withBasePath(raw);
   const id = html.match(/<section id="([^"]+)"/)?.[1] ?? '';
   const parts = html.split(/(?=<h3 id=")/);
   const subtopics: Subtopic[] = parts.slice(1).map((chunk) => {
