@@ -1,0 +1,55 @@
+<section id="ti-jest">
+<h2>Jest: как устроен тест</h2>
+<h3 id="ti-jest-install">Установка и запуск</h3>
+<p>Jest ставится в проект как <strong>dev-зависимость</strong> — пакет, который нужен только при разработке, а не пользователю сайта:</p>
+<pre><code>npm install --save-dev jest</code></pre>
+<p>В <code>package.json</code> добавляют скрипт:</p>
+<pre><code>{
+  "scripts": {
+    "test": "jest"
+  }
+}</code></pre>
+<p>Теперь <code>npm test</code> запускает Jest, а тот находит все файлы, которые заканчиваются на <code>.test.js</code> (или лежат в папке <code>__tests__</code>), и выполняет их. Можно запустить только часть: <code>npx jest tests/catalog</code> выполнит тесты из одной папки.</p>
+<h3 id="ti-jest-anatomy">Анатомия тестового файла</h3>
+<p>Вот готовый пример из задания Testing Intro (сокращён):</p>
+<pre><code>const products = require('../../src/data/products');
+const { getAvailableProducts } = require('../../src/catalog');
+
+describe('getAvailableProducts', () =&gt; {
+  test('исключает товары с нулевым остатком', () =&gt; {
+    const catalog = [{ id: 1, stock: 2 }, { id: 2, stock: 0 }, { id: 3, stock: 5 }];
+    expect(getAvailableProducts(catalog)).toEqual([{ id: 1, stock: 2 }, { id: 3, stock: 5 }]);
+  });
+
+  test('возвращает пустой массив для пустого каталога', () =&gt; {
+    expect(getAvailableProducts([])).toEqual([]);
+  });
+});</code></pre>
+<p>Разберём каждую часть:</p>
+<ul>
+<li><code>require('../../src/catalog')</code> — подключение кода из другого файла. Это синтаксис CommonJS, старый стандарт модулей Node; в проекте задания используется он. Аналог в современных модулях — <code>import { getAvailableProducts } from '../../src/catalog.js'</code>. Путь <code>../../</code> значит «подняться на две папки вверх».</li>
+<li><code>describe('название', () =&gt; { ... })</code> — <strong>группа тестов</strong>. Обычно одна группа на одну функцию. Группы можно вкладывать друг в друга.</li>
+<li><code>test('название', () =&gt; { ... })</code> — <strong>один тест</strong>, одна проверяемая мысль. Вместо <code>test</code> можно писать <code>it</code>, это синоним. Название пишут так, чтобы оно читалось как правило: «исключает товары с нулевым остатком».</li>
+<li><code>expect(фактическое).toEqual(ожидаемое)</code> — <strong>проверка</strong>. <code>expect</code> принимает то, что вернула функция, а метод после точки — <strong>матчер</strong> — говорит, как сравнивать.</li>
+</ul>
+<p><code>describe</code>, <code>test</code> и <code>expect</code> не нужно импортировать: Jest сам делает их доступными во всех тестовых файлах.</p>
+<h3 id="ti-jest-output">Как читать результат</h3>
+<p>Если все тесты прошли, Jest печатает зелёные галочки и сводку вида <code>Tests: 9 passed, 9 total</code>. Если какой-то упал, вы увидите его название красным и разницу (diff):</p>
+<pre><code>✕ исключает товары с нулевым остатком
+
+  expect(received).toEqual(expected)
+
+  - Expected  - 0
+  + Received  + 4
+
+  @@ ... @@
+  +   Object {
+  +     "id": 2,
+  +     "stock": 0,
+  +   },</code></pre>
+<p>Строки с <code>-</code> есть в ожидаемом, но нет в фактическом. Строки с <code>+</code> — наоборот, лишние. Здесь функция вернула товар с <code>stock: 0</code>, которого быть не должно. Ниже Jest показывает номер строки в тестовом файле. (Вывод приведён по общим знаниям о формате Jest и может немного отличаться в вашей версии.)</p>
+<p class="note">Если тест упал, сначала поймите, кто прав: код или тест. Тест тоже может быть написан с ошибкой. Но в задании Testing Intro тесты корзины трогать нельзя — там правы они.</p>
+<h3 id="ti-jest-todo">test.todo и test.each</h3>
+<p><code>test.todo('название')</code> — тест-заметка «надо написать». Он не выполняется и показывается в отчёте как todo. В задании все тесты каталога заданы именно так: вам нужно превратить каждый todo в настоящий тест.</p>
+<p><code>test.each</code> запускает один и тот же тест на нескольких наборах данных. Подробно — в разделе <a href="#ti-part1">с решением</a>.</p>
+</section>

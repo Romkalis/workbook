@@ -1,0 +1,11 @@
+<section id="ti-sources" class="sources">
+<h2>Источники</h2>
+<p>Проверено 6 ноября 2026 года.</p>
+<ul>
+<li><a href="https://github.com/OreskaG/testing-intro">OreskaG/testing-intro</a> — README задания, критерии <code>cross-check.json</code>, код <code>src/catalog.js</code>, <code>src/cart.js</code>, <code>src/data/products.js</code>, заготовки тестов и готовые тесты корзины прочитаны целиком.</li>
+<li><a href="https://github.com/rolling-scopes-school/tasks/tree/master/stage2/modules/testing">RS School: Testing</a> — README модуля: цели, виды тестов, пирамида, FIRST, TDD и BDD, практика в RS App.</li>
+<li><a href="https://jestjs.io/docs/getting-started">Jest: Getting Started</a>, <a href="https://jestjs.io/docs/using-matchers">Using Matchers</a>, <a href="https://jestjs.io/docs/cli#--coverageboolean">--coverage</a> — ссылки из задания; синтаксис Jest изложен по общим знаниям, страницы в этот раз не открывались.</li>
+</ul>
+<p><strong>Как проверено решение.</strong> Установить Jest в копию репозитория задания в этой среде не удалось (внешние пакеты не ставились). Поэтому тесты каталога и решение корзины из урока прогнаны встроенным раннером Node.js 22 через небольшой адаптер, повторяющий <code>describe</code>, <code>test</code>, <code>test.each</code>, <code>expect</code> и использованные матчеры. Результат: 64 из 64 тестов (36 каталога, 9 готовых <code>getAvailableProducts</code>, 19 готовых тестов корзины). Отдельно проверено, что на исходных заглушках все 19 тестов корзины падают, а при сортировке без копии падают ровно 3 теста «исходный массив не меняется». Формат вывода Jest, плейсхолдеры <code>%p</code>/<code>%j</code> и колонки отчёта coverage — из общих знаний; сверьтесь с выводом своей версии.</p>
+<p>Внешние статьи модуля RS School (Testsigma, Testim, Atlassian, CircleCI, LogRocket, goldbergyoni, Wanago) и вебинары для этого урока не разбирались; часть из них разобрана в уроке <a href="/lessons/testing">«Тестирование JavaScript»</a>.</p>
+</section>

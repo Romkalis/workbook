@@ -1,0 +1,26 @@
+<section id="ti-matchers">
+<h2>Основные матчеры</h2>
+<p>Матчер — метод после <code>expect(...)</code>, который решает, считается ли результат правильным. Вот те, что нужны в задании и в 90% обычных тестов.</p>
+<div class="tbl"><table><thead><tr><th scope="col">Матчер</th><th scope="col">Что проверяет</th><th scope="col">Пример</th></tr></thead><tbody>
+<tr><td><code>toBe(x)</code></td><td>Строгое равенство, как <code>Object.is</code>. Для чисел, строк, <code>true</code>/<code>false</code> — и для проверки «это тот же самый объект».</td><td><code>expect(calculateCartSubtotal([])).toBe(0)</code></td></tr>
+<tr><td><code>toEqual(x)</code></td><td>Глубокое сравнение: одинаковое содержимое объектов и массивов.</td><td><code>expect(ids).toEqual([1, 2])</code></td></tr>
+<tr><td><code>toBeNull()</code></td><td>Значение равно <code>null</code>.</td><td><code>expect(getProductById(products, 0)).toBeNull()</code></td></tr>
+<tr><td><code>toHaveLength(n)</code></td><td>Длина массива или строки.</td><td><code>expect(list).toHaveLength(4)</code></td></tr>
+<tr><td><code>toContain(x)</code></td><td>Элемент есть в массиве (или подстрока в строке).</td><td><code>expect(ids).toContain(3)</code></td></tr>
+<tr><td><code>toThrow(Тип)</code></td><td>Функция бросает ошибку (указанного типа).</td><td><code>expect(() =&gt; addToCart([], lamp, 0)).toThrow(RangeError)</code></td></tr>
+<tr><td><code>.not</code></td><td>Отрицание любого матчера.</td><td><code>expect(result).not.toBe(catalog)</code></td></tr>
+</tbody></table></div>
+<h3 id="ti-tobe-toequal">toBe или toEqual</h3>
+<p>Самая частая ошибка новичка — проверять массив через <code>toBe</code>:</p>
+<pre><code>expect(filterByCategory(products, 'books')).toBe([products[2], products[5]]); // упадёт
+expect(filterByCategory(products, 'books')).toEqual([products[2], products[5]]); // пройдёт</code></pre>
+<p><code>filter</code> возвращает новый массив, и он не тот же самый объект, что массив в правой части. Правило простое: примитивы (числа, строки) — <code>toBe</code>, объекты и массивы по содержимому — <code>toEqual</code>. А вот когда важно, что функция вернула <em>именно тот же</em> объект, а не копию — <code>toBe</code>. Так в задании проверяется <code>getProductById</code>: она должна вернуть объект товара из каталога.</p>
+<h3 id="ti-tothrow">toThrow: нужна обёртка-функция</h3>
+<pre><code>// Неправильно: addToCart выполнится сразу, ошибка вылетит до expect,
+// и тест упадёт с этой ошибкой вместо проверки
+expect(addToCart([], lamp, 0)).toThrow(RangeError);
+
+// Правильно: передаём функцию, Jest сам вызовет её и поймает ошибку
+expect(() =&gt; addToCart([], lamp, 0)).toThrow(RangeError);</code></pre>
+<p><code>RangeError</code> — встроенный тип ошибки JavaScript для значений «вне допустимого диапазона». Его используют тесты корзины для неправильного количества товара.</p>
+</section>

@@ -1,0 +1,25 @@
+<section id="ti-coverage">
+<h2>Покрытие кода (coverage)</h2>
+<p><strong>Покрытие</strong> показывает, какие строки вашего кода хоть раз выполнились во время тестов. Jest считает его по флагу <code>--coverage</code>:</p>
+<pre><code>npx jest --coverage
+# в задании для этого есть готовый скрипт:
+npm run test:coverage</code></pre>
+<p>Jest напечатает таблицу в терминале и создаст папку <code>coverage/</code>. Откройте в браузере <code>coverage/lcov-report/index.html</code>: там список файлов, а внутри каждого — код с подсветкой. Зелёные строки выполнялись, красные — нет.</p>
+<p>В таблице четыре колонки (из общих знаний о формате отчёта):</p>
+<ul>
+<li><strong>Statements</strong> — доля выполненных инструкций;</li>
+<li><strong>Branches</strong> — доля пройденных веток <code>if</code>/<code>else</code>, <code>? :</code>, <code>||</code>. Самая полезная колонка: показывает непроверенные условия;</li>
+<li><strong>Functions</strong> — доля вызванных функций;</li>
+<li><strong>Lines</strong> — доля выполненных строк.</li>
+</ul>
+<h3 id="ti-coverage-limits">100% покрытия не значит «без ошибок»</h3>
+<pre><code>function calculateCartSubtotal(cart) {
+  return cart.reduce((sum, item) =&gt; sum + item.price, 0); // забыли quantity!
+}
+
+test('считает сумму', () =&gt; {
+  expect(calculateCartSubtotal([{ price: 100, quantity: 1 }])).toBe(100);
+});</code></pre>
+<p>Покрытие 100%: каждая строка выполнилась. Но функция неправильная — количество не учитывается, а тест этого не заметил, потому что взял <code>quantity: 1</code>. Покрытие отвечает на вопрос «что выполнялось», а не «что проверено». Используйте его как подсказку, где тестов нет совсем, а не как цель.</p>
+<p>В задании Testing Intro покрытие не влияет на оценку: нужен только скриншот отчёта в PR.</p>
+</section>

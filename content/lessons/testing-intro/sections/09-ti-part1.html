@@ -1,0 +1,212 @@
+<section id="ti-part1">
+<h2>Задание Testing Intro. Часть 1: тесты каталога</h2>
+<h3 id="ti-task">О задании</h3>
+<p>Есть мини-магазин из двух страниц: каталог и корзина. Интерфейс уже готов, проверять его не нужно, тесты работают только с функциями бизнес-логики. Максимум 100 баллов:</p>
+<div class="tbl"><table><thead><tr><th scope="col">Часть</th><th scope="col">Что делать</th><th scope="col">Баллы</th></tr></thead><tbody>
+<tr><td>1. Каталог</td><td>Функции готовы. Написать 36 тестов для четырёх функций.</td><td>40</td></tr>
+<tr><td>2. Корзина</td><td>Тесты готовы. Написать пять функций, чтобы тесты стали зелёными.</td><td>40</td></tr>
+<tr><td>Оформление</td><td>Форк, ветка, конвенция коммитов, PR, два скриншота.</td><td>20</td></tr>
+</tbody></table></div>
+<p class="warn">Штраф −40: изменить <code>src/catalog.js</code> или <code>src/data/products.js</code>. Ещё −40: изменить <code>tests/cart/cart.test.js</code>, <code>package.json</code> или настройки Jest. В первой части меняете только файлы в <code>tests/catalog/</code>, во второй — только <code>src/cart.js</code>.</p>
+<p><strong>Цены хранятся в копейках</strong>: <code>49900</code> — это 499 ₽. Причина в том, что дробные числа в JavaScript считаются неточно: <code>0.1 + 0.2</code> даёт <code>0.30000000000000004</code>, а <code>499.9 * 3</code> — <code>1499.6999999999998</code>. Целые копейки считаются точно: <code>49900 * 3</code> = <code>149700</code>.</p>
+<h3 id="ti-setup">Подготовка</h3>
+<ol>
+<li>Нажмите <strong>Fork</strong> на странице <a href="https://github.com/OreskaG/testing-intro">репозитория задания</a> — у вас появится своя копия.</li>
+<li>Склонируйте форк и создайте рабочую ветку:
+<pre><code>git clone https://github.com/&lt;ваш-логин&gt;/testing-intro.git
+cd testing-intro
+git checkout -b testing-intro
+npm install</code></pre></li>
+<li>Запустите <code>npm test</code>. Готовые тесты <code>getAvailableProducts</code> зелёные, тесты каталога показаны как todo, тесты корзины красные. Это нормальная стартовая картина.</li>
+</ol>
+<p>Полезные команды: <code>npm run test:catalog</code> — только каталог, <code>npm run test:cart</code> — только корзина, <code>npm run test:coverage</code> — отчёт покрытия.</p>
+<h3 id="ti-data">Данные</h3>
+<p>Все тесты используют массив из <code>src/data/products.js</code>. Держите его перед глазами — по нему легко проверить любое ожидание вручную:</p>
+<div class="tbl"><table><thead><tr><th scope="col">ID</th><th scope="col">Название</th><th scope="col">Категория</th><th scope="col">Цена, коп.</th><th scope="col">Остаток</th></tr></thead><tbody>
+<tr><td>1</td><td>Наушники</td><td>electronics</td><td>49900</td><td>8</td></tr>
+<tr><td>2</td><td>Клавиатура</td><td>electronics</td><td>35900</td><td>0</td></tr>
+<tr><td>3</td><td>JavaScript для начинающих</td><td>books</td><td>18900</td><td>14</td></tr>
+<tr><td>4</td><td>Настольная лампа</td><td>home</td><td>27900</td><td>3</td></tr>
+<tr><td>5</td><td>Чехол для ноутбука</td><td>home</td><td>24900</td><td>6</td></tr>
+<tr><td>6</td><td>Чистый код</td><td>books</td><td>21900</td><td>0</td></tr>
+</tbody></table></div>
+<p>Задание просит сравнивать <strong>массивы ID</strong>, а не объекты целиком. Так тесты короче и понятнее. Для этого в начале каждого файла заведём маленький помощник:</p>
+<pre><code>const ids = (list) =&gt; list.map((product) =&gt; product.id);
+// ids(products) → [1, 2, 3, 4, 5, 6]</code></pre>
+<h3 id="ti-filter-tests">filterByCategory — 9 тестов</h3>
+<p>Сама функция (её не меняем) выглядит так:</p>
+<pre><code>function filterByCategory(products, category) {
+  if (!category || category === 'all') return [...products];
+  return products.filter((product) =&gt; product.category === category);
+}</code></pre>
+<p><code>!category</code> верно и для <code>undefined</code>, и для пустой строки, поэтому все три первых случая возвращают весь каталог. Самый прямолинейный вариант — по одному <code>test</code> на строку таблицы, заменяя каждый <code>test.todo</code>:</p>
+<pre><code>const products = require('../../src/data/products');
+const { filterByCategory } = require('../../src/catalog');
+
+const ids = (list) =&gt; list.map((product) =&gt; product.id);
+
+describe('filterByCategory', () =&gt; {
+  test("'all' возвращает товары с ID [1, 2, 3, 4, 5, 6]", () =&gt; {
+    expect(ids(filterByCategory(products, 'all'))).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  test('undefined возвращает товары с ID [1, 2, 3, 4, 5, 6]', () =&gt; {
+    expect(ids(filterByCategory(products, undefined))).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  test('пустая строка возвращает товары с ID [1, 2, 3, 4, 5, 6]', () =&gt; {
+    expect(ids(filterByCategory(products, ''))).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  test("'electronics' возвращает товары с ID [1, 2]", () =&gt; {
+    expect(ids(filterByCategory(products, 'electronics'))).toEqual([1, 2]);
+  });
+
+  test("'books' возвращает товары с ID [3, 6]", () =&gt; {
+    expect(ids(filterByCategory(products, 'books'))).toEqual([3, 6]);
+  });
+
+  test("'home' возвращает товары с ID [4, 5]", () =&gt; {
+    expect(ids(filterByCategory(products, 'home'))).toEqual([4, 5]);
+  });
+
+  test("'clothes' возвращает пустой массив", () =&gt; {
+    expect(filterByCategory(products, 'clothes')).toEqual([]);
+  });
+
+  test("'toys' возвращает пустой массив", () =&gt; {
+    expect(filterByCategory(products, 'toys')).toEqual([]);
+  });
+
+  test("'sports' возвращает пустой массив", () =&gt; {
+    expect(filterByCategory(products, 'sports')).toEqual([]);
+  });
+});</code></pre>
+<h3 id="ti-search-tests">searchProducts — 9 тестов и test.each</h3>
+<p>В прошлом файле много почти одинаковых тестов. <code>test.each</code> убирает повторы: передаём таблицу данных, и Jest создаёт по тесту на каждую строку. В названии <code>%s</code> заменяется первым значением строки, <code>%j</code> — им же, но в формате JSON (так видно невидимые символы вроде <code>\t</code>).</p>
+<pre><code>const products = require('../../src/data/products');
+const { searchProducts } = require('../../src/catalog');
+
+const ids = (list) =&gt; list.map((product) =&gt; product.id);
+
+describe('searchProducts', () =&gt; {
+  describe('точное совпадение', () =&gt; {
+    test.each([
+      ['Наушники', [1]],
+      ['Чистый код', [6]],
+      ['Настольная лампа', [4]],
+    ])('запрос %s находит нужный товар', (query, expected) =&gt; {
+      expect(ids(searchProducts(products, query))).toEqual(expected);
+    });
+  });
+
+  describe('регистр не влияет на поиск', () =&gt; {
+    test.each([
+      ['javascript', [3]],
+      ['ЧЕХОЛ', [5]],
+      ['наушники', [1]],
+    ])('запрос %s находит товар без учёта регистра', (query, expected) =&gt; {
+      expect(ids(searchProducts(products, query))).toEqual(expected);
+    });
+  });
+
+  describe('пустой запрос', () =&gt; {
+    test.each(['', '   ', '\t\n'])('запрос %j возвращает весь каталог', (query) =&gt; {
+      expect(ids(searchProducts(products, query))).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+  });
+});</code></pre>
+<p>Каждая строка внутри <code>test.each([...])</code> — отдельный тест, их здесь 3 + 3 + 3 = 9. Значения строки приходят в функцию теста как аргументы: <code>(query, expected)</code>. Вложенные <code>describe</code> повторяют три сценария из таблицы задания, так проверяющему легче сверять. <code>'\t\n'</code> — табуляция и перенос строки: <code>trim()</code> внутри функции их убирает, и запрос считается пустым.</p>
+<h3 id="ti-sort-tests">sortProductsByPrice — 9 тестов</h3>
+<p>Здесь две особенности. Нужны массивы из отдельных товаров в заданном порядке, и нужно проверить, что функция <strong>не меняет исходный массив</strong>. Для первого пишем помощник <code>pick</code>: по списку ID собирает товары именно в таком порядке.</p>
+<pre><code>const products = require('../../src/data/products');
+const { sortProductsByPrice } = require('../../src/catalog');
+
+const ids = (list) =&gt; list.map((product) =&gt; product.id);
+const pick = (order) =&gt; order.map((id) =&gt; products.find((product) =&gt; product.id === id));
+
+describe('sortProductsByPrice', () =&gt; {
+  describe('по возрастанию', () =&gt; {
+    test("все товары с 'asc'", () =&gt; {
+      expect(ids(sortProductsByPrice(products, 'asc'))).toEqual([3, 6, 5, 4, 2, 1]);
+    });
+
+    test('все товары без направления', () =&gt; {
+      expect(ids(sortProductsByPrice(products))).toEqual([3, 6, 5, 4, 2, 1]);
+    });
+
+    test("товары [1, 3, 4] с 'asc'", () =&gt; {
+      expect(ids(sortProductsByPrice(pick([1, 3, 4]), 'asc'))).toEqual([3, 4, 1]);
+    });
+  });
+
+  describe('по убыванию', () =&gt; {
+    test("все товары с 'desc'", () =&gt; {
+      expect(ids(sortProductsByPrice(products, 'desc'))).toEqual([1, 2, 4, 5, 6, 3]);
+    });
+
+    test("товары [3, 1, 4] с 'desc'", () =&gt; {
+      expect(ids(sortProductsByPrice(pick([3, 1, 4]), 'desc'))).toEqual([1, 4, 3]);
+    });
+
+    test("товары [5, 2, 6] с 'desc'", () =&gt; {
+      expect(ids(sortProductsByPrice(pick([5, 2, 6]), 'desc'))).toEqual([2, 5, 6]);
+    });
+  });
+
+  describe('исходный массив не меняется', () =&gt; {
+    test("после сортировки [1, 3, 4] с 'asc'", () =&gt; {
+      const list = pick([1, 3, 4]);
+      sortProductsByPrice(list, 'asc');
+      expect(ids(list)).toEqual([1, 3, 4]);
+    });
+
+    test("после сортировки [1, 3, 4] с 'desc'", () =&gt; {
+      const list = pick([1, 3, 4]);
+      sortProductsByPrice(list, 'desc');
+      expect(ids(list)).toEqual([1, 3, 4]);
+    });
+
+    test('после сортировки всего каталога без направления', () =&gt; {
+      sortProductsByPrice(products);
+      expect(ids(products)).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+  });
+});</code></pre>
+<p>Задание предлагает собирать массивы через <code>products.filter(({ id }) =&gt; [1, 3, 4].includes(id))</code>. Это работает для <code>[1, 3, 4]</code>, но <code>filter</code> сохраняет порядок каталога, поэтому для <code>[3, 1, 4]</code> и <code>[5, 2, 6]</code> получится <code>[1, 3, 4]</code> и <code>[2, 5, 6]</code>, а не указанный порядок. На результат сортировки это не влияет, но <code>pick</code> честнее повторяет условие.</p>
+<p>Зачем тесты «не меняется»? Внутри функции <code>[...products].sort(...)</code>: сначала копия, потом сортировка. Метод <code>sort</code> меняет массив, на котором вызван. Я проверил: если убрать копию и написать <code>products.sort(...)</code>, остальные 6 тестов остаются зелёными, а падают ровно эти 3. Без них ошибку бы никто не заметил, а сортировка в каталоге портила бы порядок исходного массива.</p>
+<h3 id="ti-byid-tests">getProductById — 9 тестов</h3>
+<pre><code>const products = require('../../src/data/products');
+const { getProductById } = require('../../src/catalog');
+
+describe('getProductById', () =&gt; {
+  describe('товар существует', () =&gt; {
+    test.each([
+      [1, 0],
+      [4, 3],
+      [6, 5],
+    ])('ID %s возвращает нужный объект', (id, index) =&gt; {
+      expect(getProductById(products, id)).toBe(products[index]);
+    });
+  });
+
+  describe('числовой ID отсутствует', () =&gt; {
+    test.each([0, 999, -1])('ID %s возвращает null', (id) =&gt; {
+      expect(getProductById(products, id)).toBeNull();
+    });
+  });
+
+  describe('ID неверного типа', () =&gt; {
+    test.each(['1', undefined, NaN])('ID %p возвращает null', (id) =&gt; {
+      expect(getProductById(products, id)).toBeNull();
+    });
+  });
+});</code></pre>
+<ul>
+<li>Для найденного товара используем <code>toBe</code>: функция возвращает тот самый объект из каталога (<code>find</code> не копирует), и задание формулирует ожидание как «объект <code>products[0]</code>». <code>toEqual</code> тоже прошёл бы.</li>
+<li>Если в <code>test.each</code> передан просто массив значений, а не массив массивов, каждое значение приходит в тест первым аргументом.</li>
+<li><code>'1'</code> не находится, потому что внутри <code>===</code>: строка <code>'1'</code> не равна числу <code>1</code>. <code>NaN</code> не равен вообще ничему, даже самому себе.</li>
+<li><code>%p</code> выводит значение так, чтобы было видно тип: <code>'1'</code> в кавычках, <code>undefined</code>, <code>NaN</code>.</li>
+</ul>
+<p>Запустите <code>npm run test:catalog</code>: должно быть 45 зелёных тестов (36 ваших и 9 готовых). Закоммитьте, например: <code>test: add catalog tests</code> — или по коммиту на каждую функцию.</p>
+</section>

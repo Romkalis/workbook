@@ -1,0 +1,20 @@
+<section id="ti-submit">
+<h2>Сдача задания</h2>
+<ol>
+<li>Проверьте, что изменены только файлы в <code>tests/catalog/</code> и <code>src/cart.js</code>: <code>git status</code> и <code>git diff main --stat</code>.</li>
+<li>Закоммитьте по <a href="/lessons/clean-code#cc-conventional">конвенции</a>, например:
+<pre><code>git add tests/catalog
+git commit -m "test: add tests for catalog functions"
+git add src/cart.js
+git commit -m "feat: implement cart functions"
+git push -u origin testing-intro</code></pre></li>
+<li>Запустите <code>npm test</code> и сделайте скриншот терминала со сводкой, где всё прошло.</li>
+<li>Запустите <code>npm run test:coverage</code>, откройте <code>coverage/lcov-report/index.html</code> и сделайте скриншот. Папку <code>coverage/</code> коммитить не нужно — проверьте, что она в <code>.gitignore</code>.</li>
+<li>Откройте Pull Request из <code>testing-intro</code> в <code>main</code> <strong>своего форка</strong> (на GitHub при создании PR из форка по умолчанию выбирается исходный репозиторий (из общих знаний о GitHub) — поменяйте base repository на свой). Не мержите и не закрывайте его.</li>
+<li>Описание PR — по <a href="https://rs.school/docs/mentoring/pull-request-review-process#pull-request-requirements-pr">схеме RS School</a>, плюс оба скриншота.</li>
+<li>В <a href="https://app.rs.school/">RS App</a> → <strong>Cross-Check: Submit</strong> выберите Testing Intro, вставьте ссылку на PR в Solution URL и нажмите Submit. До дедлайна недели выдачи.</li>
+</ol>
+<p>Деплой не нужен. На следующей неделе вы сами проверите чужие работы: склонировать, <code>npm install</code>, <code>npm test</code>, сверить Files changed с запретами и тесты каталога с таблицами задания.</p>
+<h3 id="ti-next">Что дальше</h3>
+<p>Пройдите тест «[St2] Testing» в RS App → Auto Test. Затем переходите к уроку <a href="/lessons/testing">«Тестирование JavaScript»</a>: асинхронные тесты, моки и подмены, параметризованные тесты, TDD на практике. Применить TDD самостоятельно предстоит в задании <a href="/lessons/bulls-and-cows">Bulls and Cows</a>: там тесты нужно писать уже самим, раньше кода.</p>
+</section>
