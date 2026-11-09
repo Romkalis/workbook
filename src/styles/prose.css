@@ -360,3 +360,14 @@
 @media (prefers-reduced-motion: reduce) {
 .prose .wire > li { animation: none; }
 }
+/* Ячейки массива и уровни дерева: статичные состояния внутри шагов схемы */
+.prose .cells { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); margin: var(--sp-1) 0 0; }
+.prose .cells > span { min-width: 2.2em; padding: 2px var(--sp-1); text-align: center; font-family: var(--font-mono); font-size: 12.5px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); }
+.prose .cells > .off { opacity: .35; text-decoration: line-through; }
+.prose .cells > .mid { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.prose .cells > .hit { border: 2px solid var(--accent); font-weight: 600; }
+.prose .cells > .bad { border-color: var(--warn); background: var(--warn-soft); }
+.prose .cells > .ptr { border: 0; background: none; min-width: 0; padding: 0; color: var(--muted); }
+.prose .cells > .gap { border-style: dashed; color: var(--muted); }
+.prose .lvls { display: grid; gap: var(--sp-2); }
+.prose .lvls .cells { justify-content: center; margin: 0; }
