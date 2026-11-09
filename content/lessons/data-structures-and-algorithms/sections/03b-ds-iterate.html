@@ -1,0 +1,48 @@
+<section id="ds-iterate">
+<h2>Обход массива: циклы и методы</h2>
+<p>Почти любая задача на массив начинается с прохода по элементам. В JavaScript для этого есть обычный цикл <code>for</code>, цикл <code>for...of</code> и методы массива: <code>forEach</code>, <code>map</code>, <code>filter</code>, <code>find</code>, <code>some</code>, <code>every</code>, <code>reduce</code>. Все они делают проход за O(n), но отвечают на разные вопросы. Если выбрать метод по вопросу, код становится короче и понятнее.</p>
+<p>Методу передают функцию, которую он вызывает для каждого элемента. Такую функцию называют <strong>колбэком</strong> (callback, «обратный вызов»). Колбэк, который возвращает <code>true</code> или <code>false</code>, называют <strong>предикатом</strong>: он отвечает на вопрос «подходит ли элемент?».</p>
+<h3 id="ds-iterate-methods">Какой метод на какой вопрос отвечает</h3>
+<div class="tbl"><table><thead><tr><th scope="col">Вопрос</th><th scope="col">Метод</th><th scope="col">Что вернёт</th><th scope="col">Проходит до конца?</th></tr></thead><tbody>
+<tr><td>Сделать что-то с каждым</td><td><code>forEach</code></td><td>Всегда <code>undefined</code></td><td>Да</td></tr>
+<tr><td>Превратить каждый в новое значение</td><td><code>map</code></td><td>Новый массив той же длины</td><td>Да</td></tr>
+<tr><td>Оставить подходящие</td><td><code>filter</code></td><td>Новый массив, возможно короче</td><td>Да</td></tr>
+<tr><td>Найти первый подходящий</td><td><code>find</code> / <code>findIndex</code></td><td>Элемент или <code>undefined</code> / индекс или −1</td><td>Нет, до первого совпадения</td></tr>
+<tr><td>Есть ли хоть один подходящий?</td><td><code>some</code></td><td><code>true</code> / <code>false</code></td><td>Нет, до первого <code>true</code></td></tr>
+<tr><td>Все ли подходят?</td><td><code>every</code></td><td><code>true</code> / <code>false</code></td><td>Нет, до первого <code>false</code></td></tr>
+<tr><td>Свернуть всё в одно значение</td><td><code>reduce</code></td><td>Что накопили: число, объект, строку</td><td>Да</td></tr>
+</tbody></table></div>
+<pre><code>const scores = [72, 95, 40, 88];
+console.log(scores.every((s) =&gt; s &gt;= 40)); // true — все не меньше 40
+console.log(scores.some((s) =&gt; s &gt; 90)); // true — есть хотя бы один выше 90
+console.log(scores.filter((s) =&gt; s &gt;= 70)); // [72, 95, 88]
+console.log(scores.map((s) =&gt; s / 100)); // [0.72, 0.95, 0.4, 0.88]
+console.log(scores.find((s) =&gt; s &lt; 50)); // 40
+console.log(scores.reduce((sum, s) =&gt; sum + s, 0)); // 295
+console.log(scores.forEach((s) =&gt; s)); // undefined</code></pre>
+<p>Несколько вещей, которые путают чаще всего:</p>
+<ul>
+<li><strong><code>every</code> и <code>some</code> — пара.</strong> <code>every</code> — «для всех», <code>some</code> — «хотя бы для одного». У пустого массива <code>every</code> вернёт <code>true</code> (нет ни одного нарушителя), а <code>some</code> — <code>false</code> (нет ни одного подходящего). Метода <code>check</code> у массива нет.</li>
+<li><strong><code>forEach</code> ничего не возвращает</strong> и не умеет останавливаться: <code>return</code> внутри колбэка завершает только текущий вызов. Если нужно прервать проход, берите <code>for...of</code> с <code>break</code> или подходящий метод вроде <code>some</code>/<code>find</code>.</li>
+<li><strong><code>map</code> и <code>filter</code> создают новый массив</strong> и не меняют исходный. Это O(n) дополнительной памяти.</li>
+<li>У <code>reduce</code> второй аргумент — начальное значение. Без него на пустом массиве будет ошибка <code>TypeError</code>.</li>
+</ul>
+<figure class="dg"><div class="dg-title">some(x =&gt; x === 2) на массиве [1, 2, 3, 4]</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0">Проверяем 1: не подходит, идём дальше.<div class="cells"><span class="mid">1</span><span>2</span><span>3</span><span>4</span></div></li><li class="card lit" style="--i:1">Проверяем 2: подходит. Ответ уже известен — <code>true</code>.<div class="cells"><span class="off">1</span><span class="hit">2</span><span>3</span><span>4</span></div></li><li class="card lit" style="--i:2">3 и 4 не проверяются вовсе: метод остановился.<div class="cells"><span class="off">1</span><span class="hit">2</span><span class="gap">3</span><span class="gap">4</span></div></li></ol><figcaption>Короткое замыкание: <code>some</code> останавливается на первом <code>true</code>, <code>every</code> — на первом <code>false</code>. В худшем случае (ответа нет или он в самом конце) они всё равно просмотрят все n элементов, поэтому оценка остаётся O(n). Колбэк здесь вызвался 2 раза из 4 — это проверено счётчиком в Node.js 22.</figcaption></figure>
+<h3 id="ds-iterate-hidden">Скрытый вложенный цикл</h3>
+<p>Метод выглядит как одна строка, но внутри него тоже цикл. Если внутри колбэка вызвать ещё один проход — <code>includes</code>, <code>indexOf</code>, <code>find</code>, — получится цикл в цикле. Для массивов длиной n и m это O(n · m), а при одинаковой длине — O(n²).</p>
+<pre><code>const allowed = ['ann', 'bob', 'eva'];
+const users = ['bob', 'kim', 'eva'];
+
+// includes перебирает allowed для каждого пользователя: O(n · m)
+console.log(users.filter((u) =&gt; allowed.includes(u))); // ['bob', 'eva']
+
+// Set проверяет наличие ожидаемо (в среднем) за O(1): всего O(n + m)
+const allowedSet = new Set(allowed);
+console.log(users.filter((u) =&gt; allowedSet.has(u))); // ['bob', 'eva']</code></pre>
+<p>На трёх элементах разницы не видно. На десяти тысячах это сто миллионов сравнений против двадцати тысяч операций. На код-ревью такие места ищут в первую очередь.</p>
+<h3 id="ds-set">Set: только уникальные значения</h3>
+<p><code>Set</code> — коллекция, в которой каждое значение встречается не больше одного раза. Повторное добавление ничего не меняет. Проверка <code>has</code>, добавление <code>add</code> и удаление <code>delete</code> работают ожидаемо за O(1), так же как у <code>Map</code>. Порядок перебора — порядок первого добавления.</p>
+<pre><code>console.log(new Set([1, 2, 2, 3, 1]).size); // 3
+console.log([...new Set(['a', 'b', 'a'])]); // ['a', 'b'] — убрали дубликаты</code></pre>
+<p>Индексов у <code>Set</code> нет: спросить «третий элемент» нельзя. Из массива, <code>Map</code> и связного списка уникальность сама собой не следует — её пришлось бы проверять вручную. Объекты в <code>Set</code>, как и в <code>Map</code>, сравниваются по ссылке.</p>
+</section>

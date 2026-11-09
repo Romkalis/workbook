@@ -1,0 +1,19 @@
+<section id="bjs-chain">
+<h2>Chain maker: цепочка вызовов</h2>
+<p>Цепочка вызовов (method chaining) — это когда методы пишут подряд через точку: <code>chainMaker.addLink(1).addLink(2).finishChain()</code>. Это работает, если метод возвращает тот самый объект, у которого его вызвали. Тогда следующий <code>.addLink</code> вызывается снова у него.</p>
+<pre><code>const counter = {
+  value: 0,
+  add(n) {
+    this.value += n;
+    return this; // вернуть сам объект — и можно продолжить цепочку
+  },
+};
+console.log(counter.add(2).add(3).value); // 5</code></pre>
+<p>В задании <code>chainMaker</code> — обычный объект, а не класс. Цепочечными должны быть <code>addLink</code>, <code>removeLink</code>, <code>reverseChain</code>. <code>getLength</code> и <code>finishChain</code> возвращают число и строку, поэтому цепочку заканчивают.</p>
+<h3 id="bjs-chain-state">Одно состояние на все тесты</h3>
+<p>Из этого следует главная ловушка. <code>chainMaker</code> существует в одном экземпляре, и все тесты пользуются им по очереди. Звенья, оставшиеся от прошлой цепочки, испортят следующую. README поэтому требует очищать цепочку в двух случаях: после <code>finishChain</code> и после ошибки в <code>removeLink</code>.</p>
+<figure class="dg"><div class="dg-title">Два теста подряд с одним chainMaker</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0"><span class="hd">Тест 1</span>addLink(1).addLink(2).addLink(3).removeLink(0) — позиции 0 нет, бросаем ошибку.<div class="cells"><span>1</span><span>2</span><span>3</span></div></li><li class="card lit no" style="--i:1"><span class="hd">Если не очистить</span>Звенья 1, 2, 3 остались. Тест 2 добавит свои к ним.<div class="cells"><span class="bad">1</span><span class="bad">2</span><span class="bad">3</span><span>a</span><span>b</span></div></li><li class="card lit" style="--i:2"><span class="hd">Если очистить перед throw</span>Тест 2 начинает с пустой цепочки и получает ровно свои звенья.<div class="cells"><span>a</span><span>b</span></div></li></ol><figcaption>Ошибка в одном тесте не должна влиять на следующий. Поэтому перед <code>throw</code> в <code>removeLink</code> цепочку сбрасывают, так же как после <code>finishChain</code>. Иначе тесты начнут падать «каскадом», и будет трудно понять, какой из них сломался первым.</figcaption></figure>
+<h3 id="bjs-chain-position">Позиции считаются с единицы</h3>
+<p>В примере README <code>addLink(1).addLink(2).removeLink(1)</code> оставляет звено 2. Значит, <code>removeLink(1)</code> удаляет <em>первое</em> звено, а не второе: позиции идут с 1, как у людей, а не с 0, как у индексов массива. Отсюда же правила для неверной позиции: 0, отрицательные, дробные, нечисловые (<code>'2nd'</code>) и большие длины цепочки должны бросать <code>Error</code> с текстом <code>You can't remove incorrect link!</code>. Все эти варианты есть в тестах.</p>
+<p>Формат звена — значение в круглых скобках с пробелами: <code>'( 1 )'</code>, звенья соединены <code>'~~'</code>. <code>addLink()</code> без аргумента добавляет пустое звено <code>'(  )'</code> с двумя пробелами. Значение в звене — строковое представление, поэтому <code>addLink(null)</code> даёт <code>'( null )'</code>.</p>
+</section>

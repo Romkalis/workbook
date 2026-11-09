@@ -1,0 +1,37 @@
+<section id="bjs-types">
+<h2>Проверка входных данных</h2>
+<p>Почти в каждой задаче есть фраза «in case of wrong type return false» или «throw an Error». Значит, функция должна сначала убедиться, что получила то, что ожидала, и только потом считать. Такую проверку называют <strong>валидацией</strong>: если вход неправильный, функция сразу возвращает ответ «неверно» и дальше не идёт. Это ранний выход (guard clause): плохие случаи отсекаются в первых строках, и основной код не обрастает условиями.</p>
+<h3 id="bjs-typeof">typeof и его сюрпризы</h3>
+<p>Оператор <code>typeof</code> возвращает строку с названием типа. Для строк, чисел и булевых значений он работает как ожидается. Для массивов и <code>null</code> — нет.</p>
+<pre><code>console.log(typeof '1', typeof 1); // string number
+console.log(typeof [1]); // object — массив тоже объект
+console.log(Array.isArray([1])); // true — так проверяют массив
+console.log(typeof null); // object — историческая ошибка языка</code></pre>
+<p>Поэтому массив проверяют через <code>Array.isArray</code>, а не через <code>typeof</code>. Это нужно в dream-team и transform-array.</p>
+<h3 id="bjs-number">Строка, похожая на число</h3>
+<p>В carbon-dating активность приходит строкой, например <code>'3.142'</code>. Её надо превратить в число и отбраковать мусор. Два стандартных способа ведут себя по-разному, и у каждого своя ловушка:</p>
+<pre><code>console.log(parseFloat('3abc')); // 3 — читает начало и молча отбрасывает хвост
+console.log(Number('3abc')); // NaN — строгий: вся строка должна быть числом
+console.log(Number(' ')); // 0 — пустая строка и пробелы превращаются в 0!
+console.log(parseFloat(' ')); // NaN</code></pre>
+<p>Обратите внимание: <code>Number(' ')</code> даёт 0, хотя никакого числа там нет. В тестах carbon-dating есть именно такие входы: <code>''</code>, <code>' '</code>, <code>' \n\t\r'</code>. Каждый способ пропускает свой вид мусора, поэтому полагаться на один без дополнительной проверки нельзя. Проверка на <code>NaN</code> делается через <code>Number.isNaN(x)</code>: сравнение <code>x === NaN</code> всегда ложно.</p>
+<p>Кроме типа проверяют смысл. Активность образца не может быть нулевой, отрицательной или больше современной (константа <code>MODERN_ACTIVITY = 15</code> в файле задачи): такой образец был бы «из будущего». README называет это inadequate value.</p>
+<h3 id="bjs-fake-date">Поддельная дата в what-season</h3>
+<p>README предупреждает о «вражеском разведчике», который притворяется датой. В тестах это объект, которому подменили прототип и метку <code>Symbol.toStringTag</code>. Прототип — объект, у которого экземпляр берёт методы: у всех дат это <code>Date.prototype</code>. <code>Symbol.toStringTag</code> — особое свойство, которое задаёт подпись в строке вида <code>[object Date]</code>. Посмотрим, какие проверки он обманывает.</p>
+<pre><code>const fake = { [Symbol.toStringTag]: 'Date' };
+Object.setPrototypeOf(fake, Date.prototype);
+
+console.log(fake instanceof Date); // true — обманули
+console.log(Object.prototype.toString.call(fake)); // [object Date] — обманули
+
+try {
+  Date.prototype.getTime.call(fake);
+} catch (error) {
+  console.log(error.constructor.name); // TypeError — а вот это не подделать
+}</code></pre>
+<figure class="dg"><div class="dg-title">Через какие проверки проходит подделка</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit no" style="--i:0"><span class="hd">fake instanceof Date</span>Смотрит только на цепочку прототипов. Прототип подменили — проверка пройдена.</li><li class="card lit no" style="--i:1"><span class="hd">Object.prototype.toString.call(fake)</span>Читает Symbol.toStringTag. Метку подписали «Date» — проверка пройдена.</li><li class="card lit" style="--i:2"><span class="hd">Date.prototype.getTime.call(fake)</span>Встроенный метод проверяет внутренний слот, который есть только у созданных через new Date объектов. Его не подделать — TypeError.</li></ol><figcaption>Первые две проверки опираются на то, что любой код может переписать: прототип и метку. Третья опирается на внутреннее устройство настоящей даты. Его движок создаёт сам в <code>new Date()</code>, и из JavaScript добавить его объекту нельзя. Поэтому надёжный способ — вызвать настоящий метод <code>Date</code> в <code>try</code> и считать ошибку признаком подделки.</figcaption></figure>
+<p>Внутренний слот — скрытое поле объекта, которое видит только движок. У настоящей даты в нём лежит число миллисекунд. Свойства и методы объекта можно подменить, а слот — нет. Отдельно проверьте второй случай из README: дата настоящая, но недействительная. <code>new Date('завтра').getTime()</code> вернёт <code>NaN</code>, а не ошибку.</p>
+<details class="q"><summary>Что вернуть, если аргумента нет вовсе?</summary><div class="a"><p>Это отдельный случай, и он не ошибка: README требует вернуть строку <code>'Unable to determine the time of year!'</code>. Проверять его надо первым, до попытки работать с датой. Иначе вызов метода на <code>undefined</code> бросит TypeError, и функция ответит «Invalid date!» не по делу.</p></div></details>
+<h3 id="bjs-dream-team">Отбор строк в dream-team</h3>
+<p>В массив участников подмешаны числа, <code>null</code>, <code>true</code>, а у имён бывают пробелы в начале: <code>'   William Alston '</code>. Значит, порядок такой: оставить только строки, убрать пробелы по краям (<code>trim</code>), взять первую букву, привести к одному регистру и только потом сортировать. Если отсортировать до приведения регистра, строчная буква окажется после всех заглавных: <code>['b', 'A', 'C'].sort()</code> даёт <code>['A', 'C', 'b']</code>, потому что <code>sort</code> без функции сравнения сравнивает коды символов.</p>
+</section>

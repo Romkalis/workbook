@@ -1,0 +1,34 @@
+<section id="bjs-strings">
+<h2>Строки</h2>
+<p>Больше половины задач — про строки. Общее правило: строки в JavaScript неизменяемы, любая «правка» создаёт новую строку. Поэтому длинный результат удобно собирать в массив частей и в конце склеивать через <code>join</code>.</p>
+<h3 id="bjs-repeater">extended-repeater: значения по умолчанию и null</h3>
+<p>Функция собирает строку из повторов: <code>str</code> плюс добавка <code>addition</code>, повторённая <code>additionRepeatTimes</code> раз через <code>additionSeparator</code>, и всё это ещё <code>repeatTimes</code> раз через <code>separator</code>. Сначала соберите один кусок (строка плюс добавки), потом повторите его. <code>Array(n).fill(x).join(sep)</code> даёт n копий через разделитель без лишнего разделителя в конце. Если число повторов не задано, README велит не повторять: строка (или добавка) входит в результат один раз.</p>
+<p>Ловушка в значениях по умолчанию. Разделители по умолчанию <code>'+'</code> и <code>'|'</code>, а вот добавка может прийти как <code>null</code> или <code>false</code>, и тесты ждут их в строке: <code>'null'</code>, <code>'false'</code>.</p>
+<pre><code>const options = { addition: null };
+console.log(options.addition ?? ''); // '' — null считается «нет значения», добавка потеряна
+console.log(options.addition !== undefined); // true — значение передано, пусть и null
+console.log(String(null), String(false)); // null false</code></pre>
+<p>Оператор <code>??</code> подставляет значение по умолчанию и для <code>undefined</code>, и для <code>null</code>. Здесь это неверно: <code>null</code> — переданное значение, а не пропуск. Проверяйте именно <code>!== undefined</code> (или <code>'addition' in options</code>). Ещё хуже вариант <code>options.addition || ''</code>: он потеряет и <code>false</code>, и <code>0</code>, и пустую строку. Для превращения в строку используйте <code>String(x)</code> или шаблонную строку. В тестах есть объект со своим правилом приведения (<code>Symbol.toPrimitive</code>), и оба способа обработают его так, как ожидает тест.</p>
+<h3 id="bjs-vigenere">vigenere-cipher: сдвиг по алфавиту</h3>
+<p>Шифр Виженера сдвигает каждую букву сообщения на номер соответствующей буквы ключа: A — сдвиг 0, B — 1, …, Z — 25. Ключ повторяется по кругу. После Z алфавит начинается снова с A — это остаток от деления на 26.</p>
+<pre><code>const A = 'A'.charCodeAt(0); // 65
+function shiftLetter(letter, keyLetter) {
+  const shift = keyLetter.charCodeAt(0) - A;
+  return String.fromCharCode(((letter.charCodeAt(0) - A + shift) % 26) + A);
+}
+console.log(shiftLetter('T', 'L')); // E — 19 + 11 = 30, 30 % 26 = 4
+console.log(shiftLetter('Z', 'C')); // B — после Z снова A</code></pre>
+<figure class="dg"><div class="dg-title">ATTACK AT с ключом ALPHONSE</div><div class="lvls" aria-hidden="true"><div class="cells"><span class="ptr">текст</span><span>A</span><span>T</span><span>T</span><span>A</span><span>C</span><span>K</span><span class="gap">␣</span><span>A</span><span>T</span></div><div class="cells"><span class="ptr">ключ</span><span class="mid">A</span><span class="mid">L</span><span class="mid">P</span><span class="mid">H</span><span class="mid">O</span><span class="mid">N</span><span class="gap">—</span><span class="mid">S</span><span class="mid">E</span></div><div class="cells"><span class="ptr">шифр</span><span class="hit">A</span><span class="hit">E</span><span class="hit">I</span><span class="hit">H</span><span class="hit">Q</span><span class="hit">X</span><span class="gap">␣</span><span class="hit">S</span><span class="hit">X</span></div></div><figcaption>Под каждой буквой текста стоит буква ключа, и шифр получается сдвигом: T + L = E, T + P = I и так далее. Главное — пробел. Он не шифруется и <strong>не расходует букву ключа</strong>: после N для пробела ключ не сдвигается, и следующая буква A берёт S, а не следующую по счёту позицию. Поэтому получается <code>AEIHQX SX</code>, как в примере README. Если продвигать ключ на каждом символе, буквы после первого пробела зашифруются неверно.</figcaption></figure>
+<p>Остальные требования README: работать только с латиницей (другие символы оставлять как есть), возвращать заглавные буквы, бросать <code>Error('Incorrect arguments!')</code>, если нет сообщения или ключа. Обратная машина (<code>new VigenereCipheringMachine(false)</code>) делает то же самое, но разворачивает результат. Для расшифровки сдвиг вычитается. Остаток от отрицательного числа в JavaScript тоже отрицательный: <code>-3 % 26</code> равно -3. Чтобы получить позицию в алфавите, добавьте 26: <code>((x % 26) + 26) % 26</code>.</p>
+<h3 id="bjs-short-strings">Короткие задачи (ST) на строки</h3>
+<dl class="gloss">
+<dt>encode-line</dt><dd>Сжатие повторов: <code>'aabbbc'</code> → <code>'2a3bc'</code>. Идите по строке и считайте, сколько раз подряд повторился символ; единицу не пишут. Регулярное выражение <code>/(.)\1*/g</code> сразу режет строку на такие группы: <code>(.)</code> запоминает любой символ, <code>\1*</code> — сколько угодно его повторов подряд, флаг <code>g</code> ищет все такие куски. <code>'aaabcc'.match(/(.)\1*/g)</code> даёт <code>['aaa', 'b', 'cc']</code>.</dd>
+<dt>common-character-count</dt><dd>Общие символы с учётом количества: у <code>'aabcc'</code> и <code>'adcaa'</code> общие две a и одна c — 3. Посчитайте символы одной строки в <code>Map</code> или объекте и «расходуйте» их, проходя по второй.</dd>
+<dt>delete-digit</dt><dd>Удалить ровно одну цифру, чтобы число стало наибольшим. Цифр мало, поэтому можно честно перебрать все варианты удаления через строку и взять максимум.</dd>
+<dt>get-email-domain</dt><dd>Домен — всё после <em>последнего</em> <code>@</code>. В тестах есть адрес <code>'very.unusual.@.unusual.com@usual.com'</code>, где <code>@</code> два. Для поиска последнего символа подходит <code>lastIndexOf</code>.</dd>
+<dt>mac-address</dt><dd>Шесть групп по две шестнадцатеричные цифры (0–9, A–F) через дефис. Разбейте строку по <code>'-'</code> и проверьте количество групп и каждую группу, или опишите формат одним регулярным выражением.</dd>
+<dt>file-names</dt><dd>Повтор имени получает суффикс <code>(k)</code> с наименьшим свободным k. Храните уже выданные имена в <code>Set</code>. Учтите, что имя с суффиксом само может совпасть с чьим-то исходным: отсюда <code>'file(1)(1)'</code> в примере.</dd>
+<dt>dns-stats</dt><dd>Для <code>'code.yandex.ru'</code> засчитываются <code>'.ru'</code>, <code>'.ru.yandex'</code>, <code>'.ru.yandex.code'</code>. Разбейте домен по точкам, разверните и накапливайте префиксы, считая их в объекте.</dd>
+<dt>sum-digits</dt><dd>Разобрана в <a href="#bjs-carbon">разделе про формулы</a>.</dd>
+</dl>
+</section>
