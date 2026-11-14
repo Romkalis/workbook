@@ -1,0 +1,35 @@
+<section id="rest-json-server">
+<h2>json-server: REST-API за минуту</h2>
+<p>Фронтенд часто нужно делать раньше, чем готов бэкенд, или для учебного проекта, где бэкенда нет вовсе. Лектор показывает <a href="https://github.com/typicode/json-server">json-server</a> — пакет, который превращает обычный JSON-файл в полноценный REST-API с CRUD, фильтрами и пагинацией, «без кода за 30 секунд», как обещают его авторы. На нём же построен сервер для задания Async Race.</p>
+<h3 id="rest-js-setup">Запуск</h3>
+<p>Нужен Node.js (урок <a href="/lessons/node-basics">«Основы Node.js»</a>). Создаём проект, ставим пакет и файл с данными:</p>
+<pre><code>npm init -y
+npm install json-server</code></pre>
+<pre><code>// db.json
+{
+  "employees": [
+    { "id": "1", "name": "Аня", "role": "developer", "salary": 2000 },
+    { "id": "2", "name": "Вася", "role": "manager", "salary": 1500 },
+    { "id": "3", "name": "Петя", "role": "developer", "salary": 2500 },
+    { "id": "4", "name": "Оля", "role": "designer", "salary": 1800 }
+  ]
+}</code></pre>
+<pre><code>npx json-server db.json --port 3000</code></pre>
+<p>Каждый ключ верхнего уровня (<code>employees</code>) становится ресурсом: <code>GET /employees</code>, <code>GET /employees/1</code>, <code>POST /employees</code>, <code>PUT</code>, <code>PATCH</code> и <code>DELETE /employees/1</code>. Все изменения сразу записываются в <code>db.json</code>. У новых записей json-server сам генерирует строковый <code>id</code>, например <code>"HfXDCD4"</code>.</p>
+<h3 id="rest-js-versions">Две версии — разные правила</h3>
+<p>Лекция и большинство учебных проектов RS School (сервер Async Race использует <code>json-server ^0.16.3</code>) работают со старой веткой 0.x. Сейчас <code>npm install json-server</code> ставит версию 1.0 (пока beta), где часть параметров изменилась. Обе версии проверены одним и тем же <code>db.json</code>:</p>
+<div class="tbl"><table>
+<thead><tr><th>Задача</th><th>0.16–0.17 (лекция, Async Race)</th><th>1.0 (ставится по умолчанию)</th></tr></thead>
+<tbody>
+<tr><td>Фильтр</td><td><code>?role=developer</code></td><td><code>?role=developer</code></td></tr>
+<tr><td>Больше или равно</td><td><code>?salary_gte=2000</code></td><td><code>?salary:gte=2000</code> (старая запись тоже сработала)</td></tr>
+<tr><td>Сортировка по убыванию</td><td><code>?_sort=salary&amp;_order=desc</code></td><td><code>?_sort=-salary</code>; запрос в старом виде вернул пустой массив</td></tr>
+<tr><td>Пагинация</td><td><code>?_page=2&amp;_limit=3</code> → массив</td><td><code>?_page=2&amp;_per_page=3</code> → объект; с <code>_limit</code> пришло <code>"data": []</code></td></tr>
+<tr><td>Сколько всего записей</td><td>заголовок <code>X-Total-Count: 4</code> и заголовок <code>Link</code> со ссылками first/next/last</td><td>поля в теле: <code>{ first, prev, next, last, pages, items, data }</code></td></tr>
+<tr><td>Ответ на DELETE</td><td><code>{}</code>, 200</td><td>удалённый объект, 200</td></tr>
+<tr><td>Запуск с наблюдением за файлом</td><td><code>json-server --watch db.json</code></td><td><code>json-server db.json</code> (наблюдает сам)</td></tr>
+</tbody></table></div>
+<p>Вывод: всегда смотрите, какая версия стоит в проекте (<code>package.json</code>), и читайте документацию именно её. Для задания с готовым сервером ничего ставить не нужно — его версия уже зафиксирована. Если хотите поведение как в лекции, ставьте <code>npm install json-server@0.17</code>.</p>
+<h3 id="rest-js-postman">Проверка в Postman</h3>
+<p>Лектор проверяет все методы в <a href="/lessons/client-server#cs-libs">Postman</a>: для <code>POST</code>, <code>PUT</code> и <code>PATCH</code> на вкладке Body выбирают raw → JSON (Postman сам добавит <code>Content-Type: application/json</code>). На вопрос из чата «зачем сторонние программы-костыли» лектор отвечает: Postman — обычный инструмент для работы с API, и аналогов много (Insomnia, Thunder Client, файлы <code>.http</code> в редакторе). Для статики во время разработки он советует расширение Live Server для VS Code: оно поднимает локальный сервер и перезагружает страницу при сохранении.</p>
+</section>
