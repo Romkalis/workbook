@@ -1,0 +1,36 @@
+<section id="rest-design">
+<h2>Как проектировать REST-API</h2>
+<p>Статья <a href="https://www.codecademy.com/article/what-is-rest">Codecademy «What is REST?»</a> предлагает начинать с <b>моделей</b>: какие сущности есть в системе и какие у них поля. Для магазина одежды это, например, клиенты (customers) и заказы (orders). Затем для каждой модели описывают запросы и ответы. Отсюда несколько правил, которые разделяют и статья <a href="https://dev.to/cassiocappellari/fundamentals-of-rest-api-2nag">dev.to «Fundamentals of REST API»</a>, и практика большинства публичных API.</p>
+<h3 id="rest-naming">Ресурсы — существительные, действия — методы</h3>
+<div class="tbl"><table>
+<thead><tr><th>Плохо</th><th>Хорошо</th></tr></thead>
+<tbody>
+<tr><td><code>GET /getUsers</code></td><td><code>GET /users</code></td></tr>
+<tr><td><code>POST /createUser</code></td><td><code>POST /users</code></td></tr>
+<tr><td><code>GET /deleteUser?id=5</code></td><td><code>DELETE /users/5</code></td></tr>
+<tr><td><code>GET /user/5/getArticles</code></td><td><code>GET /users/5/articles</code></td></tr>
+</tbody></table></div>
+<ul>
+<li>Коллекции называют существительными во множественном числе: <code>/users</code>, <code>/orders</code>.</li>
+<li>Один элемент — по идентификатору: <code>/users/5</code>.</li>
+<li>Связанные ресурсы — вложенностью: <code>/users/5/articles</code>. Глубже двух уровней обычно не идут: <code>/articles?userId=5</code> читается проще, чем <code>/users/5/articles/12/comments</code>.</li>
+<li>Адреса в нижнем регистре, слова через дефис: <code>/order-items</code>.</li>
+<li><code>GET</code> никогда не меняет данные: поисковые роботы и предзагрузка браузера могут вызвать его сами.</li>
+</ul>
+<h3 id="rest-query">Фильтры, сортировка, пагинация</h3>
+<p>Выборку из коллекции уточняют строкой запроса, а не новыми адресами:</p>
+<pre><code>GET /employees?role=developer          фильтр
+GET /employees?_sort=-salary           сортировка по убыванию
+GET /employees?_page=2&amp;_per_page=10    вторая страница по 10</code></pre>
+<p>Имена параметров каждый API выбирает сам — они описаны в его документации. Подчёркивание в <code>_page</code> и <code>_sort</code> — соглашение json-server, чтобы служебные параметры не путались с полями данных. Клиенту для пагинации нужно знать общее число записей или страниц: сервер сообщает его в теле ответа или заголовком (раздел о json-server).</p>
+<h3 id="rest-versioning">Версии API</h3>
+<p>API меняется, а старые клиенты (мобильные приложения, которые пользователи не обновили) должны продолжать работать. Статья <a href="https://restfulapi.net/versioning/">restfulapi.net о версиях</a> советует повышать версию только при <b>ломающих изменениях</b>: поменялся формат ответа, тип поля (целое стало дробным), удалена часть API. Добавление нового адреса или нового поля в ответ ничего не ломает. Три способа указать версию:</p>
+<ul>
+<li><b>В адресе:</b> <code>/v1/users</code>. Самый простой и распространённый способ (так делает, например, Stripe: <code>api.stripe.com/v1/charges</code>), хотя он нарушает идею «один ресурс — один адрес».</li>
+<li><b>Своим заголовком:</b> <code>Accept-Version: v1</code> или <code>X-API-Version: 1</code>.</li>
+<li><b>Через <code>Accept</code>:</b> <code>Accept: application/vnd.example.v1+json</code> — адреса чистые, но клиент должен знать нужный заголовок.</li>
+</ul>
+<p>Статья приводит в пример версию в адресе <code>api.github.com/v3/repos</code>. Это неточно: GitHub не пишет версию в путь, а принимает её заголовком <code>X-GitHub-Api-Version</code> (из общих знаний). Хорошая практика — объявлять об устаревании версии заранее и отключать её постепенно.</p>
+<h3 id="rest-alternatives">Альтернативы</h3>
+<p>Статья tutsplus сравнивает REST с <b>SOAP</b> — протоколом со строгим форматом XML-сообщений, который до сих пор живёт в банках и госсистемах, — и с <b>GraphQL</b>: клиент одним запросом к одному адресу описывает, какие поля ему нужны, и получает ровно их. REST проще и лучше кешируется, GraphQL удобнее, когда экранам нужны данные из многих ресурсов сразу.</p>
+</section>

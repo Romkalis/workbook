@@ -1,0 +1,44 @@
+<section id="rest-client">
+<h2>Клиент для REST-API на fetch</h2>
+<p>Во второй половине лекции методы API пишутся в коде. Хорошая практика, которую показывает лектор: собрать все обращения к серверу в отдельный модуль (часто <code>api.js</code>), а в остальном коде импортировать готовые функции. Тогда базовый адрес, заголовки и <a href="/lessons/error-handling">обработка ошибок</a> живут в одном месте. Версия ниже доработана: добавлена проверка статуса, которой в лекции нет (без неё <code>fetch</code> не заметит 404, урок <a href="/lessons/client-server#cs-fetch-errors">«Клиент-серверное взаимодействие»</a>).</p>
+<pre><code>const BASE_URL = 'http://localhost:3000';
+const EMPLOYEES = `${BASE_URL}/employees`;
+
+async function request(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.status === 204 ? null : response.json();
+}
+
+export const getEmployees = (params = {}) =&gt;
+  request(`${EMPLOYEES}?${new URLSearchParams(params)}`);
+export const getEmployee = (id) =&gt; request(`${EMPLOYEES}/${id}`);
+export const createEmployee = (data) =&gt;
+  request(EMPLOYEES, { method: 'POST', body: JSON.stringify(data) });
+export const updateEmployee = (id, patch) =&gt;
+  request(`${EMPLOYEES}/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteEmployee = (id) =&gt; request(`${EMPLOYEES}/${id}`, { method: 'DELETE' });</code></pre>
+<ul>
+<li><code>URLSearchParams</code> собирает строку запроса из объекта и кодирует спецсимволы: <code>{ role: 'developer' }</code> → <code>role=developer</code>. Лектор собирает её вручную через <code>map</code> и <code>join('&amp;')</code> — это работает, но забывает про кодирование пробелов и кириллицы.</li>
+<li>Тело запроса — строка: объект превращают в JSON через <code>JSON.stringify</code>. Лектор на демо забыл это и получил ошибку — частая ошибка новичков.</li>
+<li>Ответ 204 не имеет тела, и <code>response.json()</code> на нём упал бы, поэтому для него возвращаем <code>null</code>.</li>
+</ul>
+<p>Модуль запущен в Node.js 22 против обеих версий json-server. <code>getEmployees({ role: 'developer' })</code> вернул Аню и Петю; <code>createEmployee</code> создал запись со строковым <code>id</code>; <code>updateEmployee</code> поменял роль; после <code>deleteEmployee</code> запрос этой записи бросил <code>HTTP 404</code>.</p>
+<h3 id="rest-pagination">Пагинация с общим числом записей</h3>
+<p>Чтобы нарисовать кнопки страниц, нужно знать, сколько их. В json-server 0.x число записей приходит в заголовке <code>X-Total-Count</code>. Лектор показывает, что <code>console.log(response.headers)</code> выводит пустой с виду объект: заголовки читают методом <code>get</code>, а значение всегда строка.</p>
+<pre><code>// json-server 0.16–0.17
+async function getPage(page, limit) {
+  const response = await fetch(`${EMPLOYEES}?${new URLSearchParams({ _page: page, _limit: limit })}`);
+  const total = Number(response.headers.get('X-Total-Count'));
+  return { items: await response.json(), total, pages: Math.ceil(total / limit) };
+}
+// getPage(2, 3) → { items: [Оля], total: 4, pages: 2 }
+
+// json-server 1.0: всё в теле ответа
+const page = await getEmployees({ _page: 2, _per_page: 3 });
+// page.pages = 2, page.items = 4, page.data = [Оля]</code></pre>
+<p>Если фронтенд и json-server работают на разных портах, браузеру понадобятся заголовки CORS. json-server отдаёт их сам, поэтому учебные запросы с <code>localhost:5173</code> на <code>localhost:3000</code> проходят. Чужой заголовок вроде <code>X-Total-Count</code> браузер даёт прочитать только если сервер перечислил его в <code>Access-Control-Expose-Headers</code> — json-server 0.17 делает и это: проверка запросом с заголовком <code>Origin</code> показала <code>Access-Control-Expose-Headers: X-Total-Count, Link</code>. Версия 1.0 отвечает <code>Access-Control-Allow-Origin: *</code>, а число записей отдаёт в теле, так что заголовок ей не нужен (раздел <a href="/lessons/client-server#cs-cors-headers">«Заголовки CORS»</a>).</p>
+</section>

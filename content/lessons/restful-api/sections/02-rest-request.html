@@ -1,0 +1,36 @@
+<section id="rest-request">
+<h2>Анатомия запроса</h2>
+<p>На слайдах лекции запрос состоит из четырёх частей: адрес (endpoint), метод, заголовки и данные. Подробно HTTP разобран в уроке <a href="/lessons/client-server#cs-http">«Клиент-серверное взаимодействие»</a>, здесь — то, что важно именно для REST.</p>
+<h3 id="rest-endpoint">Адрес (endpoint)</h3>
+<pre><code>https://domain.com/user/1/articles?page=3&amp;published=true
+└──────┬─────────┘└──────┬───────┘└──────────┬──────────┘
+   домен (+ порт)       путь           строка запроса</code></pre>
+<p><b>Путь</b> указывает ресурс: «статьи пользователя 1». <b>Строка запроса</b> после <code>?</code> уточняет выборку: третья страница, только опубликованные. Пары разделяются <code>&amp;</code>. Порт по умолчанию — 443 для HTTPS и 80 для HTTP; при локальной разработке его пишут явно: <code>localhost:3000</code>.</p>
+<h3 id="rest-crud">Методы и CRUD</h3>
+<p>Почти любое действие с данными сводится к четырём операциям — <b>CRUD</b>: Create, Read, Update, Delete. В REST каждой соответствует метод HTTP:</p>
+<div class="tbl"><table>
+<thead><tr><th>Операция</th><th>Метод</th><th>Пример</th><th>Успешный ответ</th></tr></thead>
+<tbody>
+<tr><td>Read — прочитать список</td><td><code>GET</code></td><td><code>GET /employees</code></td><td>200 + массив</td></tr>
+<tr><td>Read — прочитать один</td><td><code>GET</code></td><td><code>GET /employees/2</code></td><td>200 или 404</td></tr>
+<tr><td>Create — создать</td><td><code>POST</code></td><td><code>POST /employees</code> + JSON</td><td>201 + созданный объект</td></tr>
+<tr><td>Update — заменить</td><td><code>PUT</code></td><td><code>PUT /employees/2</code> + полный объект</td><td>200</td></tr>
+<tr><td>Update — изменить часть</td><td><code>PATCH</code></td><td><code>PATCH /employees/2</code> + изменённые поля</td><td>200</td></tr>
+<tr><td>Delete — удалить</td><td><code>DELETE</code></td><td><code>DELETE /employees/2</code></td><td>200 или 204</td></tr>
+</tbody></table></div>
+<p>Лектор признаётся, что «особой разницы между PUT и PATCH не видит», и тут же на демо показывает её: <code>PUT</code> с телом <code>{"role": "developer"}</code> стёр все остальные поля пользователя. Проверено на json-server: после <code>PUT /employees/1</code> с <code>{"role":"lead"}</code> от записи осталось только <code>{"role":"lead","id":"1"}</code>, а <code>PATCH /employees/2</code> с <code>{"salary":3000}</code> поменял только зарплату. <code>PUT</code> — замена ресурса целиком, <code>PATCH</code> — частичное изменение.</p>
+<p>Важное свойство — <b>идемпотентность</b>: повтор запроса даёт тот же итог. <code>GET</code>, <code>PUT</code> и <code>DELETE</code> идемпотентны (удалить уже удалённое — всё равно «удалено»), <code>POST</code> нет: три одинаковых POST создадут три записи. Поэтому при обрыве связи повторить <code>PUT</code> безопасно, а <code>POST</code> — нет.</p>
+<h3 id="rest-headers">Заголовки</h3>
+<p>Самые важные для REST — <code>Content-Type</code> (в каком формате тело запроса или ответа) и <code>Accept</code> (какой формат клиент хочет получить). Лектор подчёркивает: Postman ставит <code>Content-Type: application/json</code> сам, а в своём коде его нужно указывать, иначе сервер может неправильно понять данные. Проверка на json-server 0.17: <code>POST</code> с JSON в теле, но с <code>Content-Type: text/plain</code>, вернул 201, а запись создалась <b>пустой</b> — только с <code>id</code>. Сервер молча проигнорировал тело. Версия 1.0 в той же ситуации разобрала JSON — на это нельзя полагаться с другими серверами.</p>
+<p>Ещё заголовки со слайдов: <code>Access-Control-*</code> (CORS), <code>Cache-Control</code>, <code>Set-Cookie</code>, <code>Authorization</code> для токена (урок <a href="/lessons/jwt-auth">«JWT-авторизация»</a>).</p>
+<h3 id="rest-json">Данные в JSON</h3>
+<pre><code>{
+  "name": "John Doe",
+  "age": 33,
+  "active": true,
+  "city": null
+}</code></pre>
+<p>Правила JSON из лекции: ключи и строки — только в двойных кавычках, числа, <code>true</code>, <code>false</code> и <code>null</code> пишутся как есть, после последнего элемента запятая не ставится. Чего в JSON нет: <code>undefined</code>, функций, <code>NaN</code>, дат. Проверка: <code>JSON.stringify({ a: undefined, b: null, c: NaN, d: () =&gt; 1, e: new Date(0) })</code> дало <code>{"b":null,"c":null,"e":"1970-01-01T00:00:00.000Z"}</code> — <code>undefined</code> и функция исчезли, <code>NaN</code> стал <code>null</code>, дата превратилась в строку.</p>
+<h3 id="rest-status">Коды ответов</h3>
+<p>Статья <a href="https://code.tutsplus.com/ru/tutorials/code-your-first-api-with-nodejs-and-express-understanding-rest-apis--cms-31697">tutsplus (на русском)</a> выделяет главные: 200 OK, 201 Created, 204 No Content, 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, 500 Internal Server Error. Хороший REST-API отвечает точным кодом и понятным сообщением в теле. Полный разбор — в разделе <a href="/lessons/client-server#cs-status">«Коды состояния»</a>.</p>
+</section>
