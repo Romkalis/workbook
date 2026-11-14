@@ -31,8 +31,9 @@ error instanceof AppError;     // true
 error instanceof Error;        // true</code></pre>
 <p>Что здесь важно:</p>
 <ul>
-<li><code>super(message, options)</code> передаёт сообщение и <code>cause</code> в конструктор <code>Error</code>. Он же заполняет <code>stack</code>.</li>
-<li><code>this.name = this.constructor.name</code> записывает имя класса. Один раз в базовом классе — и у всех наследников будет правильное имя. Без этой строки <code>name</code> останется <code>'Error'</code>, и в консоли все ваши ошибки будут выглядеть одинаково.</li>
+<li><code>super(...)</code> вызывает конструктор родительского класса. Здесь <code>super(message, options)</code> передаёт сообщение и <code>cause</code> в конструктор <code>Error</code>. Он же заполняет <code>stack</code>.</li>
+<li><code>this.constructor</code> — класс, которым создан объект, а <code>.name</code> — его имя в виде строки. Строка <code>this.name = this.constructor.name</code> записывает имя класса в ошибку. Один раз в базовом классе — и у всех наследников будет правильное имя. Без этой строки <code>name</code> останется <code>'Error'</code>, и в консоли все ваши ошибки будут выглядеть одинаково.</li>
+<li>Запись <code>message ?? `HTTP ${status}`</code> использует <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing">оператор ??</a>: если сообщение не передали (<code>undefined</code>), берётся текст по умолчанию.</li>
 <li>Иерархия даёт гибкость проверок: <code>instanceof AppError</code> — «любая наша, ожидаемая ошибка», <code>instanceof HttpError</code> — конкретно сетевая.</li>
 </ul>
 <div class="warn"><b>Поправка к коду лекции</b><p>В лекции и на слайдах классы написаны так: <code>super(); this.message = message; this.statusCode = statusCode;</code>. Это работает, но с двумя недостатками. Сообщение не передано в <code>super</code>, поэтому присваивается вручную. И не задан <code>name</code>: проверка в Node.js 22 показала, что <code>new CustomError('x', 500).name</code> равно <code>'Error'</code>. В классе <code>GoogleApiError</code> присваивания повторяются ещё раз вместо передачи аргументов в <code>super(message, statusCode)</code>. Версия выше делает то же короче и правильнее.</p></div>

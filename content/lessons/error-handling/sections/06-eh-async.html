@@ -1,6 +1,6 @@
 <section id="eh-async">
 <h2>Ошибки в асинхронном коде</h2>
-<p>Лекция начинается с того, что ошибку можно «совершить» двумя способами: синхронно (<code>throw</code>) и асинхронно (<code>Promise.reject</code> или любой сбой внутри промиса). Ловятся они по-разному.</p>
+<p>Лекция начинается с того, что ошибку можно «совершить» двумя способами: синхронно (<code>throw</code>) и асинхронно (<code>Promise.reject</code> или любой сбой внутри промиса). Ловятся они по-разному. <b>Синхронный</b> код выполняется строка за строкой прямо сейчас. <b>Асинхронный</b> запускает действие (таймер, запрос), а результат обрабатывает позже, в <b>колбэке</b> — функции, которую передали, чтобы её вызвали потом.</p>
 <h3 id="eh-callbacks">Колбэки: try снаружи не помогает</h3>
 <pre><code>try {
   setTimeout(() =&gt; {
@@ -10,9 +10,9 @@
   console.log('сюда не попадём');
 }</code></pre>
 <p><code>try</code> выполнился и закончился сразу, как только таймер был <i>запланирован</i>. Колбэк запустится позже, когда <code>try</code> уже давно позади, и ошибка станет неперехваченной. Ловить нужно внутри самого колбэка — в Node.js 22 такой вариант напечатал «пойман внутри: внутри таймера». То же касается обработчиков событий: <code>try</code> вокруг <code>addEventListener</code> бесполезен, <code>try</code> должен быть внутри обработчика.</p>
-<p>В старом коде, особенно в Node.js, ошибки передают первым аргументом колбэка: <code>fs.readFile(path, (error, data) =&gt; { if (error) ... })</code>. Это соглашение «error-first callback»; о нём пишут <a href="https://kinsta.com/blog/errors-in-javascript/">Kinsta</a> и <a href="https://www.valentinog.com/blog/error/">Гальярди</a>.</p>
+<p>В старом коде, особенно в Node.js, ошибки передают первым аргументом колбэка. Например, чтение файла в Node.js: <code>fs.readFile(path, (error, data) =&gt; { if (error) ... })</code>. Это соглашение «error-first callback»; о нём пишут <a href="https://kinsta.com/blog/errors-in-javascript/">Kinsta</a> и <a href="https://www.valentinog.com/blog/error/">Гальярди</a>.</p>
 <h3 id="eh-promise">Промисы: catch, then и finally</h3>
-<p>Промис переходит в состояние «отклонён» (rejected), если вызвали <code>reject</code>, <code>Promise.reject(...)</code> или внутри исполнителя или обработчика <code>.then</code> произошёл <code>throw</code>. Отклонение «падает» по цепочке вниз, пропуская все <code>.then</code>, до ближайшего <code>.catch</code> (глава <a href="https://javascript.info/promise-error-handling">javascript.info</a>, <a href="https://learn.javascript.ru/promise-error-handling">на русском</a>).</p>
+<p>Промис переходит в состояние «отклонён» (rejected), если вызвали <code>reject</code>, <code>Promise.reject(...)</code> или внутри исполнителя (функции, переданной в <code>new Promise(...)</code>) или обработчика <code>.then</code> произошёл <code>throw</code>. Отклонение «падает» по цепочке вниз, пропуская все <code>.then</code>, до ближайшего <code>.catch</code> (глава <a href="https://javascript.info/promise-error-handling">javascript.info</a>, <a href="https://learn.javascript.ru/promise-error-handling">на русском</a>).</p>
 <pre><code>Promise.resolve(1)
   .then(() =&gt; { throw new Error('A'); })
   .then(() =&gt; console.log('пропущен'))
@@ -47,6 +47,7 @@ async function withAwait() {
 }</code></pre>
 <p>Если <code>load()</code> отклоняется, <code>withAwait()</code> вернул <code>'поймано'</code>, а <code>noAwait()</code> упал наружу с ошибкой «сеть»: к моменту отказа функция уже вышла из <code>try</code>. Внутри <code>try</code> пишите <code>return await</code>.</p>
 <h3 id="eh-combinators">Promise.all и родственники</h3>
+<p>Эти методы запускают несколько промисов сразу и объединяют результаты; подробности на <a href="https://learn.javascript.ru/promise-api">learn.javascript.ru: Promise API</a>.</p>
 <div class="tbl"><table>
 <thead><tr><th>Метод</th><th>Если промисы отклоняются</th></tr></thead>
 <tbody>
