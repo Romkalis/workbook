@@ -1,0 +1,47 @@
+<section id="git-practice">
+<h2>Практика, вопросы и словарь</h2>
+<h3 id="git-which">Какую команду выбрать</h3>
+<div class="tbl"><table>
+<thead><tr><th>Ситуация</th><th>Команда</th></tr></thead>
+<tbody>
+<tr><td>Испортил файл, не коммитил</td><td><code>git restore файл</code></td></tr>
+<tr><td>Добавил в индекс лишнее</td><td><code>git restore --staged файл</code></td></tr>
+<tr><td>Опечатка в последнем коммите, ещё не запушен</td><td><code>git commit --amend</code></td></tr>
+<tr><td>Нужна версия файла из прошлого</td><td><code>git restore --source=&lt;коммит&gt; файл</code></td></tr>
+<tr><td>Отменить коммит, который уже на GitHub</td><td><code>git revert &lt;хеш&gt;</code></td></tr>
+<tr><td>Убрать последние локальные коммиты, сохранив правки</td><td><code>git reset --soft</code> или <code>--mixed HEAD~N</code></td></tr>
+<tr><td>Выбросить всё и вернуться к коммиту</td><td><code>git reset --hard &lt;коммит&gt;</code></td></tr>
+<tr><td>«Потерял» коммит после reset</td><td><code>git reflog</code>, затем <code>git reset --hard HEAD@{n}</code></td></tr>
+<tr><td>Мусорные неотслеживаемые файлы</td><td><code>git clean -n</code>, затем <code>-fd</code></td></tr>
+<tr><td>Закоммитил файл, который надо игнорировать</td><td>добавить в .gitignore, <code>git rm --cached файл</code></td></tr>
+</tbody></table></div>
+<h3 id="git-exercises">Упражнения</h3>
+<ol>
+<li>Создайте учебный репозиторий, сделайте три коммита. Посмотрите <code>git cat-file -p HEAD</code> и <code>cat .git/HEAD</code>.</li>
+<li>Добейтесь состояния <code>MM</code> в <code>git status -s</code> и объясните, что попадёт в коммит.</li>
+<li>Проверьте все три режима <code>reset</code> по таблице, после каждого смотрите <code>status</code> и <code>log</code>.</li>
+<li>Сделайте <code>reset --hard</code> на два коммита назад и верните их через reflog.</li>
+<li>Напишите <code>.gitignore</code> для проекта на Vite и проверьте его через <code>git check-ignore -v</code>.</li>
+<li>Пройдите разделы «Основы» и «Удалённые репозитории» в <a href="https://learngitbranching.js.org/?locale=ru_RU">Learn Git Branching</a>.</li>
+</ol>
+<h3 id="git-questions">Вопросы</h3>
+<details class="q"><summary>Чем revert отличается от reset?</summary><p><code>revert</code> добавляет новый коммит с обратными изменениями, история сохраняется — подходит для опубликованных коммитов. <code>reset</code> передвигает ветку назад, коммиты пропадают из истории ветки — только для локальных.</p></details>
+<details class="q"><summary>Почему после --amend изменился хеш?</summary><p>Хеш вычисляется из содержимого коммита, включая сообщение и время. <code>--amend</code> создаёт новый коммит взамен старого.</p></details>
+<details class="q"><summary>Что такое detached HEAD и опасно ли это?</summary><p>HEAD указывает прямо на коммит, а не на ветку. Смотреть код безопасно, но новые коммиты легко потерять после переключения — создайте ветку через <code>git switch -c</code>.</p></details>
+<details class="q"><summary>Почему файл в .gitignore продолжает отслеживаться?</summary><p>.gitignore действует только на неотслеживаемые файлы. Уберите файл из индекса: <code>git rm --cached</code>.</p></details>
+<details class="q"><summary>Можно ли вернуть изменения после git restore файла?</summary><p>Нет, если их не было ни в одном коммите и не было в stash. Reflog хранит только перемещения по коммитам.</p></details>
+<h3 id="git-glossary">Словарь</h3>
+<dl class="gloss">
+<dt>Рабочая папка</dt><dd>Файлы на диске, которые вы редактируете.</dd>
+<dt>Индекс (staging area)</dt><dd>Черновик следующего коммита; туда кладёт <code>git add</code>.</dd>
+<dt>HEAD</dt><dd>Указатель «где я сейчас»: обычно на ветку, в detached-режиме — прямо на коммит.</dd>
+<dt>Снимок (snapshot)</dt><dd>Состояние всего проекта, сохранённое в коммите.</dd>
+<dt>blob, tree, commit</dt><dd>Объекты Git: содержимое файла, папка, снимок с метаданными.</dd>
+<dt>SHA-1</dt><dd>Хеш из 40 шестнадцатеричных символов, имя объекта Git.</dd>
+<dt>Ссылка (ref)</dt><dd>Имя, указывающее на коммит: ветка, тег, HEAD.</dd>
+<dt>Reflog</dt><dd>Локальный журнал перемещений HEAD и веток.</dd>
+<dt>Неотслеживаемый файл</dt><dd>Файл, который Git видит, но ни разу не добавлял (<code>??</code>).</dd>
+<dt>.gitignore</dt><dd>Список шаблонов файлов, которые Git не должен отслеживать.</dd>
+<dt>.gitkeep</dt><dd>Пустой файл по соглашению, чтобы сохранить в Git пустую папку.</dd>
+</dl>
+</section>

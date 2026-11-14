@@ -1,0 +1,22 @@
+<section id="git-trees">
+<h2>Три дерева</h2>
+<p>Глава Pro Git <a href="https://git-scm.com/book/ru/v2/Инструменты-Git-Раскрытие-тайн-reset">«Раскрытие тайн reset»</a> объясняет Git через три «дерева» — три набора файлов, с которыми он работает. «Дерево» здесь значит просто «набор файлов с папками».</p>
+<dl class="gloss">
+<dt>Рабочая папка (working directory)</dt><dd>Обычные файлы на диске, которые вы видите и редактируете. Песочница: здесь можно менять что угодно.</dd>
+<dt>Индекс (index, staging area)</dt><dd>Черновик следующего коммита. <code>git add</code> копирует файл из рабочей папки в индекс. Коммит создаётся из индекса, а не из рабочей папки.</dd>
+<dt>HEAD</dt><dd>Последний коммит текущей ветки — то, что уже сохранено в истории.</dd>
+</dl>
+<figure class="dg"><div class="dg-title">Как изменение проходит через три дерева</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0"><span class="hd">Рабочая папка</span><span class="ln">вы правите hello.txt → git status: « M hello.txt»</span></li><li class="card lit" style="--i:1"><span class="hd">git add → индекс</span><span class="ln">копия файла в черновике коммита → «M  hello.txt»</span></li><li class="card lit" style="--i:2"><span class="hd">git commit → HEAD</span><span class="ln">индекс стал новым снимком, HEAD указывает на него, все три дерева совпадают, status пуст</span></li></ol><figcaption>git status сравнивает деревья попарно: индекс с HEAD (что попадёт в коммит) и рабочую папку с индексом (что ещё не добавлено). Отмена изменений — это движение в обратную сторону: из HEAD в индекс и рабочую папку.</figcaption></figure>
+<h3 id="git-status-short">Как читать git status -s</h3>
+<p>Короткий формат показывает два символа: первый — разница между индексом и HEAD, второй — между рабочей папкой и индексом. Проверим:</p>
+<pre><code>$ echo "мир" &gt;&gt; hello.txt
+$ git status -s
+ M hello.txt        # изменён в рабочей папке, в индекс не добавлен
+$ git add hello.txt
+$ git status -s
+M  hello.txt        # изменение в индексе, попадёт в коммит
+$ echo "!!" &gt;&gt; hello.txt
+$ git status -s
+MM hello.txt        # одна правка в индексе, ещё одна только в рабочей папке</code></pre>
+<p>Состояние <code>MM</code> часто удивляет: в коммит попадёт версия на момент <code>git add</code>, а последняя правка — нет. <code>git diff</code> показывает разницу «рабочая папка — индекс», <code>git diff --staged</code> — «индекс — HEAD». <code>??</code> означает неотслеживаемый файл: Git его видит, но ни разу не добавлял.</p>
+</section>
