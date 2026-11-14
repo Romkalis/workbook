@@ -1,0 +1,41 @@
+<section id="mod-esm">
+<h2>ES-модули: export и import</h2>
+<p>В ES2015 модули стали частью языка. Сейчас их поддерживают все браузеры и Node.js. Подробный разбор синтаксиса — в главе <a href="https://learn.javascript.ru/import-export">«Экспорт и импорт»</a> на learn.javascript.ru (оригинал — <a href="https://javascript.info/modules-intro">javascript.info</a>) и в <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Modules">руководстве MDN</a>.</p>
+<h3 id="mod-named">Именованный экспорт</h3>
+<p>Экспортировать можно сколько угодно значений, каждое под своим именем. Слово <code>export</code> ставят перед объявлением или одним списком в конце файла:</p>
+<pre><code>// counter.js
+export let count = 0;
+export function increment() { count += 1; }
+export const settings = { theme: 'light' };
+
+// или в конце файла
+// export { count, increment, settings };</code></pre>
+<p>Импортируют по тем же именам, в фигурных скобках:</p>
+<pre><code>import { count, increment } from './counter.js';</code></pre>
+<p>Лектор RS School советует держать импорты вверху файла, а экспорты списком внизу: так видно, что модуль берёт и что отдаёт, а логика в середине не смешана с экспортами. Это вопрос стиля; главное — единообразие в проекте.</p>
+<h3 id="mod-default">Экспорт по умолчанию</h3>
+<p>Один (и только один) экспорт в файле может быть «главным» — <code>export default</code>. Его импортируют без фигурных скобок и под любым именем:</p>
+<pre><code>// counter.js
+export default function reset() { count = 0; }
+
+// main.js
+import reset from './counter.js';
+import resetCounter from './counter.js'; // то же самое, другое имя</code></pre>
+<p>Можно сочетать: <code>import reset, { count, increment } from './counter.js';</code>.</p>
+<h3 id="mod-rename">Переименование и импорт всего модуля</h3>
+<pre><code>import { settings as config } from './counter.js'; // взять под другим именем
+import * as counter from './counter.js';            // всё в один объект
+counter.increment();
+console.log(Object.keys(counter)); // [ 'count', 'default', 'increment', 'settings' ]</code></pre>
+<p>Экспорт по умолчанию в таком объекте лежит под именем <code>default</code>. Переименовывать можно и при экспорте: <code>export { sum as add }</code>.</p>
+<h3 id="mod-named-vs-default">Именованный или по умолчанию?</h3>
+<p>Лектор RS School и статья Дмитрия Павлютина <a href="https://dmitripavlutin.com/javascript-modules-best-practices/">«4 Best Practices to Write Quality JavaScript Modules»</a> советуют предпочитать <b>именованные</b> экспорты. При импорте по умолчанию имя придумывает тот, кто импортирует, и одну функцию в разных файлах могут звать по-разному: поиск по проекту её не найдёт, а переименование в редакторе не обновит импорты. Именованный экспорт тоже можно переименовать, но явно, через <code>as</code>. Экспорт по умолчанию уместен, когда модуль отдаёт ровно одну главную вещь — например, компонент React в своём файле.</p>
+<h3 id="mod-reexport">Реэкспорт</h3>
+<p>Чтобы собрать модули папки в одну «точку входа» (часто файл <code>index.js</code>), используют реэкспорт:</p>
+<pre><code>// index.js
+export { increment, default as resetCounter } from './counter.js';
+export * from './counter.js';</code></pre>
+<p>Проверено: <code>export *</code> переносит все именованные экспорты, но <b>не</b> экспорт по умолчанию — его нужно реэкспортировать явно, как <code>resetCounter</code> выше. В итоговом модуле оказались <code>count</code>, <code>increment</code>, <code>resetCounter</code>, <code>settings</code>.</p>
+<h3 id="mod-side-effect">Импорт ради выполнения</h3>
+<p><code>import './polyfills.js';</code> — ничего не берёт, только выполняет модуль. Так подключают стили в сборщиках (<code>import './style.css'</code>) или код, который что-то настраивает при загрузке. Лектор называет это плохой практикой для обычного кода: непонятно, что модуль меняет.</p>
+</section>

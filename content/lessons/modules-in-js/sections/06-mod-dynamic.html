@@ -1,0 +1,16 @@
+<section id="mod-dynamic">
+<h2>Динамический import()</h2>
+<p>Статический <code>import</code> нельзя поставить в условие или вычислить путь. Для загрузки по требованию есть выражение <code>import(путь)</code> (глава <a href="https://learn.javascript.ru/modules-dynamic-imports">«Динамические импорты»</a>). Оно возвращает промис с объектом модуля и работает и в обычных скриптах, не только в модулях.</p>
+<pre><code>button.addEventListener('click', async () =&gt; {
+  const { default: openEditor } = await import('./editor.js');
+  openEditor();
+});</code></pre>
+<p>Проверено в Node.js: <code>const { default: helper } = await import('./helper.js')</code> загрузил модуль и вернул функцию по умолчанию. Экспорт по умолчанию в объекте модуля лежит под ключом <code>default</code>, поэтому его переименовывают при деструктуризации.</p>
+<p>Зачем это нужно:</p>
+<ul>
+<li><b>Разделение кода</b> (code splitting): тяжёлый редактор, график или карта загружаются, только когда пользователь их открыл. Первая загрузка страницы становится быстрее. Сборщики видят <code>import()</code> и сами выносят модуль в отдельный файл.</li>
+<li><b>Загрузка по условию:</b> разные модули для разных языков интерфейса — <code>import(`./locales/${lang}.js`)</code>.</li>
+<li><b>Подключение ES-модуля из CommonJS</b> в Node.js.</li>
+</ul>
+<p>Ошибки обрабатываются как у любого промиса: модуль может не загрузиться из-за сети, поэтому <code>await import()</code> оборачивают в <code>try...catch</code> (урок <a href="/lessons/error-handling#eh-await">«Обработка ошибок»</a>).</p>
+</section>
