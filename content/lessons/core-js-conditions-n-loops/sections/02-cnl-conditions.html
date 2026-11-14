@@ -1,0 +1,50 @@
+<section id="cnl-conditions">
+<h2>Условия</h2>
+<p>Первые задачи — на <code>if</code>, логические операторы и сравнения. В них нельзя пользоваться методами <code>Math</code> и <code>Number</code> там, где это оговорено, поэтому максимум, модуль числа и т. п. делаем сравнениями.</p>
+<h3 id="cnl-positive">1. isPositive — положительное ли число</h3>
+<pre><code> 10 =&gt; true
+ 0  =&gt; true
+ -5 =&gt; false</code></pre>
+<p>Ноль по условию считается положительным, поэтому <code>&gt;=</code>. Само сравнение уже даёт <code>true</code> или <code>false</code> — писать <code>if (...) return true; else return false;</code> не нужно.</p>
+<pre><code>function isPositive(number) {
+  return number &gt;= 0;
+}</code></pre>
+<h3 id="cnl-max">2. getMaxNumber — максимум из трёх без Math</h3>
+<pre><code> 1, 2, 3       =&gt; 3
+ -5, 0, 5      =&gt; 5
+ -0.1, 0, 0.2  =&gt; 0.2</code></pre>
+<p>Считаем первое число максимумом и по очереди сравниваем с ним остальные. Тест проверяет, что в коде нет <code>Math.</code> и методов массивов, так что <code>Math.max(a, b, c)</code> не подходит.</p>
+<pre><code>function getMaxNumber(a, b, c) {
+  let max = a;
+  if (b &gt; max) max = b;
+  if (c &gt; max) max = c;
+  return max;
+}</code></pre>
+<h3 id="cnl-queen">3. canQueenCaptureKing — бьёт ли ферзь короля</h3>
+<pre><code>{x: 1, y: 1}, {x: 5, y: 5} =&gt; true
+{x: 2, y: 1}, {x: 2, y: 8} =&gt; true
+{x: 1, y: 1}, {x: 2, y: 8} =&gt; false
+{x: 1, y: 1}, {x: 2, y: 8} =&gt; false</code></pre>
+<p>Ферзь ходит по вертикали, горизонтали и диагонали. Одна вертикаль — одинаковый <code>x</code> (<code>dx === 0</code>), одна горизонталь — одинаковый <code>y</code>. На одной диагонали разница по x равна разнице по y по модулю. Модуль без <code>Math.abs</code> получаем тернарным оператором: <code>dx &lt; 0 ? -dx : dx</code>. Фигуры между ферзём и королём в задаче не учитываются.</p>
+<pre><code>function canQueenCaptureKing(queen, king) {
+  const dx = queen.x - king.x;
+  const dy = queen.y - king.y;
+  const absX = dx &lt; 0 ? -dx : dx;
+  const absY = dy &lt; 0 ? -dy : dy;
+  return dx === 0 || dy === 0 || absX === absY;
+}</code></pre>
+<h3 id="cnl-isosceles">4. isIsoscelesTriangle — равнобедренный ли треугольник</h3>
+<pre><code> 1, 2, 3   =&gt; false
+ 3, 1, 2   =&gt; false
+ 2, 3, 2   =&gt; true
+ 3, 2, 2   =&gt; true
+ 2, 2, 3   =&gt; true
+ 2, 2, 5   =&gt; false
+ 3, 0, 3   =&gt; false</code></pre>
+<p>Две проверки. Сначала — существует ли треугольник вообще: стороны положительные, и каждая меньше суммы двух других (неравенство треугольника). Пример <code>2, 2, 5</code> — две стороны равны, но 2 + 2 &lt; 5, такого треугольника нет. Затем — равны ли хотя бы две стороны.</p>
+<pre><code>function isIsoscelesTriangle(a, b, c) {
+  if (a &lt;= 0 || b &lt;= 0 || c &lt;= 0) return false;
+  if (a + b &lt;= c || a + c &lt;= b || b + c &lt;= a) return false;
+  return a === b || b === c || a === c;
+}</code></pre>
+</section>

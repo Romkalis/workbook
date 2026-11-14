@@ -1,0 +1,8 @@
+<section id="prm-sources" class="sources">
+<h2>Источники</h2>
+<ul>
+<li><a href="https://github.com/rolling-scopes-school/core-js-promises">rolling-scopes-school/core-js-promises</a> — условия, тесты и <code>extensions/forbidden.js</code>; клонировано и решено 14 ноября 2026 года.</li>
+<li><a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Promise">MDN: Promise</a> — справка по конструктору, <code>then</code> и комбинаторам.</li>
+</ul>
+<p>Проверено: <code>npm test</code> задания (ESLint + 7 тестов Mocha) в Node.js 22.23; отдельно — пример с <code>Promise.race</code> (победил уже выполненный промис со значением 1), <code>AggregateError</code> у <code>Promise.any</code> и результат «104030» у <code>queuePromises</code> с промисом на таймере. Срабатывание правил <code>prefer-promise-reject-errors</code>, <code>no-restricted-syntax</code> и <code>no-await-in-loop</code> проверено линтером задания.</p>
+</section>

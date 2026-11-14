@@ -1,0 +1,20 @@
+<section id="prm-queue">
+<h2>Последовательная цепочка без статических методов</h2>
+<p>Последняя задача проверяет, понимаете ли вы цепочки <code>then</code>: тест запрещает <code>Promise.all</code>, <code>allSettled</code>, <code>any</code> и <code>race</code> (функция <code>isPromiseUsed</code> ищет их в коде). <code>Promise.resolve</code> не запрещён.</p>
+<h3 id="prm-chain">7. queuePromises — склеить значения по порядку</h3>
+<pre><code>const promise1 = Promise.resolve(10)
+const promise2 = Promise.resolve(20)
+const promise3 = Promise.resolve(30)
+const promise4 = new Promise((resolve) =&gt; setTimeout(() =&gt; resolve(40), 10))
+[promise1, promise3, promise2] =&gt; Promise.resolved(&#x27;103020&#x27;)
+[promise1, promise4, promise3] =&gt; Promise.resolved(&#x27;104030&#x27;)
+[promise1, promise4, promise3, promise2] =&gt; Promise.resolved(&#x27;10403020&#x27;)</code></pre>
+<p>Нужно получить значения в порядке массива, а не в порядке выполнения, и склеить в строку. Строим цепочку через <code>reduce</code>: начинаем с уже выполненного промиса с пустой строкой <code>Promise.resolve('')</code>, а на каждом шаге продолжаем цепочку: «дождись предыдущего результата <code>acc</code>, потом дождись очередного промиса и верни <code>acc + value</code>». Так каждое звено ждёт предыдущее, и порядок совпадает с массивом, даже если <code>promise4</code> выполняется позже <code>promise3</code>.</p><p>Почему <code>acc + value</code> даёт строку, а не сумму: начальное значение — пустая строка, а строка плюс число — склейка. <code>'' + 10</code> = «10», затем «10» + 40 = «1040».</p><p>Та же логика на <code>async/await</code> — с циклом <code>for...of</code> и <code>await</code> внутри. Но линтер airbnb запрещает и <code>for...of</code> (<code>no-restricted-syntax</code>), и <code>await</code> в цикле (<code>no-await-in-loop</code>), поэтому для задания удобнее <code>reduce</code>.</p>
+<pre><code>function queuePromises(promises) {
+  return promises.reduce(
+    (chain, promise) =&gt;
+      chain.then((acc) =&gt; promise.then((value) =&gt; acc + value)),
+    Promise.resolve(&#x27;&#x27;)
+  );
+}</code></pre>
+</section>

@@ -29,6 +29,7 @@ console.log(2);
 <p>Если из <code>.then</code> вернуть значение, оно станет аргументом следующего <code>.then</code>. Если вернуть промис — следующий <code>.then</code> дождётся его. На этом стоит цепочка <code>fetch(url).then(r =&gt; r.json()).then(data =&gt; ...)</code>: <code>response.json()</code> тоже асинхронный, потому что тело ответа приходит потоком (<code>ReadableStream</code>) — кусками, по мере того как они прибывают по сети, и его нужно дочитать.</p>
 <p><code>async/await</code> — синтаксис поверх тех же промисов: <code>await</code> приостанавливает <i>только текущую async-функцию</i> до результата промиса, остальная программа продолжает работать. Лектор пользуется <code>async/await</code> почти всегда; технической разницы с цепочками нет. Подробнее о промисах и цикле событий — на <a href="https://learn.javascript.ru/async">learn.javascript.ru</a>, его советуют в вебинаре.</p>
 
+<p>Практика на промисы — задание core-js-promises, его разбор в уроке <a href="/lessons/core-js-promises">«Core JS Promises»</a>.</p>
 <h3 id="cs-fetch">fetch</h3>
 <p><code>fetch(url, options)</code> — современный встроенный API. Второй аргумент необязателен; по умолчанию метод GET.</p>
 <pre><code>const response = await fetch('/api/users', {

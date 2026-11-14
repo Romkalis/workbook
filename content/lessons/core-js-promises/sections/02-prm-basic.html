@@ -1,0 +1,25 @@
+<section id="prm-basic">
+<h2>Создание промиса и обработка результата</h2>
+<p>Промис — объект, который сейчас в ожидании (pending), а потом станет выполненным (fulfilled) со значением или отклонённым (rejected) с причиной. Основы — в уроке <a href="/lessons/client-server#cs-promise">«Клиент-серверное взаимодействие»</a>, обработка ошибок — в уроке <a href="/lessons/error-handling#eh-promise">«Обработка ошибок»</a>.</p>
+<h3 id="prm-get">1. getPromise — выполнить или отклонить по знаку числа</h3>
+<pre><code>-1   =&gt; promise that will be rejected
+0    =&gt; promise that will be fulfilled
+1    =&gt; promise that will be fulfilled</code></pre>
+<p>Конструктор <code>new Promise((resolve, reject) =&gt; ...)</code> сразу вызывает переданную функцию-исполнитель. Внутри мы решаем исход: <code>resolve(number)</code> для неотрицательного числа (0 по условию положительный), <code>reject(...)</code> для отрицательного. Отклонять принято объектом <code>Error</code>, а не голым значением: у ошибки есть стек, и линтер airbnb (правило <code>prefer-promise-reject-errors</code>) требует именно этого.</p>
+<pre><code>function getPromise(number) {
+  return new Promise((resolve, reject) =&gt; {
+    if (number &gt;= 0) resolve(number);
+    else reject(new Error(&#x27;Negative number&#x27;));
+  });
+}</code></pre>
+<h3 id="prm-result">2. getPromiseResult — всегда выполненный промис со словом</h3>
+<pre><code>Promise.resolve(&#x27;success&#x27;) =&gt; promise that will be fulfilled with &#x27;success&#x27; value
+Promise.reject(&#x27;fail&#x27;)     =&gt; promise that will be fulfilled with &#x27;fail&#x27; value</code></pre>
+<p><code>then</code> принимает два обработчика: для успеха и для ошибки. Каждый возвращает строку, а <code>then</code> всегда возвращает <b>новый</b> промис, который выполняется значением, возвращённым обработчиком. Поэтому ошибка исходного промиса превращается в успешный промис со значением «fail» — отклонение «поймано». То же можно записать как <code>source.then(() =&gt; 'success').catch(() =&gt; 'fail')</code>.</p>
+<pre><code>function getPromiseResult(source) {
+  return source.then(
+    () =&gt; &#x27;success&#x27;,
+    () =&gt; &#x27;fail&#x27;
+  );
+}</code></pre>
+</section>

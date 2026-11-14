@@ -1,0 +1,29 @@
+<section id="arr-summary">
+<h2>Итоги и шпаргалка</h2>
+<div class="tbl"><table>
+<thead><tr><th>Нужно</th><th>Метод</th><th>Меняет исходный?</th></tr></thead>
+<tbody>
+<tr><td>Создать массив длины n</td><td><code>Array.from({ length: n }, fn)</code>, <code>new Array(n).fill(x)</code></td><td>—</td></tr>
+<tr><td>Преобразовать каждый элемент</td><td><code>map</code></td><td>нет</td></tr>
+<tr><td>Отобрать часть</td><td><code>filter</code></td><td>нет</td></tr>
+<tr><td>Свернуть в одно значение</td><td><code>reduce</code></td><td>нет</td></tr>
+<tr><td>Проверить все / хотя бы один</td><td><code>every</code> / <code>some</code></td><td>нет</td></tr>
+<tr><td>Найти индекс / есть ли</td><td><code>indexOf</code> / <code>includes</code></td><td>нет</td></tr>
+<tr><td>Скопировать часть</td><td><code>slice</code></td><td>нет</td></tr>
+<tr><td>Вставить / удалить на месте</td><td><code>splice</code></td><td><b>да</b></td></tr>
+<tr><td>Склеить</td><td><code>concat</code>, spread <code>[...a, ...b]</code></td><td>нет</td></tr>
+<tr><td>В строку</td><td><code>join</code></td><td>нет</td></tr>
+<tr><td>Сплющить</td><td><code>flat</code>, <code>flatMap</code></td><td>нет</td></tr>
+<tr><td>Отсортировать</td><td><code>sort</code> (с компаратором!) / <code>toSorted</code></td><td><b>да</b> / нет</td></tr>
+<tr><td>Уникальные значения</td><td><code>[...new Set(arr)]</code></td><td>нет</td></tr>
+</tbody></table></div>
+<h3 id="arr-pitfalls">Главные ловушки</h3>
+<ul>
+<li><code>sort()</code> без компаратора сравнивает строки: <code>[10, 2, 1].sort()</code> → <code>[1, 10, 2]</code>.</li>
+<li><code>fill</code> с объектом или массивом кладёт одну ссылку во все ячейки.</li>
+<li><code>slice(-0)</code> — это <code>slice(0)</code>, то есть весь массив.</li>
+<li><code>reduce</code> без начального значения падает на пустом массиве.</li>
+<li><code>toFixed</code> возвращает строку.</li>
+<li>Тесты не ловят все краевые случаи — проверяйте пустой массив, 0 и отрицательные числа сами.</li>
+</ul>
+</section>

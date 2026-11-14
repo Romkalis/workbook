@@ -1,0 +1,54 @@
+<section id="arr-nested">
+<h2>Вложенные массивы и матрицы</h2>
+<p>Многомерный массив — массив массивов. Для работы с ним есть <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array/flat"><code>flat</code></a> (сделать плоским) и <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array/flatMap"><code>flatMap</code></a> (<code>map</code> + один уровень <code>flat</code>).</p>
+<h3 id="arr-ndim">18. createNDimensionalArray — n-мерный массив нулей</h3>
+<pre><code>   createNDimensionalArray(2, 3) =&gt; [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+   createNDimensionalArray(3, 2) =&gt; [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]
+   createNDimensionalArray(4, 2) =&gt; [[[[0, 0], [0, 0]], [[0, 0], [0, 0]]], [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]]
+   createNDimensionalArray(1, 1) =&gt; [0]</code></pre>
+<p>Задача рекурсивная: массив глубины 1 — это <code>size</code> нулей, массив глубины <code>n</code> — это <code>size</code> массивов глубины <code>n − 1</code>. Главная ловушка — <code>new Array(size).fill(createNDimensionalArray(n - 1, size))</code>: <code>fill</code> положит во все ячейки <b>одну и ту же ссылку</b>, и изменение одной строки поменяет все. Поэтому сначала заполняем любым значением (<code>fill(null)</code> — нужен, потому что <code>map</code> пропускает «дыры» пустого массива), а потом <code>map</code> создаёт новый подмассив для каждой ячейки. Тест требует наличия <code>fill</code>. Подробнее об этой ловушке — в уроке <a href="/lessons/data-structures-and-algorithms">«Алгоритмы и структуры данных»</a>.</p>
+<pre><code>function createNDimensionalArray(n, size) {
+  if (n === 1) return new Array(size).fill(0);
+  return new Array(size)
+    .fill(null)
+    .map(() =&gt; createNDimensionalArray(n - 1, size));
+}</code></pre>
+<h3 id="arr-flatten">19. flattenArray — сделать плоским</h3>
+<pre><code>   flattenArray([1, [2, [3, 4], 5], 6]) =&gt; [1, 2, 3, 4, 5, 6]
+   flattenArray([&#x27;a&#x27;, [&#x27;b&#x27;, [&#x27;c&#x27;, &#x27;d&#x27;], &#x27;e&#x27;], &#x27;f&#x27;]) =&gt; [&#x27;a&#x27;, &#x27;b&#x27;, &#x27;c&#x27;, &#x27;d&#x27;, &#x27;e&#x27;, &#x27;f&#x27;]
+   flattenArray([1, 2, 3, 4]) =&gt; [1, 2, 3, 4]</code></pre>
+<p><code>flat()</code> без аргумента раскрывает только один уровень. <code>flat(Infinity)</code> раскрывает все уровни вложенности.</p>
+<pre><code>function flattenArray(nestedArray) {
+  return nestedArray.flat(Infinity);
+}</code></pre>
+<h3 id="arr-select-many">20. selectMany — преобразовать и сплющить</h3>
+<pre><code>  selectMany([[1, 2], [3, 4], [5, 6]], (x) =&gt; x) =&gt;   [ 1, 2, 3, 4, 5, 6 ]
+  selectMany([&#x27;one&#x27;,&#x27;two&#x27;,&#x27;three&#x27;], (x) =&gt; x.split(&#x27;&#x27;)) =&gt;   [&#x27;o&#x27;,&#x27;n&#x27;,&#x27;e&#x27;,&#x27;t&#x27;,&#x27;w&#x27;,&#x27;o&#x27;,&#x27;t&#x27;,&#x27;h&#x27;,&#x27;r&#x27;,&#x27;e&#x27;,&#x27;e&#x27;]</code></pre>
+<p>Каждый элемент превращаем в массив «детей» и склеиваем всё в один — это и есть <code>flatMap</code>. Функцию <code>childrenSelector</code> передаём прямо в метод: <code>flatMap(childrenSelector)</code> то же, что <code>flatMap((x) =&gt; childrenSelector(x))</code>. Название из C#/LINQ, там метод так и называется <code>SelectMany</code>.</p>
+<pre><code>function selectMany(arr, childrenSelector) {
+  return arr.flatMap(childrenSelector);
+}</code></pre>
+<h3 id="arr-indices">21. getElementByIndices — элемент по списку индексов</h3>
+<pre><code>  getElementByIndices([[1, 2], [3, 4], [5, 6]], [0,0]) =&gt; 1        (arr[0][0])
+  getElementByIndices([&#x27;one&#x27;,&#x27;two&#x27;,&#x27;three&#x27;], [2]) =&gt; &#x27;three&#x27;  (arr[2])
+  getElementByIndices([[[ 1, 2, 3]]], [ 0, 0, 1 ]) =&gt; 2        (arr[0][0][1])</code></pre>
+<p><code>reduce</code> «спускается» внутрь массива: начинаем с самого <code>arr</code>, на каждом шаге берём <code>current[index]</code>. Для <code>[0, 0, 1]</code> получается <code>arr[0][0][1]</code>.</p>
+<pre><code>function getElementByIndices(arr, indices) {
+  return indices.reduce((current, index) =&gt; current[index], arr);
+}</code></pre>
+<h3 id="arr-identity">22. getIdentityMatrix — единичная матрица</h3>
+<pre><code>    getIdentityMatrix(1)  =&gt; [[1]]
+    getIdentityMatrix(2) =&gt; [[1,0],
+                            [0,1]]
+                             [[1,0,0,0,0],
+                             [0,1,0,0,0],
+    getIdentityMatrix(5) =&gt;  [0,0,1,0,0],
+                             [0,0,0,1,0],
+                             [0,0,0,0,1]]</code></pre>
+<p>Единичная матрица: единицы на главной диагонали (номер строки равен номеру столбца), остальное нули. Два вложенных <code>Array.from</code>: внешний создаёт строки, внутренний — ячейки. Во внутреннем колбэке первый параметр назван <code>__</code>, чтобы не перекрыть внешний <code>_</code> (иначе линтер ругается на затенение имён).</p>
+<pre><code>function getIdentityMatrix(n) {
+  return Array.from({ length: n }, (_, row) =&gt;
+    Array.from({ length: n }, (__, col) =&gt; (row === col ? 1 : 0))
+  );
+}</code></pre>
+</section>

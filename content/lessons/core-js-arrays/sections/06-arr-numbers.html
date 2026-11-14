@@ -1,0 +1,62 @@
+<section id="arr-numbers">
+<h2>Числовые задачи</h2>
+<p>Здесь пригодятся сортировка с компаратором и приёмы с <code>map</code>/<code>filter</code>.</p>
+<h3 id="arr-odds">23. generateOdds — первые нечётные числа</h3>
+<pre><code>   generateOdds(0) =&gt; []
+   generateOdds(1) =&gt; [ 1 ]
+   generateOdds(2) =&gt; [ 1, 3 ]
+   generateOdds(5) =&gt; [ 1, 3, 5, 7, 9 ]</code></pre>
+<p>n-е нечётное число (с нуля) — <code>2n + 1</code>: 1, 3, 5, 7…</p>
+<pre><code>function generateOdds(len) {
+  return Array.from({ length: len }, (_, i) =&gt; 2 * i + 1);
+}</code></pre>
+<h3 id="arr-odd-indices">24. getIndicesOfOddNumbers — индексы нечётных</h3>
+<pre><code>   getIndicesOfOddNumbers([1, 2, 3, 4, 5]) =&gt; [0, 2, 4]
+   getIndicesOfOddNumbers([2, 4, 6, 8, 10]) =&gt; []
+   getIndicesOfOddNumbers([11, 22, 33, 44, 55]) =&gt; [0, 2, 4]</code></pre>
+<p>Сначала <code>map</code> превращает каждый элемент в его индекс, если число нечётное, иначе в −1; затем <code>filter</code> убирает −1. Проверка <code>n % 2 !== 0</code>, а не <code>=== 1</code>: у отрицательных нечётных остаток −1.</p>
+<pre><code>function getIndicesOfOddNumbers(numbers) {
+  return numbers
+    .map((n, index) =&gt; (n % 2 !== 0 ? index : -1))
+    .filter((index) =&gt; index !== -1);
+}</code></pre>
+<h3 id="arr-hex">25. getHexRGBValues — числа в цвета #RRGGBB</h3>
+<pre><code>   getHexRGBValues([ 0, 255, 16777215]) =&gt; [ &#x27;#000000&#x27;, &#x27;#0000FF&#x27;, &#x27;#FFFFFF&#x27; ]
+   getHexRGBValues([]) =&gt; []</code></pre>
+<p><code>toString(16)</code> переводит число в шестнадцатеричную запись: 255 → «ff». <code>toUpperCase</code> даёт «FF», а <code>padStart(6, '0')</code> дополняет нулями слева до шести символов: «0000FF». Без <code>padStart</code> 0 превратился бы в «#0».</p>
+<pre><code>function getHexRGBValues(arr) {
+  return arr.map((n) =&gt; `#${n.toString(16).toUpperCase().padStart(6, &#x27;0&#x27;)}`);
+}</code></pre>
+<h3 id="arr-max">26. getMaxItems — n наибольших</h3>
+<pre><code>  getMaxItems([], 5) =&gt; []
+  getMaxItems([ 1, 2 ], 1) =&gt; [ 2]
+  getMaxItems([ 2, 3, 1 ], 2) =&gt; [ 3, 2]
+  getMaxItems([ 10, 2, 7, 5, 3, -5 ], 3) =&gt; [ 10, 7, 5 ]
+  getMaxItems([ 10, 10, 10, 10 ], 3) =&gt; [ 10, 10, 10 ]</code></pre>
+<p>Сортируем по убыванию и берём первые n. Два важных момента. 1) Без компаратора <code>sort</code> сравнивает элементы как <b>строки</b>, и 10 окажется меньше 2. <b>Компаратор</b> — функция сравнения двух элементов: отрицательный результат ставит <code>a</code> раньше, положительный — позже. <code>(a, b) =&gt; b - a</code> даёт убывание. 2) <code>sort</code> меняет массив на месте, поэтому сортируем копию <code>[...arr]</code>. В Node.js 20+ есть <code>arr.toSorted(...)</code>, который сразу возвращает копию.</p>
+<pre><code>function getMaxItems(arr, n) {
+  return [...arr].sort((a, b) =&gt; b - a).slice(0, n);
+}</code></pre>
+<h3 id="arr-common">27. findCommonElements — общие элементы</h3>
+<pre><code>   findCommonElements([1, 2, 3], [2, 3, 4]) =&gt; [ 2, 3 ]
+   findCommonElements([&#x27;a&#x27;, &#x27;b&#x27;, &#x27;c&#x27;], [&#x27;b&#x27;, &#x27;c&#x27;, &#x27;d&#x27;]) =&gt; [ &#x27;b&#x27;, &#x27;c&#x27; ]
+   findCommonElements([1, 2, 3], [&#x27;a&#x27;, &#x27;b&#x27;, &#x27;c&#x27;]) =&gt; []</code></pre>
+<p>Оставляем элементы первого массива, которые есть во втором. <code>includes</code> внутри <code>filter</code> — это O(n·m); для больших массивов быстрее заранее сделать <code>new Set(arr2)</code> и проверять <code>set.has(item)</code>.</p>
+<pre><code>function findCommonElements(arr1, arr2) {
+  return arr1.filter((item) =&gt; arr2.includes(item));
+}</code></pre>
+<h3 id="arr-lis">28. findLongestIncreasingSubsequence — самая длинная возрастающая серия</h3>
+<pre><code>   findLongestIncreasingSubsequence([10, 22, 9, 33, 21, 50, 41, 60, 80]) =&gt; longest is [41, 60, 80] =&gt; 3
+   findLongestIncreasingSubsequence([3, 10, 2, 1, 20]) =&gt; longest is [3, 10] and [1, 20] =&gt; 2
+   findLongestIncreasingSubsequence([50, 3, 10, 7, 40, 80]) =&gt; longest is [7, 40, 80] =&gt; 3</code></pre>
+<p>Название обманчиво: ищется не «подпоследовательность» из классической задачи, а непрерывный отрезок подряд идущих возрастающих чисел («uninterrupted»). Идём одним <code>reduce</code> и храним два числа: длину текущей серии и лучшую длину. Если число больше предыдущего — серия растёт, иначе начинается заново с 1. Циклы запрещены условием, поэтому состояние передаётся объектом-аккумулятором.</p>
+<pre><code>function findLongestIncreasingSubsequence(nums) {
+  return nums.reduce(
+    (acc, n, i) =&gt; {
+      const current = i &gt; 0 &amp;&amp; n &gt; nums[i - 1] ? acc.current + 1 : 1;
+      return { current, best: Math.max(acc.best, current) };
+    },
+    { current: 0, best: 0 }
+  ).best;
+}</code></pre>
+</section>

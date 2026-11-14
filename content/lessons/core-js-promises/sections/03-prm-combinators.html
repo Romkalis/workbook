@@ -1,0 +1,44 @@
+<section id="prm-combinators">
+<h2>Комбинаторы: all, allSettled, any, race</h2>
+<p>Четыре статических метода принимают массив промисов и возвращают один промис. Различаются они тем, чего ждут и как реагируют на ошибки — это главная тема теста в RS App:</p><div class="tbl"><table><thead><tr><th>Метод</th><th>Выполнится</th><th>Отклонится</th></tr></thead><tbody><tr><td><a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Promise/all"><code>Promise.all</code></a></td><td>когда выполнены все — массивом значений по порядку</td><td>при первой ошибке</td></tr><tr><td><a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Promise/allSettled"><code>Promise.allSettled</code></a></td><td>всегда, когда все завершились — массивом объектов <code>{ status, value | reason }</code></td><td>никогда</td></tr><tr><td><a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Promise/any"><code>Promise.any</code></a></td><td>первым успешным значением</td><td>если отклонены все — <code>AggregateError</code></td></tr><tr><td><a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Promise/race"><code>Promise.race</code></a></td><td>если первым завершился успех</td><td>если первой завершилась ошибка</td></tr></tbody></table></div><p>Подробнее с проверенными примерами — раздел <a href="/lessons/error-handling#eh-combinators">«Promise.all и родственники»</a>.</p>
+<h3 id="prm-any">3. getFirstResolvedPromiseResult — первый успешный</h3>
+<pre><code>[Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)] =&gt; Promise fulfilled with 1
+[Promise.reject(1), Promise.resolve(2), Promise.resolve(3)]  =&gt; Promise fulfilled with 2
+[Promise.resolve(1), Promise.reject(2), Promise.resolve(3)]  =&gt; Promise fulfilled with 1
+[Promise.reject(1), Promise.reject(2), Promise.reject(3)]    =&gt; Promise rejected</code></pre>
+<p>Ошибки пропускаем, нужен первый успех — это <code>Promise.any</code>. Если отклонены все, он отклоняется с <code>AggregateError</code>, где в поле <code>errors</code> лежат все причины. Обратите внимание: «первый» здесь — по времени выполнения, а не по порядку в массиве.</p>
+<pre><code>function getFirstResolvedPromiseResult(promises) {
+  return Promise.any(promises);
+}</code></pre>
+<h3 id="prm-race">4. getFirstPromiseResult — первый завершившийся</h3>
+<pre><code>const promise1 = Promise.resolve(1)
+const promise2 = Promise.reject(2)
+const promise3 = new Promise((resolve) =&gt; setTimeout(() =&gt; resolve(3), 50))
+const promise4 = new Promise((resolve) =&gt; setTimeout(() =&gt; resolve(4), 100))
+const promise5 = new Promise((resolve) =&gt; setTimeout(() =&gt; resolve(5), 150))
+const promise6 = new Promise((reject) =&gt; setTimeout(() =&gt; reject(6), 10))
+[promise3, promise6, promise1] =&gt; Promise fulfilled with 1
+[promise4, promise3, promise5] =&gt; Promise fulfilled with 3
+[promise3, promise6, promise2] =&gt; Promise rejected with 2
+[promise3, promise4, promise6] =&gt; Promise rejected with 6</code></pre>
+<p>Неважно, успех или ошибка — побеждает тот, кто завершился раньше. Это <code>Promise.race</code>. В примере <code>[promise3, promise6, promise1]</code> выигрывает <code>promise1</code>: он уже выполнен (<code>Promise.resolve(1)</code>), а остальные ждут таймеров. Такой приём используют для тайм-аутов: <code>Promise.race([fetch(url), timeout(5000)])</code>.</p>
+<pre><code>function getFirstPromiseResult(promises) {
+  return Promise.race(promises);
+}</code></pre>
+<h3 id="prm-all">5. getAllOrNothing — все или ничего</h3>
+<pre><code>[Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)] =&gt; Promise fulfilled with [1, 2, 3]
+[Promise.resolve(1), Promise.reject(2), Promise.resolve(3)] =&gt; Promise rejected with 2</code></pre>
+<p><code>Promise.all</code> выполняется массивом значений <b>в порядке исходного массива</b> (а не завершения), а при первой же ошибке сразу отклоняется с её причиной. Остальные промисы при этом продолжают выполняться — их просто никто не ждёт.</p>
+<pre><code>function getAllOrNothing(promises) {
+  return Promise.all(promises);
+}</code></pre>
+<h3 id="prm-all-settled">6. getAllResult — все результаты, null вместо ошибок</h3>
+<pre><code>[Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)] =&gt; Promise fulfilled with [1, 2, 3]
+[Promise.resolve(1), Promise.reject(2), Promise.resolve(3)]  =&gt; Promise fulfilled with [1, null, 3]</code></pre>
+<p><code>Promise.allSettled</code> ждёт всех и никогда не отклоняется: для каждого промиса он даёт объект <code>{ status: 'fulfilled', value }</code> или <code>{ status: 'rejected', reason }</code>. Остаётся пройти результаты <code>map</code>-ом и заменить отклонённые на <code>null</code>. Так показывают на странице всё, что загрузилось, даже если часть запросов упала.</p>
+<pre><code>function getAllResult(promises) {
+  return Promise.allSettled(promises).then((results) =&gt;
+    results.map((r) =&gt; (r.status === &#x27;fulfilled&#x27; ? r.value : null))
+  );
+}</code></pre>
+</section>

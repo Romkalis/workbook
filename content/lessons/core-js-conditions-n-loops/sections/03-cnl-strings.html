@@ -1,0 +1,122 @@
+<section id="cnl-strings">
+<h2>Строки и числа без методов</h2>
+<p>В этих задачах запрещены методы строк и массивов: тест ищет в коде <code>.split(</code>, <code>.indexOf(</code>, <code>.includes(</code> и десятки других. Остаются циклы, обращение к символу по индексу <code>str[i]</code>, длина <code>.length</code> (это свойство, а не метод) и склейка строк через <code>+</code>.</p>
+<h3 id="cnl-roman">5. convertToRomanNumerals — римские цифры до 39</h3>
+<pre><code> 1   =&gt; I
+ 2   =&gt; II
+ 5   =&gt; V
+ 10  =&gt; X
+ 26  =&gt; XXVI</code></pre>
+<p>До 39 нужны только X (10), V (5) и I (1) плюс особые записи IX (9) и IV (4). Сначала выписываем десятки, вычитая по 10, затем остаток 0–9: 9 — это IX, иначе при остатке ≥ 5 ставим V, 4 — это IV, остальное добиваем единицами I.</p>
+<pre><code>function convertToRomanNumerals(num) {
+  let result = &#x27;&#x27;;
+  let rest = num;
+  while (rest &gt;= 10) {
+    result += &#x27;X&#x27;;
+    rest -= 10;
+  }
+  if (rest === 9) return `${result}IX`;
+  if (rest &gt;= 5) {
+    result += &#x27;V&#x27;;
+    rest -= 5;
+  }
+  if (rest === 4) return `${result}IV`;
+  while (rest &gt; 0) {
+    result += &#x27;I&#x27;;
+    rest -= 1;
+  }
+  return result;
+}</code></pre>
+<h3 id="cnl-digits">6. convertNumberToString — цифры словами</h3>
+<pre><code> &#x27;1&#x27;       =&gt; &#x27;one&#x27;
+ &#x27;10&#x27;      =&gt; &#x27;one zero&#x27;
+ &#x27;-10&#x27;     =&gt; &#x27;minus one zero&#x27;
+ &#x27;10.5&#x27;    =&gt; &#x27;one zero point five&#x27;
+ &#x27;10,5&#x27;    =&gt; &#x27;one zero point five&#x27;
+ &#x27;1950.2&#x27;  =&gt; &#x27;one nine five zero point two&#x27;</code></pre>
+<p>Идём по символам и для каждого выбираем слово через <code>switch</code> — тест «optimal implementation» проверяет, что в коде есть <code>switch</code>. Точка и запятая обе превращаются в «point»: два <code>case</code> подряд без <code>break</code> ведут в одну ветку. Пробел ставим перед каждым словом, кроме первого, — без <code>join</code> и <code>trim</code>.</p>
+<pre><code>function convertNumberToString(numberStr) {
+  let result = &#x27;&#x27;;
+  for (let i = 0; i &lt; numberStr.length; i += 1) {
+    let word;
+    switch (numberStr[i]) {
+      case &#x27;-&#x27;:
+        word = &#x27;minus&#x27;;
+        break;
+      case &#x27;.&#x27;:
+      case &#x27;,&#x27;:
+        word = &#x27;point&#x27;;
+        break;
+      case &#x27;0&#x27;:
+        word = &#x27;zero&#x27;;
+        break;
+      case &#x27;1&#x27;:
+        word = &#x27;one&#x27;;
+        break;
+      case &#x27;2&#x27;:
+        word = &#x27;two&#x27;;
+        break;
+      case &#x27;3&#x27;:
+        word = &#x27;three&#x27;;
+        break;
+      case &#x27;4&#x27;:
+        word = &#x27;four&#x27;;
+        break;
+      case &#x27;5&#x27;:
+        word = &#x27;five&#x27;;
+        break;
+      case &#x27;6&#x27;:
+        word = &#x27;six&#x27;;
+        break;
+      case &#x27;7&#x27;:
+        word = &#x27;seven&#x27;;
+        break;
+      case &#x27;8&#x27;:
+        word = &#x27;eight&#x27;;
+        break;
+      default:
+        word = &#x27;nine&#x27;;
+    }
+    result += i === 0 ? word : ` ${word}`;
+  }
+  return result;
+}</code></pre>
+<h3 id="cnl-palindrome">7. isPalindrome — палиндром ли строка</h3>
+<pre><code> &#x27;abcba&#x27;     =&gt; true
+ &#x27;0123210&#x27;   =&gt; true
+ &#x27;qweqwe&#x27;    =&gt; false</code></pre>
+<p>Два указателя: <code>i</code> идёт с начала, <code>j</code> с конца, пока не встретятся. При первом несовпадении — <code>false</code>. В <code>for</code> можно объявить и менять две переменные через запятую. Это быстрее, чем перевернуть строку целиком, и не требует методов.</p>
+<pre><code>function isPalindrome(str) {
+  for (let i = 0, j = str.length - 1; i &lt; j; i += 1, j -= 1) {
+    if (str[i] !== str[j]) return false;
+  }
+  return true;
+}</code></pre>
+<h3 id="cnl-index-of">8. getIndexOf — индекс символа</h3>
+<pre><code> &#x27;qwerty&#x27;, &#x27;q&#x27;     =&gt; 0
+ &#x27;qwerty&#x27;, &#x27;t&#x27;     =&gt; 4
+ &#x27;qwerty&#x27;, &#x27;Q&#x27;     =&gt; -1
+ &#x27;qwerty&#x27;, &#x27;p&#x27;     =&gt; -1</code></pre>
+<p>Своя реализация <code>indexOf</code>: перебираем символы и возвращаем первый совпавший индекс, если не нашли — −1. Сравнение учитывает регистр: «Q» в «qwerty» не найдётся.</p>
+<pre><code>function getIndexOf(str, letter) {
+  for (let i = 0; i &lt; str.length; i += 1) {
+    if (str[i] === letter) return i;
+  }
+  return -1;
+}</code></pre>
+<h3 id="cnl-contains-digit">9. isContainNumber — есть ли цифра в числе</h3>
+<pre><code> 123450, 5   =&gt; true
+ 123450, 1   =&gt; true
+ 123450, 0   =&gt; true
+ 12345, 0    =&gt; false
+ 12345, 6    =&gt; false</code></pre>
+<p>Без перевода в строку цифры достаём арифметикой: <code>n % 10</code> — последняя цифра, а <code>(n - n % 10) / 10</code> отбрасывает её (то же, что целочисленное деление; <code>Math.floor</code> здесь не нужен). Цикл <code>do...while</code> выполняется хотя бы раз — это важно для числа 0, у которого единственная цифра 0.</p>
+<pre><code>function isContainNumber(num, digit) {
+  let rest = num &lt; 0 ? -num : num;
+  do {
+    if (rest % 10 === digit) return true;
+    rest = (rest - (rest % 10)) / 10;
+  } while (rest &gt; 0);
+  return false;
+}</code></pre>
+</section>

@@ -1,0 +1,10 @@
+<section id="prm-start">
+<h2>Задание и правила</h2>
+<p><a href="https://github.com/rolling-scopes-school/core-js-promises">core-js-promises</a> — семь функций в файле <code>src/core-js-promises-tasks.js</code>. Каждая принимает число или промисы и должна вернуть <b>промис</b> с нужным исходом. Запуск и сдача такие же, как у <a href="/lessons/core-js-arrays#arr-setup">core-js-arrays</a>: форк, <code>npm install</code>, решение, <code>npm test</code>, пуш в форк, Submit в RS App.</p>
+<div class="warn"><b>Что проверяют тесты</b><ul>
+<li>Как и в соседних заданиях, комментарии внутри функций запрещены, а любая ошибка <a href="/lessons/linters-formatters#lf-eslint">ESLint</a> — 0 баллов.</li>
+<li>В <code>queuePromises</code> запрещены <code>Promise.all</code>, <code>Promise.allSettled</code>, <code>Promise.any</code> и <code>Promise.race</code> — цепочку нужно построить самому.</li>
+<li>Тесты сами проверяют исход каждого возвращённого промиса через <code>Promise.allSettled</code>, поэтому важно не только значение, но и то, выполнен промис или отклонён.</li>
+</ul></div>
+<p>Перед заданием полезно повторить промисы и <code>async/await</code> (урок <a href="/lessons/client-server#cs-promise">«Клиент-серверное взаимодействие»</a>) и ошибки в асинхронном коде (урок <a href="/lessons/error-handling#eh-async">«Обработка ошибок»</a>). Решения ниже прошли все 7 тестов и линтер в <a href="/lessons/node-basics">Node.js</a> 22.</p>
+</section>
