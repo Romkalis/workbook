@@ -1,0 +1,70 @@
+<section id="cs-cors">
+<h2>CORS</h2>
+<p>Типичная сцена из обеих лекций: фронтенд на <code>http://localhost:1234</code> делает <code>fetch('http://localhost:8001/api')</code>, в Network видно, что сервер ответил 200 и даже прислал данные, а в консоли красное сообщение «blocked by CORS policy», и в JavaScript ничего не попадает. Чтобы понимать, что происходит, нужно начать с политики одного источника.</p>
+<h3 id="cs-origin">Origin и политика одного источника</h3>
+<p><b>Origin</b> — схема, хост и порт. Два URL имеют один origin, только если совпадают все три части.</p>
+<div class="tbl"><table>
+<thead><tr><th>Относительно <code>https://app.example.com</code></th><th>Тот же origin?</th><th>Почему</th></tr></thead>
+<tbody>
+<tr><td><code>https://app.example.com/users?id=1</code></td><td>да</td><td>путь и query не важны</td></tr>
+<tr><td><code>http://app.example.com</code></td><td>нет</td><td>другая схема</td></tr>
+<tr><td><code>https://api.example.com</code></td><td>нет</td><td>другой хост (поддомен)</td></tr>
+<tr><td><code>https://app.example.com:8443</code></td><td>нет</td><td>другой порт</td></tr>
+<tr><td><code>http://localhost:1234</code> и <code>http://localhost:8001</code></td><td>нет</td><td>разные порты — пример из вебинара</td></tr>
+</tbody></table></div>
+<p><b>Политика одного источника</b> (same-origin policy) появилась в Netscape 2 в 1995 году вместе с JavaScript. Скрипт страницы может свободно читать ответы только своего origin. Статья Джейка Арчибальда «How to win at CORS» объясняет, зачем. Браузер прикладывает к запросу куки того сайта, <i>куда</i> идёт запрос. Если бы любой открытый вами сайт мог сделать <code>fetch('https://your-bank.com/accounts')</code> и прочитать ответ, он получил бы ваши счета, ведь запрос ушёл бы с вашей банковской кукой. Ещё есть ресурсы, защищённые не куками, а сетью: корпоративный интранет, админка домашнего роутера. Чужой сайт, открытый у вас дома, мог бы их сканировать.</p>
+<p>Арчибальд различает <b>origin</b> и <b>site</b>: <code>https://help.bank.com</code> и <code>https://profile.bank.com</code> — разные origin, но один site (сайт определяется по списку публичных суффиксов). Куки и <code>SameSite</code> работают на уровне site, CORS — на уровне origin.</p>
+<p>Старые теги <code>&lt;img&gt;</code>, <code>&lt;script src&gt;</code>, <code>&lt;link rel="stylesheet"&gt;</code>, <code>&lt;iframe&gt;</code> грузят ресурсы с любых доменов без разрешения, но страница не может прочитать их содержимое как данные. Арчибальд называет это ошибкой раннего дизайна веба, которую с тех пор латают.</p>
+<h3 id="cs-cors-how">Как CORS разрешает доступ</h3>
+<p><b>CORS</b> (Cross-Origin Resource Sharing) — механизм, через который сервер сам говорит браузеру: «этому origin можно читать мои ответы». Браузер добавляет к кросс-доменному запросу заголовок <code>Origin: http://localhost:1234</code>, а сервер отвечает заголовками <code>Access-Control-*</code>. Если разрешения нет, браузер не отдаёт ответ JavaScript.</p>
+<p>Ключевая мысль, которую стоит запомнить: <b>запрос до сервера доходит, и сервер отвечает</b>. Блокирует <i>браузер</i>, и только чтение ответа. Поэтому из Postman, curl или Node.js тот же запрос работает: там нет политики одного источника и нет ваших чужих кук, которые нужно защищать.</p>
+<div class="warn"><b>Поправка к вебинару</b><p>Во второй части сказано, что CORS «направлен не столько на защиту клиента, сколько на защиту сервера» — чтобы сервер отдавал данные только «своему» приложению. Это частая путаница. CORS защищает <i>пользователя</i> и его данные от чужих страниц в его же браузере. Сервер он не защищает: любой может отправить запрос с любым заголовком <code>Origin</code> из curl. Доступ к API ограничивают аутентификацией (токены, куки), а не CORS.</p></div>
+<h3 id="cs-simple">Простые запросы</h3>
+<p>Запрос считается <b>простым</b>, если метод GET, HEAD или POST, заголовки только из «безопасного» списка (<code>Accept</code>, <code>Accept-Language</code>, <code>Content-Language</code>, <code>Content-Type</code>), а <code>Content-Type</code> — один из <code>text/plain</code>, <code>application/x-www-form-urlencoded</code>, <code>multipart/form-data</code>. Такие запросы могла отправить и обычная HTML-форма до появления CORS, поэтому браузер отправляет их сразу и только потом смотрит на ответ: есть ли <code>Access-Control-Allow-Origin</code> с вашим origin или <code>*</code>.</p>
+<h3 id="cs-preflight">Предварительный запрос</h3>
+<p>Всё остальное (PUT, DELETE, PATCH, <code>Content-Type: application/json</code>, заголовок <code>Authorization</code>) требует <b>предварительного запроса</b> (preflight). Перед настоящим запросом браузер сам отправляет OPTIONS и спрашивает разрешения. Без preflight такой запрос мог бы что-то изменить на сервере, который о CORS ничего не знает.</p>
+<figure class="dg"><div class="dg-title">DELETE c http://localhost:1234 на http://localhost:8001</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0"><span class="hd">Браузер → сервер: OPTIONS /api</span><span class="ln">Origin: http://localhost:1234<br>Access-Control-Request-Method: DELETE</span></li><li class="card lit" style="--i:1"><span class="hd">Сервер → браузер: 204</span><span class="ln">Access-Control-Allow-Origin: http://localhost:1234<br>Access-Control-Allow-Methods: GET, POST, DELETE<br>Access-Control-Max-Age: 600</span></li><li class="card lit" style="--i:2"><span class="hd">Браузер → сервер: DELETE /api</span><span class="ln">настоящий запрос; ответ отдаётся JS, если в нём тоже есть Allow-Origin</span></li></ol><figcaption>Если в ответе на OPTIONS нет нужного origin, метода или заголовка, настоящий запрос не отправляется вовсе. Access-Control-Max-Age разрешает браузеру запомнить ответ на preflight и какое-то время не повторять его (Chrome ограничивает это десятью минутами, Firefox — сутками).</figcaption></figure>
+<h3 id="cs-cors-headers">Заголовки CORS</h3>
+<dl class="gloss">
+<dt><code>Access-Control-Allow-Origin</code></dt><dd>Какой origin может читать ответ: один конкретный или <code>*</code> (любой). Перечислить несколько через запятую <b>нельзя</b>, хотя в вебинаре сказано обратное: сервер должен сверить пришедший <code>Origin</code> со своим списком и вернуть его одного. При этом добавляют <code>Vary: Origin</code>, чтобы кеши не перепутали ответы для разных origin.</dd>
+<dt><code>Access-Control-Allow-Methods</code></dt><dd>Разрешённые методы (в ответе на preflight).</dd>
+<dt><code>Access-Control-Allow-Headers</code></dt><dd>Разрешённые нестандартные заголовки запроса, например <code>Content-Type, Authorization</code>.</dd>
+<dt><code>Access-Control-Allow-Credentials: true</code></dt><dd>Разрешить запросы с куками. Тогда <code>Allow-Origin</code> не может быть <code>*</code>.</dd>
+<dt><code>Access-Control-Expose-Headers</code></dt><dd>Какие заголовки ответа можно прочитать из JS сверх безопасного минимума.</dd>
+<dt><code>Access-Control-Max-Age</code></dt><dd>На сколько секунд кешировать ответ на preflight.</dd>
+</dl>
+<h3 id="cs-cors-server">Сервер с CORS на Node.js</h3>
+<pre><code>import http from 'node:http';
+
+const ALLOWED = new Set(['http://localhost:1234']);
+
+http.createServer((req, res) =&gt; {
+  const origin = req.headers.origin;
+  if (ALLOWED.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Max-Age', '600');
+    res.writeHead(204);
+    return res.end();
+  }
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ ok: true }));
+}).listen(8001);</code></pre>
+<p>Проверка через curl: с <code>Origin: http://localhost:1234</code> ответ пришёл с <code>Access-Control-Allow-Origin: http://localhost:1234</code>, preflight OPTIONS вернул 204 со всеми разрешающими заголовками. С <code>Origin: http://evil.example</code> сервер всё равно ответил 200 и телом, просто без CORS-заголовков. Браузер в этом случае скрыл бы ответ от скрипта, а curl спокойно его показал — наглядная иллюстрация того, что CORS работает только в браузере.</p>
+<h3 id="cs-credentials">Куки в кросс-доменных запросах</h3>
+<p>По умолчанию <code>fetch</code> на другой origin куки не отправляет и <code>Set-Cookie</code> из ответа игнорирует. Чтобы отправлял, нужно <code>fetch(url, { credentials: 'include' })</code> на клиенте и <code>Access-Control-Allow-Credentials: true</code> плюс конкретный origin на сервере. Кроме того, кука должна разрешать кросс-сайтовую отправку (<code>SameSite=None; Secure</code>). Статья javascript.info «Fetch: Cross-Origin Requests» разбирает все эти случаи.</p>
+<h3 id="cs-mode">Режимы fetch</h3>
+<p>Параметр <code>mode</code> у <code>fetch</code> по умолчанию равен <code>'cors'</code>, так что писать его не нужно — лектор во втором вебинаре это и заметил. <code>mode: 'no-cors'</code> ошибку <b>не чинит</b>: запрос уйдёт, но ответ станет «непрозрачным» (opaque) — статус 0, тело пустое, прочитать ничего нельзя. Он нужен только для особых случаев вроде кеширования чужих ресурсов в Service Worker.</p>
+<h3 id="cs-cors-fix">Как правильно исправить ошибку CORS</h3>
+<ol>
+<li><b>Настроить заголовки на сервере.</b> Правильный способ, если сервер ваш или вашей команды. <code>*</code> допустим для публичного API без авторизации, но не для API с куками.</li>
+<li><b>Прокси на своём origin.</b> Запрос идёт на свой сервер, а тот уже обращается к чужому API — между серверами CORS нет. В разработке это встроено в dev-серверы: опция <code>server.proxy</code> в Vite, <code>rewrites</code> в Next.js. Заодно прокси скрывает секретный ключ API от браузера.</li>
+<li><b>Публичные CORS-прокси</b> вроде cors-anywhere, которые советует лекция по HTTP, годятся только для экспериментов: все ваши данные проходят через чужой сервер. Демо-экземпляр cors-anywhere давно требует ручной активации и для работы не годится.</li>
+<li><b>JSONP</b> из той же лекции — исторический трюк: данные загружаются через <code>&lt;script src&gt;</code>, который не подчиняется политике одного источника, а сервер оборачивает JSON в вызов вашей функции. Работает только для GET и позволяет чужому серверу выполнить любой код на вашей странице. Сегодня его не используют.</li>
+</ol>
+<p>Чего делать не нужно: отключать CORS в браузере флагами или расширениями «Allow CORS». У вас заработает, а у пользователей нет, и заодно вы отключите защиту для всех сайтов.</p>
+</section>
