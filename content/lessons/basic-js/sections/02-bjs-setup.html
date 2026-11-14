@@ -6,7 +6,7 @@
 <li>В папке проекта выполните <code>npm install</code>, затем <code>npm run test</code>.</li>
 <li>Чтобы не тонуть в отчёте на 21 задачу, запускайте один файл: <code>node --test test/count-cats.test.js</code>.</li>
 </ol>
-<div class="warn"><b>README и package.json расходятся в версии Node.js</b><p>В README написано, что рекомендуется Node.js 16. Но в <code>package.json</code> стоит <code>"engines": { "node": "&gt;=22" }</code>, а тесты запускаются встроенным раннером <code>node --test</code>. Верьте <code>package.json</code>: ставьте Node.js 22 или новее. Совет про Node 16 остался от старой версии задания (проверено 9 ноября 2026 года).</p></div>
+<div class="warn"><b>README и package.json расходятся в версии Node.js</b><p>В README написано, что рекомендуется <a href="/lessons/node-basics">Node.js</a> 16. Но в <code>package.json</code> стоит <code>"engines": { "node": "&gt;=22" }</code>, а тесты запускаются встроенным раннером <code>node --test</code>. Верьте <code>package.json</code>: ставьте Node.js 22 или новее. Совет про Node 16 остался от старой версии задания (проверено 9 ноября 2026 года).</p></div>
 <h3 id="bjs-report">Что значат pending, pass и fail</h3>
 <p>Пока в функции стоит заглушка <code>throw new NotImplementedError('Not implemented')</code>, её тесты помечаются как pending (в отчёте в формате TAP — простом текстовом формате результатов тестов — это <code>todo</code>). Удалили заглушку — тесты начинают проверяться по-настоящему и становятся pass или fail. Внизу отчёта есть сводка <code># pass</code>, <code># fail</code>, <code># todo</code>. Ограничение — 30 секунд на тест: превысить его можно, по сути, только бесконечным циклом или бесконечной рекурсией.</p>
 <h3 id="bjs-read-tests">Читайте тесты: там самое важное</h3>

@@ -38,7 +38,7 @@ module.exports = { Queue };</code></pre>
   value: 1,
   next: { value: 2, next: { value: 3, next: null } },
 });</code></pre>
-<p><code>deepStrictEqual</code> сравнивает не только поля, но и прототипы объектов. Узел, созданный через <code>new ListNode(1)</code>, имеет прототип <code>ListNode.prototype</code>, а литерал <code>{ value: 1, next: null }</code> — <code>Object.prototype</code>. Поля совпадают, а тест падает. Проверка в Node.js 22:</p>
+<p><code>deepStrictEqual</code> сравнивает не только поля, но и <a href="/lessons/classes-prototypes">прототипы</a> объектов. Узел, созданный через <code>new ListNode(1)</code>, имеет прототип <code>ListNode.prototype</code>, а литерал <code>{ value: 1, next: null }</code> — <code>Object.prototype</code>. Поля совпадают, а тест падает. Проверка в Node.js 22:</p>
 <pre><code>const assert = require('node:assert');
 class ListNode {
   constructor(x) { this.value = x; this.next = null; }

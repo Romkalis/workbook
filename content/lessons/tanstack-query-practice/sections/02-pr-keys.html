@@ -26,7 +26,7 @@ export const queryKeys = {
 
 // использование
 useQuery({ queryKey: queryKeys.games.hall('main'), queryFn: ... });</code></pre>
-<p><code>as const</code> говорит TypeScript, что это не «какой-то массив строк», а именно <code>['auth', 'me']</code>. Тогда редактор подсказывает ключи, а опечатка в имени функции сразу подсвечивается как ошибка.</p>
+<p><code>as const</code> говорит <a href="/lessons/typescript-basic">TypeScript</a>, что это не «какой-то массив строк», а именно <code>['auth', 'me']</code>. Тогда редактор подсказывает ключи, а опечатка в имени функции сразу подсвечивается как ошибка.</p>
 <h3 id="pr-keys-why">Что это даёт</h3>
 <ul>
 <li><strong>Нет опечаток.</strong> Строки пишутся один раз, в одном файле.</li>

@@ -8,7 +8,7 @@
 <pre><code>npm init -y
 npm install --save-dev typescript@5.9.3 webpack@5 webpack-cli@6 ts-loader@9
 </code></pre>
-<p>Создайте в корне <code>tsconfig.json</code> и скопируйте <a href="#advanced-tsconfig-example">конфигурацию из раздела о tsconfig</a>. Создайте <code>webpack.config.cjs</code>; расширение .cjs оставляет конфигурацию CommonJS независимо от поля type в package.json.</p>
+<p>Создайте в корне <code>tsconfig.json</code> и скопируйте <a href="#advanced-tsconfig-example">конфигурацию из раздела о tsconfig</a>. Создайте <code>webpack.config.cjs</code>; расширение .cjs оставляет конфигурацию <a href="/lessons/modules-in-js">CommonJS</a> независимо от поля type в package.json.</p>
 <pre><code>const path = require(&quot;node:path&quot;);
 module.exports = {
   mode: &quot;development&quot;,

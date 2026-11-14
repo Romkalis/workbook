@@ -55,5 +55,5 @@ try {
   console.log(error.name, error.message, error.cause.name);
   // AppError Конфиг повреждён SyntaxError
 }</code></pre>
-<p>В лекции эта же идея реализована вручную: <code>callGoogleApi</code> ловит «сырую» ошибку API и выбрасывает <code>GoogleApiError</code>. С <code>cause</code> исходная ошибка со своим стеком не теряется, и DevTools показывает обе.</p>
+<p>В лекции эта же идея реализована вручную: <code>callGoogleApi</code> ловит «сырую» ошибку API и выбрасывает <code>GoogleApiError</code>. С <code>cause</code> исходная ошибка со своим стеком не теряется, и <a href="/lessons/devtools-basics">DevTools</a> показывает обе.</p>
 </section>

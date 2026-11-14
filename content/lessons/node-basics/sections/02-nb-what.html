@@ -11,11 +11,11 @@
 <thead><tr><th></th><th>Браузер</th><th>Node.js</th></tr></thead>
 <tbody>
 <tr><td>Глобальный объект</td><td><code>window</code></td><td><code>global</code> (в обоих есть общее имя <code>globalThis</code>)</td></tr>
-<tr><td>DOM, <code>document</code>, <code>localStorage</code></td><td>есть</td><td>нет — нет страницы</td></tr>
+<tr><td><a href="/lessons/how-browsers-work">DOM</a>, <code>document</code>, <code>localStorage</code></td><td>есть</td><td>нет — нет страницы</td></tr>
 <tr><td>Файлы на диске</td><td>только через выбор пользователя</td><td>полный доступ: модуль <code>fs</code></td></tr>
 <tr><td>Процесс, аргументы, окружение</td><td>нет</td><td><code>process</code></td></tr>
 <tr><td><code>fetch</code>, <code>setTimeout</code>, <code>URL</code>, <code>console</code></td><td>есть</td><td>есть (<code>fetch</code> встроен с Node.js 18)</td></tr>
-<tr><td>Модули</td><td>ES-модули</td><td>CommonJS и ES-модули</td></tr>
+<tr><td>Модули</td><td><a href="/lessons/modules-in-js">ES-модули</a></td><td>CommonJS и ES-модули</td></tr>
 <tr><td>Безопасность</td><td>песочница: сайт не может навредить системе</td><td>код имеет те же права, что и пользователь, запустивший его</td></tr>
 </tbody></table></div>
 <p>Последняя строка важна: скрипт на Node.js может удалить файлы, прочитать ключи SSH (ими вы входите на серверы и в GitHub) и отправить их куда угодно. Поэтому чужие пакеты и скрипты нужно ставить осознанно.</p>
@@ -27,7 +27,7 @@ node -v             # v22.23.2
 npm -v              # 10.9.8 — npm ставится вместе с Node.js</code></pre>
 <h3 id="nb-run">Как запускать код</h3>
 <ul>
-<li><code>node</code> без аргументов открывает <b>REPL</b> (read–eval–print loop) — интерактивную консоль, как в DevTools. Выход — <code>.exit</code> или Ctrl+D дважды.</li>
+<li><code>node</code> без аргументов открывает <b>REPL</b> (read–eval–print loop) — интерактивную консоль, как в <a href="/lessons/devtools-basics">DevTools</a>. Выход — <code>.exit</code> или Ctrl+D дважды.</li>
 <li><code>node app.js</code> выполняет файл. Программа завершается сама, когда делать больше нечего; сервер не завершается, потому что ждёт запросы. Остановить — Ctrl+C.</li>
 <li><code>node -e "console.log(2 + 2)"</code> выполняет строку кода.</li>
 <li><code>node --watch app.js</code> перезапускает программу при изменении файлов (встроено с Node.js 18; раньше для этого ставили пакет nodemon).</li>

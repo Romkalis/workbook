@@ -22,7 +22,7 @@ type Identifier = string | number;
 type WithScore = Member &amp; { score: number };
 const member: WithScore = { name: &quot;Маша&quot;, active: true, id: 1, score: 95 };
 console.log(member.name, member.score);
-</code></pre><p><code>interface</code> удобно расширять через <code>extends</code>; повторные объявления одного имени объединяются. <code>type</code> даёт имя любому типу, включая union, кортеж и функцию; повторно объявить его с тем же именем нельзя. Оба подходят для объектов, методов и generics. Не выбирайте по мифу «type для примитивов, interface для всего остального»: выбирайте нужные возможности и стиль проекта.</p><h3 id="ts-dictionaries">Индексная сигнатура и словарь</h3><pre><code>interface Counts { [name: string]: number }
+</code></pre><p><code>interface</code> удобно расширять через <code>extends</code>; повторные объявления одного имени объединяются. <code>type</code> даёт имя любому типу, включая union, кортеж и функцию; повторно объявить его с тем же именем нельзя. Оба подходят для объектов, методов и <a href="/lessons/typescript-advanced">generics</a>. Не выбирайте по мифу «type для примитивов, interface для всего остального»: выбирайте нужные возможности и стиль проекта.</p><h3 id="ts-dictionaries">Индексная сигнатура и словарь</h3><pre><code>interface Counts { [name: string]: number }
 const counts: Counts = { html: 2, typescript: 4 };
 const statusLabels: Record&lt;&quot;draft&quot; | &quot;done&quot;, string&gt; = {
   draft: &quot;Черновик&quot;, done: &quot;Готово&quot;

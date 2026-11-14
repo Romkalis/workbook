@@ -13,7 +13,7 @@ h2 {
   color: #ff0000;
   font-family: Arial;
 }</code></pre>
-<p>В JavaScript повтор выносят в цикл или функцию. Пример из материалов модуля в исходном виде не запустится: в одном файле дважды объявлена <code>const today</code>, и Node.js 22 выдаёт <code>SyntaxError: Identifier 'today' has already been declared</code>. К тому же параметр функции назван <code>weekday</code>, хотя в неё передают дату. Исправленный вариант:</p>
+<p>В JavaScript повтор выносят в цикл или функцию. Пример из материалов модуля в исходном виде не запустится: в одном файле дважды объявлена <code>const today</code>, и <a href="/lessons/node-basics">Node.js</a> 22 выдаёт <code>SyntaxError: Identifier 'today' has already been declared</code>. К тому же параметр функции назван <code>weekday</code>, хотя в неё передают дату. Исправленный вариант:</p>
 <pre><code>function logDayPlan(date, tasks) {
   console.log(`Today is ${date.toDateString()} so my day plan includes: ${tasks}`);
 }

@@ -34,7 +34,7 @@ console.log(user.address.city); // 'Vilnius' — вложенный объект
 <p><code>Object.freeze(obj)</code> запрещает добавлять, удалять и менять свойства объекта. Две детали, которые легко упустить:</p>
 <ul>
 <li>Заморозка <strong>поверхностная</strong>: вложенные объекты остаются изменяемыми.</li>
-<li>Попытка изменить замороженный объект в нестрогом режиме молча игнорируется, а в строгом (ES-модули, классы, <code>'use strict'</code>) бросает <code>TypeError</code>. Статья модуля говорит только про «молча».</li>
+<li>Попытка изменить замороженный объект в нестрогом режиме молча игнорируется, а в строгом (<a href="/lessons/modules-in-js">ES-модули</a>, классы, <code>'use strict'</code>) бросает <code>TypeError</code>. Статья модуля говорит только про «молча».</li>
 </ul>
 <pre><code>const config = Object.freeze({ port: 3000, db: { host: 'localhost' } });
 config.port = 80;        // в модуле: TypeError

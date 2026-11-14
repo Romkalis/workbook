@@ -9,7 +9,7 @@
 <tr><td><code>bcrypt</code></td><td>Хеширование паролей. К JWT не относится, но всегда идёт рядом</td></tr>
 <tr><td><code>jsonwebtoken</code></td><td>Создание и проверка токенов</td></tr>
 <tr><td><code>dotenv</code></td><td>Читает секреты из файла <code>.env</code>, чтобы они не лежали в коде</td></tr>
-<tr><td><code>cookie-parser</code></td><td>Нужен, только если хранить токен в cookie (раздел «Где хранить токен»)</td></tr>
+<tr><td><code>cookie-parser</code></td><td>Нужен, только если хранить токен в <a href="/lessons/client-server#cs-cookies">cookie</a> (раздел «Где хранить токен»)</td></tr>
 </tbody></table></div>
 <p>Пакет <code>bcrypt</code> собирается из кода на C++, и на некоторых системах установка падает. Тогда ставьте <code>bcryptjs</code>: он написан на чистом JavaScript, медленнее, но методы те же (<code>hash</code>, <code>compare</code>). Примеры этого урока мы проверяли именно на нём.</p>
 <p>Файл <code>.env</code> в корне проекта:</p>

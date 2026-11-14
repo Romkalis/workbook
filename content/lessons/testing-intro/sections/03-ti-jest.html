@@ -27,7 +27,7 @@ describe('getAvailableProducts', () =&gt; {
 });</code></pre>
 <p>Разберём каждую часть:</p>
 <ul>
-<li><code>require('../../src/catalog')</code> — подключение кода из другого файла. Это синтаксис CommonJS, старый стандарт модулей Node; в проекте задания используется он. Аналог в современных модулях — <code>import { getAvailableProducts } from '../../src/catalog.js'</code>. Путь <code>../../</code> значит «подняться на две папки вверх».</li>
+<li><code>require('../../src/catalog')</code> — подключение кода из другого файла. Это синтаксис <a href="/lessons/modules-in-js">CommonJS</a>, старый стандарт модулей Node; в проекте задания используется он. Аналог в современных модулях — <code>import { getAvailableProducts } from '../../src/catalog.js'</code>. Путь <code>../../</code> значит «подняться на две папки вверх».</li>
 <li><code>describe('название', () =&gt; { ... })</code> — <strong>группа тестов</strong>. Обычно одна группа на одну функцию. Группы можно вкладывать друг в друга.</li>
 <li><code>test('название', () =&gt; { ... })</code> — <strong>один тест</strong>, одна проверяемая мысль. Вместо <code>test</code> можно писать <code>it</code>, это синоним. Название пишут так, чтобы оно читалось как правило: «исключает товары с нулевым остатком».</li>
 <li><code>expect(фактическое).toEqual(ожидаемое)</code> — <strong>проверка</strong>. <code>expect</code> принимает то, что вернула функция, а метод после точки — <strong>матчер</strong> — говорит, как сравнивать.</li>

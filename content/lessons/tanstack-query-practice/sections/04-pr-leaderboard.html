@@ -29,7 +29,7 @@ export const useLeaderboard = ({ mechanicId, isExtended = false, enabled }) =&gt
 <h3 id="pr-leaderboard-enabled">(2) Запрос не уйдёт без id</h3>
 <p><code>Boolean(mechanicId)</code> в <code>enabled</code> гарантирует, что запрос с пустым id не отправится. Опцию <code>enabled</code> снаружи хук тоже уважает: можно выключить загрузку, например, пока закрыта вкладка с турниром.</p>
 <h3 id="pr-leaderboard-signal">(3) signal: отмена запроса</h3>
-<p>Библиотека передаёт в <code>queryFn</code> объект с полем <code>signal</code> — это <code>AbortSignal</code>. Если запрос стал не нужен (пользователь ушёл со страницы), библиотека «дёргает» сигнал, и настоящий HTTP-запрос обрывается. Для этого сигнал нужно передать дальше, в <code>fetch(url, { signal })</code> или в axios. Здесь его передали.</p>
+<p>Библиотека передаёт в <code>queryFn</code> объект с полем <code>signal</code> — это <code>AbortSignal</code>. Если запрос стал не нужен (пользователь ушёл со страницы), библиотека «дёргает» сигнал, и настоящий <a href="/lessons/client-server#cs-http">HTTP-запрос</a> обрывается. Для этого сигнал нужно передать дальше, в <code>fetch(url, { signal })</code> или в axios. Здесь его передали.</p>
 <h3 id="pr-leaderboard-always">(4) refetchOnMount: 'always'</h3>
 <p>При <code>staleTime</code> в одну минуту обычное значение <code>true</code> может показать таблицу из кеша, которой почти минута. Для рейтинга, где места меняются постоянно, это много. <code>'always'</code> перезапрашивает данные при каждом открытии, даже свежие. Старая таблица при этом видна, пока грузится новая.</p>
 <h3 id="pr-leaderboard-spread">(5) Обсудить: отдавать весь query наружу?</h3>

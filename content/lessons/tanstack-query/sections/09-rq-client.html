@@ -31,7 +31,7 @@
     fetchAndOpenModal(gameId); // в кеше нет — загружаем
   }
 }</code></pre>
-<p>В TypeScript тип данных указывают так: <code>getQueryData&lt;Game&gt;(['game', gameId])</code>.</p>
+<p>В <a href="/lessons/typescript-basic">TypeScript</a> тип данных указывают так: <code>getQueryData&lt;Game&gt;(['game', gameId])</code>.</p>
 <h3 id="rq-client-prefetch">3. Загрузка заранее при наведении</h3>
 <p>Пользователь навёл курсор на карточку — начинаем грузить подробности. Когда он кликнет, данные уже в кеше, и загрузки не видно.</p>
 <pre><code>function handleMouseEnter(id) {
