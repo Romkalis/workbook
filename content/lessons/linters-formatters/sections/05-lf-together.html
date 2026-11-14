@@ -1,0 +1,22 @@
+<section id="lf-together">
+<h2>ESLint и Prettier вместе</h2>
+<p>Статья <a href="https://blog.logrocket.com/using-prettier-eslint-automate-formatting-fixing-javascript/">LogRocket о дуэте Prettier и ESLint</a> объясняет, зачем Prettier, если ESLint тоже умеет форматировать. Раньше в ESLint были правила вроде <code>indent</code>, <code>quotes</code>, <code>semi</code>, но форматировал он только то, что описано в правилах, и не умел, например, правильно переносить длинные строки. Prettier переписывает код целиком и делает это лучше. Отсюда разделение труда: <b>Prettier отвечает за внешний вид, ESLint — за качество кода</b>.</p>
+<h3 id="lf-conflicts">Конфликты и eslint-config-prettier</h3>
+<p>Если в конфиге ESLint остались правила форматирования, они спорят с Prettier: Prettier поставил двойные кавычки, ESLint требует одинарные, и наоборот. Решение — пакет <a href="https://github.com/prettier/eslint-config-prettier">eslint-config-prettier</a>, который <b>выключает</b> все правила ESLint, касающиеся форматирования. Его ставят последним элементом конфига, чтобы он перекрыл предыдущие:</p>
+<pre><code>npm install -D eslint-config-prettier</code></pre>
+<pre><code>import prettier from 'eslint-config-prettier';
+
+export default defineConfig([
+  js.configs.recommended,
+  { /* ваши правила */ },
+  prettier, // обязательно последним
+]);</code></pre>
+<p>Правила форматирования в самом ESLint с версии 8.53 (конец 2023 года) объявлены устаревшими и перенесены в отдельный проект <a href="https://eslint.style/">ESLint Stylistic</a>. Поэтому с базовым набором <code>recommended</code> конфликтов почти не бывает, но со старыми наборами вроде Airbnb они есть, и <code>eslint-config-prettier</code> по-прежнему нужен.</p>
+<h3 id="lf-run-order">Как запускать</h3>
+<p>LogRocket описывает два подхода:</p>
+<ul>
+<li><b>Отдельно, по очереди</b> (рекомендуется самим Prettier): <code>prettier --write .</code> и <code>eslint .</code> — две команды, каждая делает своё. Именно так настроен пример с lint-staged ниже.</li>
+<li><b>Prettier как правило ESLint</b> через <code>eslint-plugin-prettier</code>: ошибки форматирования показываются как ошибки ESLint (красные подчёркивания). Это медленнее и засоряет вывод линтера сообщениями о пробелах, поэтому <a href="https://prettier.io/docs/integrating-with-linters">документация Prettier</a> такой способ обычно не советует.</li>
+</ul>
+<p>Во втором видео модуля автор «интегрирует» Prettier в ESLint одним пакетом <code>eslint-config-prettier</code> и говорит, что после этого <code>eslint</code> будет проверять и форматирование. Это неточность: <code>eslint-config-prettier</code> только выключает конфликтующие правила, а проверку формата добавляет именно <code>eslint-plugin-prettier</code>. С одним конфигом форматирование проверяет только <code>prettier --check</code>.</p>
+</section>

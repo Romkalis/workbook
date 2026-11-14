@@ -1,0 +1,27 @@
+<section id="lf-husky">
+<h2>Git-хуки, Husky и lint-staged</h2>
+<p>Настройки редактора помогают, но не гарантируют: кто-то пишет в другом редакторе, кто-то отключил расширение. Последний рубеж — проверка в момент коммита.</p>
+<h3 id="lf-hooks">Git-хуки</h3>
+<p><b>Хук</b> (hook, «крючок») — скрипт, который git запускает сам при определённом событии (<a href="https://git-scm.com/book/ru/v2/Настройка-Git-Хуки-в-Git">Pro Git: хуки</a>). <code>pre-commit</code> — перед созданием коммита, <code>commit-msg</code> — после ввода сообщения, <code>pre-push</code> — перед отправкой на сервер. Если хук завершился с ненулевым кодом, git отменяет действие. Хуки лежат в папке <code>.git/hooks</code>, которая не попадает в репозиторий, поэтому без помощника их не раздать команде.</p>
+<h3 id="lf-husky-setup">Husky</h3>
+<p><a href="https://typicode.github.io/husky/get-started.html">Husky</a> хранит хуки в папке <code>.husky</code> в самом проекте (она коммитится) и настраивает git так, чтобы он брал хуки оттуда. Установка в проекте, где уже есть git-репозиторий:</p>
+<pre><code>npm install -D husky
+npx husky init</code></pre>
+<p><code>husky init</code> делает две вещи: создаёт файл <code>.husky/pre-commit</code> с командой <code>npm test</code> и добавляет в <code>package.json</code> скрипт <code>"prepare": "husky"</code>. Скрипт <code>prepare</code> npm запускает автоматически после <code>npm install</code>, поэтому у каждого, кто склонирует проект и установит зависимости, хуки включатся сами. Файл хука — обычный shell-скрипт (набор команд для терминала): какие команды в нём написаны, те и выполнятся.</p>
+<h3 id="lf-lint-staged">lint-staged: проверять только изменённое</h3>
+<p>Запускать ESLint по всему проекту на каждый коммит долго, и падать он будет из-за чужих старых файлов. <a href="https://github.com/lint-staged/lint-staged">lint-staged</a> запускает команды только для файлов, добавленных в коммит (<code>git add</code>, «staged»), а исправленные файлы сам возвращает в коммит.</p>
+<pre><code>npm install -D lint-staged</code></pre>
+<p>Файл <code>.husky/pre-commit</code>:</p>
+<pre><code>npx lint-staged</code></pre>
+<p>Настройка в <code>package.json</code>:</p>
+<pre><code>"lint-staged": {
+  "*.js": ["eslint --fix", "prettier --write"],
+  "*.{css,md,json,html}": ["prettier --write"]
+}</code></pre>
+<p>Проверено в учебном репозитории. Коммит с файлом из раздела про ESLint <b>не прошёл</b>: lint-staged показал те же пять проблем, Husky вывел «pre-commit script failed (code 1)», и коммит не создался. После исправления ошибок код без точек с запятой и с двойными кавычками закоммитился, а в репозиторий попала уже отформатированная Prettier версия.</p>
+<figure class="dg"><div class="dg-title">Что происходит при git commit</div><ol class="seqlist n5" aria-hidden="true"><li class="card lit" style="--i:0"><span class="hd">git commit</span><span class="ln">git видит хук pre-commit в .husky и запускает его</span></li><li class="card lit" style="--i:1"><span class="hd">npx lint-staged</span><span class="ln">берёт только файлы из git add и подбирает команды по шаблонам</span></li><li class="card lit" style="--i:2"><span class="hd">eslint --fix</span><span class="ln">есть ошибки, которые не исправить сам → код 1 → коммит отменён</span></li><li class="card lit" style="--i:3"><span class="hd">prettier --write</span><span class="ln">переформатировал файлы</span></li><li class="card lit" style="--i:4"><span class="hd">коммит создан</span><span class="ln">lint-staged добавил исправленные файлы, в истории — чистый код</span></li></ol><figcaption>Если любая команда завершилась с ошибкой, коммита не будет, а ваши изменения останутся в рабочей папке. Исправьте ошибки и закоммитьте снова.</figcaption></figure>
+<div class="warn"><b>Старая настройка из видео и статьи</b><p>В <a href="https://www.youtube.com/watch?v=-qHA6zbOdLc">видео модуля о Husky</a> хуки описаны прямо в <code>package.json</code> полем <code>"husky": { "hooks": { "pre-commit": "lint-staged" } }</code>, а в списке команд lint-staged последней стоит <code>git add</code>. Это Husky 4 и lint-staged до 10-й версии. Сейчас поле <code>"husky"</code> в <code>package.json</code> игнорируется (хуки живут в папке <code>.husky</code>), а <code>git add</code> писать не нужно: lint-staged добавляет изменения сам. Статья Bits and Pieces о Husky из теории модуля больше недоступна — адрес ведёт на главную блога.</p></div>
+<h3 id="lf-bypass">Обойти и подстраховать</h3>
+<p>Хук можно пропустить флагом <code>git commit --no-verify</code> (проверено: коммит создаётся без проверок). Это нужно в редких случаях, например для коммита с заведомо незаконченной работой в свою ветку. Поэтому хуки — удобство для разработчика, а не защита: окончательную проверку делают в CI (например, GitHub Actions запускает <code>npm run lint</code> и <code>prettier --check .</code> на каждый пул-реквест) — из общих знаний.</p>
+<p>Ещё один популярный хук — <code>commit-msg</code> с commitlint: он проверяет, что сообщение коммита соответствует соглашению, например <code>feat: добавить поиск</code>. Сообщения коммитов в RS School часто требуют оформлять именно так.</p>
+</section>

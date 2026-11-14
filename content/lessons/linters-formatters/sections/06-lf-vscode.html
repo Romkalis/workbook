@@ -1,0 +1,21 @@
+<section id="lf-vscode">
+<h2>Интеграция с VS Code</h2>
+<p>Запускать команды вручную неудобно. Редактор может показывать ошибки ESLint прямо при наборе и форматировать файл при каждом сохранении — это показано во <a href="https://www.youtube.com/watch?v=St1YSNoB36Y">втором видео модуля</a>.</p>
+<ol>
+<li>Установите расширения <a href="https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint">ESLint</a> (от Microsoft) и <a href="https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode">Prettier — Code formatter</a>. Они используют ESLint и Prettier, установленные в проекте, и его конфиги.</li>
+<li>Создайте в проекте файл <code>.vscode/settings.json</code> — настройки попадут в git, и у всей команды редактор будет вести себя одинаково:</li>
+</ol>
+<pre><code>{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  }
+}</code></pre>
+<ul>
+<li><code>defaultFormatter</code> — каким расширением форматировать (в VS Code их может быть несколько).</li>
+<li><code>formatOnSave</code> — форматировать при сохранении (Ctrl+S / Cmd+S).</li>
+<li><code>source.fixAll.eslint</code> — при сохранении применять автоисправления ESLint.</li>
+</ul>
+<p>Если подчёркиваний нет, откройте панель Output и выберите в списке ESLint: там видны ошибки конфига. Частые причины — ESLint не установлен в проекте или конфиг лежит не в корне открытой папки. Отформатировать файл вручную: Shift+Alt+F (Windows), Shift+Option+F (macOS).</p>
+</section>

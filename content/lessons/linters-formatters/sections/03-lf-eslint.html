@@ -1,0 +1,79 @@
+<section id="lf-eslint">
+<h2>ESLint</h2>
+<p><a href="https://eslint.org/">ESLint</a> — расширяемый линтер для JavaScript. Во <a href="https://www.youtube.com/watch?v=St1YSNoB36Y">втором видео модуля</a> говорится о 17 миллионах скачиваний в неделю и использовании в Microsoft, Netflix и Google. Его ставят как <b>dev-зависимость</b> (раздел <code>devDependencies</code> в <code>package.json</code>, подробнее в <a href="/lessons/node-basics#nb-package-json">уроке о Node.js</a>): приложению для работы он не нужен.</p>
+<h3 id="lf-eslint-install">Установка</h3>
+<p>Быстрый путь — мастер (интерактивная программа в терминале), который задаст вопросы (для браузера или Node, есть ли React, TypeScript) и создаст конфиг (<a href="https://eslint.org/docs/latest/use/getting-started">Getting Started</a>):</p>
+<pre><code>npm init @eslint/config@latest</code></pre>
+<p>Или вручную:</p>
+<pre><code>npm install -D eslint @eslint/js globals</code></pre>
+<h3 id="lf-flat-config">Файл eslint.config.js</h3>
+<p>Конфиг в корне проекта (<a href="https://eslint.org/docs/latest/use/configure/configuration-files">документация</a>). Это массив объектов-настроек, которые применяются по порядку; если два объекта задают одно правило, побеждает последний.</p>
+<pre><code>import js from '@eslint/js';
+import globals from 'globals';
+import { defineConfig } from 'eslint/config';
+
+export default defineConfig([
+  { ignores: ['dist/'] },                    // какие папки не проверять
+  js.configs.recommended,                    // рекомендуемый набор правил
+  {
+    files: ['**/*.js'],
+    languageOptions: { globals: globals.browser }, // window, document и т. п.
+    rules: {
+      eqeqeq: 'error',
+      'no-console': 'warn',
+      'prefer-const': 'error',
+    },
+  },
+]);</code></pre>
+<ul>
+<li><code>js.configs.recommended</code> включает правила, которые ловят настоящие ошибки: <code>no-undef</code>, <code>no-unused-vars</code>, <code>no-unreachable</code> и другие.</li>
+<li><code>globals.browser</code> сообщает, что в коде можно пользоваться <code>window</code>, <code>document</code>, <code>localStorage</code>. Без этого ESLint решит, что <code>document</code> не объявлен. Для Node.js — <code>globals.node</code>.</li>
+<li><code>files</code> — к каким файлам применять объект, <code>ignores</code> — что пропустить. <code>node_modules</code> пропускается всегда.</li>
+</ul>
+<div class="warn"><b>Старый формат .eslintrc</b><p>В видео модуля и статье LogRocket конфиг называется <code>.eslintrc.json</code> (или <code>.eslintrc.js</code>) и выглядит как объект с полями <code>extends</code>, <code>plugins</code>, <code>env</code>. Это прежний формат. С ESLint 9 (апрель 2024) по умолчанию используется «плоский» <code>eslint.config.js</code>, а в ESLint 10 старый формат удалён совсем: проверка показала, что ESLint 10.15 не видит <code>.eslintrc.json</code> даже с переменной <code>ESLINT_USE_FLAT_CONFIG=false</code> и просит создать <code>eslint.config.js</code>. Если в туториале <code>.eslintrc</code> — пользуйтесь им только для понимания, а переносите по <a href="https://eslint.org/docs/latest/use/migrate-to-9.0.0">руководству по миграции</a>: <code>env: { browser: true }</code> превращается в <code>languageOptions.globals</code>, а <code>extends</code> — в элементы массива.</p></div>
+<h3 id="lf-run">Запуск и автоисправление</h3>
+<p>Проверим файл с типичными ошибками:</p>
+<pre><code>import { unused } from './utils.js'
+let total = 0
+const items = [1,2,3]
+for (const item of items) { total += item }
+if (total == '6') {
+    console.log("всё сходится")
+}
+function greet(name) { return 'Привет, ' + nmae }
+greet('Аня')</code></pre>
+<pre><code>$ npx eslint .
+src/app.js
+  1:10  error    'unused' is defined but never used   no-unused-vars
+  5:11  error    Expected '===' and instead saw '=='  eqeqeq
+  6:5   warning  Unexpected console statement         no-console
+  8:16  error    'name' is defined but never used     no-unused-vars
+  8:44  error    'nmae' is not defined                no-undef
+
+✖ 5 problems (4 errors, 1 warning)</code></pre>
+<p>Каждая строка: позиция (строка:столбец), уровень, сообщение и имя правила. По имени правила ищут объяснение в <a href="https://eslint.org/docs/latest/rules/">справочнике правил</a>. Опечатку <code>nmae</code> линтер нашёл, хотя код ни разу не запускался. Команда завершилась с кодом 1 — это важно для автоматизации: Husky и CI по коду выхода понимают, что проверка не прошла.</p>
+<p><code>npx eslint . --fix</code> исправляет то, что можно исправить безопасно. В нашем файле он ничего не поменял: <code>==</code> на <code>===</code> автоматически не заменяется, потому что это может изменить поведение (<code>6 == '6'</code> истинно, <code>6 === '6'</code> ложно). Неиспользуемые переменные и опечатки исправляет человек. Удобно добавить скрипты в <code>package.json</code>: <code>"lint": "eslint ."</code> и <code>"lint:fix": "eslint . --fix"</code>.</p>
+<h3 id="lf-rules">Правила и уровни</h3>
+<p>Каждое правило включается одним из трёх уровней (<a href="https://eslint.org/docs/latest/use/configure/rules">Configure Rules</a> — документ из теории модуля):</p>
+<ul>
+<li><code>"off"</code> или <code>0</code> — выключено;</li>
+<li><code>"warn"</code> или <code>1</code> — предупреждение: показывается, но код выхода не портит;</li>
+<li><code>"error"</code> или <code>2</code> — ошибка: команда завершится с кодом 1, коммит или сборка в CI не пройдут.</li>
+</ul>
+<p>Документация советует: правила, нарушение которых обязательно исправить, — <code>error</code>; <code>warn</code> — для новых правил, которые позже станут ошибками, и для случаев, где правило может ошибаться. У некоторых правил есть настройки, тогда значение — массив: <code>'prefer-const': ['error', { ignoreReadBeforeAssign: true }]</code>.</p>
+<p>Отключить правило в одном месте можно комментарием. Пишите причину после <code>--</code>, чтобы следующий человек понял, зачем это:</p>
+<pre><code>// eslint-disable-next-line no-console -- отладочный вывод для лекции
+console.log(result);
+
+/* eslint eqeqeq: "off" */   // для всего файла</code></pre>
+<p>Злоупотреблять этим не стоит: десятки <code>eslint-disable</code> означают, что правило не подходит проекту и его лучше настроить в конфиге.</p>
+<h3 id="lf-style-guides">Готовые наборы правил и стайлгайды</h3>
+<p>Правил сотни, настраивать каждое долго. Поэтому берут готовый набор и подправляют. Статья Codacy из дополнительных материалов называет популярные <b>стайлгайды</b> (руководства по стилю кода):</p>
+<ul>
+<li><a href="https://github.com/airbnb/javascript">Airbnb JavaScript Style Guide</a> (2012) — подробный и строгий, долго был самым популярным, в RS School его часто использовали через <code>eslint-config-airbnb-base</code>. Этот пакет долго не поддерживал новый формат конфигов; перед установкой проверяйте совместимость с вашей версией ESLint.</li>
+<li><a href="https://google.github.io/styleguide/jsguide.html">Google JavaScript Style Guide</a> — правила стиля и правила языка, используемые в Google.</li>
+<li><a href="https://standardjs.com/">JavaScript Standard Style</a> — готовый набор без настройки: никаких точек с запятой, команда <code>standard --fix</code>.</li>
+<li><a href="https://github.com/rwaldron/idiomatic.js">Idiomatic.js</a> — открытое руководство, которое можно адаптировать.</li>
+</ul>
+<p>Для TypeScript используют <a href="https://typescript-eslint.io/getting-started">typescript-eslint</a>, для React — <code>eslint-plugin-react</code> и <code>eslint-plugin-react-hooks</code>. Шаблоны Vite и Next.js создают конфиг ESLint сами.</p>
+</section>

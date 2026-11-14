@@ -1,0 +1,35 @@
+<section id="lf-prettier">
+<h2>Prettier</h2>
+<p><a href="https://prettier.io/">Prettier</a> — «упрямый» (opinionated) форматтер. Он не проверяет стиль, а <b>переписывает</b> файл целиком: разбирает код в дерево (как это делает движок JavaScript) и печатает его заново по своим правилам. Как вы расставили пробелы и переносы, не важно — результат всегда одинаковый.</p>
+<h3 id="lf-why-prettier">Зачем он нужен</h3>
+<p>Страница <a href="https://prettier.io/docs/en/why-prettier.html">Why Prettier</a> из материалов модуля называет главную причину: прекратить бесконечные споры о стиле. Все согласны, что общий стиль нужен, но договориться о нём мучительно, и никто не любит получать и писать замечания о пробелах. Prettier — единственный стайлгайд, который соблюдается полностью автоматически; даже если он форматирует не совсем так, как хочется вам, это стоит того. Кроме того, он помогает новичкам в проекте и в языке («раньше я всегда ставил пробелы не там») и экономит силы: код пишется как угодно, а одно сочетание клавиш делает его аккуратным.</p>
+<h3 id="lf-prettier-setup">Установка и команды</h3>
+<pre><code>npm install -D prettier
+npx prettier --check .    # проверить, не меняя файлы
+npx prettier --write .    # отформатировать все файлы</code></pre>
+<p>Проверка на нашем файле: <code>--check</code> сообщил «Code style issues found» и завершился с кодом 1, а <code>--write</code> привёл файл к такому виду:</p>
+<pre><code>import { unused } from './utils.js';
+let total = 0;
+const items = [1, 2, 3];
+for (const item of items) {
+  total += item;
+}
+if (total == '6') {
+  console.log('всё сходится');
+}</code></pre>
+<p>Появились точки с запятой, пробелы после запятых, переносы и отступы в два пробела, кавычки стали одинарными (по нашей настройке). А <code>==</code> и неиспользуемый импорт остались: это не форматирование, а забота линтера. Prettier понимает не только JavaScript, но и TypeScript, CSS, SCSS, HTML, JSON, Markdown, YAML.</p>
+<h3 id="lf-prettierrc">Настройка</h3>
+<p>Опций у Prettier мало — нарочно, чтобы спорить было не о чем (<a href="https://prettier.io/docs/options">список опций</a>). Их задают в файле <code>.prettierrc</code>:</p>
+<pre><code>{
+  "singleQuote": true,
+  "semi": true,
+  "printWidth": 100,
+  "trailingComma": "all"
+}</code></pre>
+<ul>
+<li><code>printWidth</code> — желаемая длина строки (по умолчанию 80). Это ориентир, а не жёсткий предел.</li>
+<li><code>singleQuote</code> — одинарные кавычки; <code>semi</code> — ставить ли <code>;</code>; <code>tabWidth</code> и <code>useTabs</code> — отступы; <code>trailingComma</code> — запятая после последнего элемента.</li>
+</ul>
+<p>Файл <code>.prettierignore</code> перечисляет, что не трогать (по синтаксису как <code>.gitignore</code>): сборку, сгенерированные файлы. <code>node_modules</code> и файлы из <code>.gitignore</code> Prettier пропускает сам. Для настройки отступов и окончаний строк во всех редакторах, даже без Prettier, есть ещё файл <a href="https://editorconfig.org/"><code>.editorconfig</code></a>; Prettier читает и его.</p>
+<p>Версию Prettier фиксируют точно (<code>npm install -D --save-exact prettier</code>): даже минорное обновление может немного поменять форматирование, и у разных разработчиков получатся разные файлы.</p>
+</section>

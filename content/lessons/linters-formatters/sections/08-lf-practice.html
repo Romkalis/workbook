@@ -1,0 +1,41 @@
+<section id="lf-practice">
+<h2>Практика, вопросы и словарь</h2>
+<h3 id="lf-setup-all">Настройка с нуля: все шаги</h3>
+<pre><code>git init
+npm init -y
+npm pkg set type=module
+npm install -D eslint @eslint/js globals prettier eslint-config-prettier husky lint-staged
+# создать eslint.config.js и .prettierrc (см. разделы выше)
+npx husky init
+echo "npx lint-staged" &gt; .husky/pre-commit
+# добавить "lint-staged" и скрипты в package.json
+npm pkg set scripts.lint="eslint ." scripts.format="prettier --write ."</code></pre>
+<p>Команда <code>npm pkg set</code> меняет <code>package.json</code> без ручного редактирования. Именно эта последовательность проверена при подготовке урока.</p>
+<h3 id="lf-exercises">Упражнения</h3>
+<ol>
+<li>Настройте ESLint и Prettier в своём проекте по шагам выше. Запустите <code>npm run lint</code> и разберитесь с каждой ошибкой по справочнику правил.</li>
+<li>Включите правила <code>no-console</code> как <code>warn</code> и <code>eqeqeq</code> как <code>error</code>. Чем отличается код выхода, когда есть только предупреждения?</li>
+<li>Поменяйте в <code>.prettierrc</code> <code>printWidth</code> на 40 и выполните <code>prettier --write</code>. Посмотрите, как переносятся строки.</li>
+<li>Настройте VS Code на форматирование при сохранении.</li>
+<li>Подключите Husky и lint-staged. Попробуйте закоммитить файл с необъявленной переменной и убедитесь, что коммит не прошёл.</li>
+</ol>
+<h3 id="lf-questions">Вопросы</h3>
+<details class="q"><summary>Нужен ли Prettier, если есть ESLint?</summary><p>Да. ESLint ищет ошибки и проблемы качества, Prettier полностью отвечает за внешний вид и делает это лучше. Используют оба, а конфликтующие правила ESLint выключают пакетом <code>eslint-config-prettier</code>.</p></details>
+<details class="q"><summary>Почему eslint --fix не заменил == на ===?</summary><p>Такая замена может изменить поведение программы. Автоматически ESLint исправляет только безопасное.</p></details>
+<details class="q"><summary>Зачем Husky, если git сам умеет хуки?</summary><p>Папка <code>.git/hooks</code> не попадает в репозиторий. Husky хранит хуки в <code>.husky</code>, которая коммитится, и включает их у всех через скрипт <code>prepare</code>.</p></details>
+<details class="q"><summary>Зачем lint-staged?</summary><p>Чтобы проверять только файлы этого коммита: быстро и без падений на чужом старом коде. Исправленные файлы он сам возвращает в коммит.</p></details>
+<h3 id="lf-glossary">Словарь</h3>
+<dl class="gloss">
+<dt>Статический анализ</dt><dd>Проверка кода без его запуска.</dd>
+<dt>Линтер</dt><dd>Инструмент статического анализа: ошибки, баги, подозрительные места, соглашения.</dd>
+<dt>Форматтер</dt><dd>Инструмент, который переписывает внешний вид кода по единым правилам.</dd>
+<dt>Правило ESLint</dt><dd>Одна проверка, например <code>no-unused-vars</code>; уровень off, warn или error.</dd>
+<dt>Flat config</dt><dd>Современный формат конфига ESLint: <code>eslint.config.js</code> с массивом настроек.</dd>
+<dt>Стайлгайд</dt><dd>Руководство по стилю кода (Airbnb, Google, Standard).</dd>
+<dt>Git-хук</dt><dd>Скрипт, который git запускает при событии: перед коммитом, перед пушем.</dd>
+<dt>Husky</dt><dd>Инструмент, который хранит git-хуки в проекте и включает их у всей команды.</dd>
+<dt>lint-staged</dt><dd>Запуск команд только для файлов, добавленных в коммит.</dd>
+<dt>Staged-файлы</dt><dd>Изменения, добавленные через <code>git add</code> и готовые к коммиту.</dd>
+<dt>CI</dt><dd>Автоматические проверки на сервере при каждом пуше или пул-реквесте.</dd>
+</dl>
+</section>
