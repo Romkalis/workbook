@@ -1,0 +1,53 @@
+<section id="eh-try">
+<h2>throw и try...catch...finally</h2>
+<h3 id="eh-throw">throw</h3>
+<p><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/throw"><code>throw</code></a> прерывает выполнение текущей функции. Дальше движок поднимается по стеку вызовов — к функции, которая вызвала эту, потом к её вызывающей и так далее — пока не найдёт подходящий <code>catch</code>. Если не нашёл, ошибка становится <b>неперехваченной</b> (uncaught): в консоли появляется красное «Uncaught TypeError...», текущий скрипт или обработчик события останавливается.</p>
+<pre><code>function divide(a, b) {
+  if (b === 0) {
+    throw new RangeError('Делить на ноль нельзя');
+  }
+  return a / b;
+}</code></pre>
+<p>Выбрасывать ошибку стоит, когда функция не может выполнить своё обещание и не должна молча вернуть мусор. Это лучше, чем вернуть <code>null</code> и надеяться, что вызывающий проверит.</p>
+<h3 id="eh-trycatch">try...catch</h3>
+<p><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch"><code>try...catch</code></a> выполняет код в блоке <code>try</code>. Если там (или в функциях, которые он вызывает) выброшена ошибка, выполнение <code>try</code> обрывается и управление переходит в <code>catch</code>, куда передаётся выброшенное значение. Если ошибки не было, <code>catch</code> пропускается.</p>
+<pre><code>try {
+  const settings = JSON.parse(localStorage.getItem('settings'));
+  applySettings(settings);
+} catch (error) {
+  console.error('Настройки повреждены, берём стандартные', error);
+  applySettings(DEFAULT_SETTINGS);
+}</code></pre>
+<p>Если объект ошибки не нужен, скобки можно опустить: <code>try { ... } catch { ... }</code>. Это возможно с ES2019; лектор упоминает, что «раньше было обязательно».</p>
+<p>Переменная <code>error</code> видна только внутри <code>catch</code>, а переменные, объявленные внутри <code>try</code> через <code>let</code> и <code>const</code>, — только внутри <code>try</code>. Нужный результат объявляйте снаружи.</p>
+<h3 id="eh-finally">finally</h3>
+<p>Блок <code>finally</code> выполняется <b>всегда</b>: после успешного <code>try</code>, после <code>catch</code> и даже если внутри был <code>return</code> или ошибка выброшена дальше. Его используют для «уборки»: спрятать индикатор загрузки, закрыть файл, снять блокировку кнопки.</p>
+<pre><code>button.disabled = true;
+try {
+  await sendForm(data);
+  showMessage('Отправлено');
+} catch (error) {
+  showMessage('Не получилось, попробуйте ещё раз');
+} finally {
+  button.disabled = false;
+}</code></pre>
+<p>Две проверенные в Node.js 22 тонкости. Функция <code>try { return 'try' } finally { console.log(...) }</code> сначала напечатала сообщение из <code>finally</code>, а потом вернула <code>'try'</code>. А если в <code>finally</code> тоже есть <code>return</code>, он перекрывает результат <code>try</code>: функция вернула <code>'finally'</code>. Так же <code>return</code> в <code>finally</code> «съедает» выброшенную ошибку, поэтому <code>return</code> в <code>finally</code> не пишут.</p>
+<h3 id="eh-rethrow">Ловить только то, что умеете обработать</h3>
+<p>Пустой <code>catch</code> — главная ошибка новичков. Он прячет не только ожидаемую проблему, но и любой баг рядом: опечатку в имени функции вы будете искать часами. Правило из главы <a href="https://javascript.info/try-catch">javascript.info</a> (<a href="https://learn.javascript.ru/try-catch">на русском</a>): <i>catch должен обрабатывать только те ошибки, которые он знает, и пробрасывать остальные</i>.</p>
+<pre><code>try {
+  user = parseUser(json);
+} catch (error) {
+  if (error instanceof SyntaxError) {
+    showMessage('Сервер прислал повреждённые данные');
+  } else {
+    throw error; // не наш случай — пусть ловят выше
+  }
+}</code></pre>
+<p>Проверять тип через <code>instanceof</code> надёжнее, чем через <code>error.name === '...'</code> или текст сообщения: тексты отличаются в разных браузерах.</p>
+<h3 id="eh-when-not">Когда try не нужен</h3>
+<ul>
+<li>Ожидаемые ситуации лучше проверять заранее: пустое поле формы — это <code>if</code>, а не исключение.</li>
+<li>Не оборачивайте каждую строку в отдельный <code>try</code>. Обычно достаточно ловить ошибки на границах: обработчик клика, загрузка данных, точка входа приложения (раздел об архитектуре).</li>
+<li><code>try...catch</code> работает <b>синхронно</b>: он не поймает ошибку, которая произойдёт позже, в колбэке таймера или события. Об этом — раздел про асинхронный код.</li>
+</ul>
+</section>

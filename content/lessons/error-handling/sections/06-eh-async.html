@@ -1,0 +1,61 @@
+<section id="eh-async">
+<h2>Ошибки в асинхронном коде</h2>
+<p>Лекция начинается с того, что ошибку можно «совершить» двумя способами: синхронно (<code>throw</code>) и асинхронно (<code>Promise.reject</code> или любой сбой внутри промиса). Ловятся они по-разному.</p>
+<h3 id="eh-callbacks">Колбэки: try снаружи не помогает</h3>
+<pre><code>try {
+  setTimeout(() =&gt; {
+    throw new Error('внутри таймера');
+  }, 0);
+} catch {
+  console.log('сюда не попадём');
+}</code></pre>
+<p><code>try</code> выполнился и закончился сразу, как только таймер был <i>запланирован</i>. Колбэк запустится позже, когда <code>try</code> уже давно позади, и ошибка станет неперехваченной. Ловить нужно внутри самого колбэка — в Node.js 22 такой вариант напечатал «пойман внутри: внутри таймера». То же касается обработчиков событий: <code>try</code> вокруг <code>addEventListener</code> бесполезен, <code>try</code> должен быть внутри обработчика.</p>
+<p>В старом коде, особенно в Node.js, ошибки передают первым аргументом колбэка: <code>fs.readFile(path, (error, data) =&gt; { if (error) ... })</code>. Это соглашение «error-first callback»; о нём пишут <a href="https://kinsta.com/blog/errors-in-javascript/">Kinsta</a> и <a href="https://www.valentinog.com/blog/error/">Гальярди</a>.</p>
+<h3 id="eh-promise">Промисы: catch, then и finally</h3>
+<p>Промис переходит в состояние «отклонён» (rejected), если вызвали <code>reject</code>, <code>Promise.reject(...)</code> или внутри исполнителя или обработчика <code>.then</code> произошёл <code>throw</code>. Отклонение «падает» по цепочке вниз, пропуская все <code>.then</code>, до ближайшего <code>.catch</code> (глава <a href="https://javascript.info/promise-error-handling">javascript.info</a>, <a href="https://learn.javascript.ru/promise-error-handling">на русском</a>).</p>
+<pre><code>Promise.resolve(1)
+  .then(() =&gt; { throw new Error('A'); })
+  .then(() =&gt; console.log('пропущен'))
+  .catch((error) =&gt; console.log('catch:', error.message))
+  .then(() =&gt; console.log('цепочка продолжается'));
+// catch: A
+// цепочка продолжается</code></pre>
+<p>После <code>.catch</code> цепочка снова «здорова»: если обработчик ничего не выбросил, следующие <code>.then</code> выполнятся. Поэтому <code>.catch</code> ставят в конце, чтобы поймать всё, или в середине, если ошибку конкретного шага можно исправить и продолжить. <code>.finally</code> работает как в <code>try</code>: вызывается всегда и не получает ни результата, ни ошибки.</p>
+<h3 id="eh-then-second">Второй аргумент then</h3>
+<p>У <code>.then</code> есть второй параметр — обработчик ошибки: <code>.then(onSuccess, onError)</code>. Лектор упоминает, что встречает его редко. Подвох: <code>onError</code> не ловит ошибку, выброшенную в <code>onSuccess</code> того же <code>.then</code>. Проверено в Node.js 22: обработчик успеха выбросил ошибку, второй аргумент не вызвался, ошибка стала неперехваченной. <code>.then(...).catch(...)</code> такую ошибку поймает.</p>
+<h3 id="eh-await">async/await</h3>
+<p>Внутри <code>async</code>-функции <code>await</code> превращает отклонённый промис в обычный <code>throw</code> в этой строке, и работает привычный <code>try...catch</code> (глава <a href="https://javascript.info/async-await#error-handling">javascript.info</a>):</p>
+<pre><code>async function loadUser(id) {
+  try {
+    const response = await fetch(`/api/users/${id}`);
+    if (!response.ok) throw new HttpError(response.status);
+    return await response.json();
+  } catch (error) {
+    if (error instanceof HttpError &amp;&amp; error.status === 404) return null;
+    throw error;
+  }
+}</code></pre>
+<p>Помните урок о клиенте и сервере: <code>fetch</code> не отклоняется на 404 и 500, статус проверяется вручную. Ошибка, не пойманная внутри <code>async</code>-функции, не исчезает: функция возвращает отклонённый промис, и его нужно обработать снаружи — через <code>await</code> в <code>try</code> или через <code>.catch</code>.</p>
+<p>Лектор показывает частую ловушку: убрал <code>await</code> перед вызовом — и <code>try</code> перестал ловить. Вариант той же ошибки, который легко не заметить, — <code>return</code> без <code>await</code>:</p>
+<pre><code>async function noAwait() {
+  try { return load(); }          // промис возвращается как есть
+  catch { return 'поймано'; }
+}
+async function withAwait() {
+  try { return await load(); }    // дожидаемся внутри try
+  catch { return 'поймано'; }
+}</code></pre>
+<p>Если <code>load()</code> отклоняется, <code>withAwait()</code> вернул <code>'поймано'</code>, а <code>noAwait()</code> упал наружу с ошибкой «сеть»: к моменту отказа функция уже вышла из <code>try</code>. Внутри <code>try</code> пишите <code>return await</code>.</p>
+<h3 id="eh-combinators">Promise.all и родственники</h3>
+<div class="tbl"><table>
+<thead><tr><th>Метод</th><th>Если промисы отклоняются</th></tr></thead>
+<tbody>
+<tr><td><code>Promise.all</code></td><td>Отклоняется с <b>первой</b> ошибкой, остальные результаты теряются (сами запросы при этом не отменяются)</td></tr>
+<tr><td><code>Promise.allSettled</code></td><td>Никогда не отклоняется; возвращает массив <code>{ status: 'fulfilled', value }</code> или <code>{ status: 'rejected', reason }</code></td></tr>
+<tr><td><code>Promise.any</code></td><td>Ждёт первый успех; если отклонены <b>все</b> — <code>AggregateError</code> со всеми ошибками в <code>errors</code></td></tr>
+<tr><td><code>Promise.race</code></td><td>Повторяет исход первого завершившегося, будь то успех или ошибка</td></tr>
+</tbody></table></div>
+<p>Проверка: <code>Promise.all([ok, fail('x'), fail('y')])</code> отклонился с <code>x</code>; <code>allSettled</code> вернул <code>fulfilled,rejected</code>; <code>Promise.any</code> из двух отказов дал <code>AggregateError</code> с <code>['x', 'y']</code>. Если нужно показать на странице всё, что загрузилось, даже когда часть запросов упала, выбирайте <code>allSettled</code>.</p>
+<h3 id="eh-unhandled">Необработанные отклонения</h3>
+<p>Промис, отклонение которого никто не обработал, вызывает в консоли «Uncaught (in promise)». Лектор замечает, что такая ошибка часто не роняет всё приложение, как синхронная: просто какие-то данные тихо не появятся. Это хуже, потому что незаметно. В браузере такие случаи ловит событие <code>unhandledrejection</code> (следующий раздел), в Node.js — <code>process.on('unhandledRejection')</code>; начиная с Node.js 15 необработанное отклонение по умолчанию завершает процесс (из общих знаний).</p>
+</section>

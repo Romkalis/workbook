@@ -1,0 +1,17 @@
+<section id="eh-start">
+<h2>Зачем учиться обрабатывать ошибки</h2>
+<p>Ошибки случаются в любой программе. Пользователь вводит не то, сервер не отвечает, в ответе приходит не тот JSON, а сам разработчик где-то обращается к <code>undefined</code>. Вопрос не в том, будут ли ошибки, а в том, что произойдёт, когда они случатся. Плохой вариант — белый экран или вечный индикатор загрузки. Хороший — понятное сообщение («Нет соединения, попробуйте ещё раз»), сохранённые данные пользователя и запись в журнале, по которой разработчик найдёт причину.</p>
+<p>В JavaScript есть два близких слова. <b>Ошибка</b> (error) — сама проблема и объект, который её описывает. <b>Исключение</b> (exception) — ситуация, когда ошибку «выбросили» оператором <code>throw</code> и обычное выполнение кода прервалось. Статья <a href="https://www.valentinog.com/blog/error/">Валентино Гальярди</a> подчёркивает разницу: <code>new Error('...')</code> просто создаёт объект, и ничего не происходит, пока его не выбросят.</p>
+<h3 id="eh-goals">Что разберём</h3>
+<ul>
+<li>Объект <code>Error</code>: свойства <code>name</code>, <code>message</code>, <code>stack</code>, <code>cause</code>.</li>
+<li>Встроенные типы: <code>TypeError</code>, <code>ReferenceError</code>, <code>SyntaxError</code>, <code>RangeError</code>, <code>URIError</code>, <code>EvalError</code>, <code>AggregateError</code> и нестандартный <code>InternalError</code>.</li>
+<li>Как выбросить ошибку и как поймать: <code>throw</code>, <code>try...catch...finally</code>.</li>
+<li>Свои классы ошибок через <code>extends Error</code>.</li>
+<li>Ошибки в асинхронном коде: колбэки, промисы, <code>async/await</code>, <code>Promise.all</code> и родственники.</li>
+<li>Глобальные события <code>error</code> и <code>unhandledrejection</code>, ошибки загрузки картинок и скриптов.</li>
+<li>Как устроить обработку ошибок во всём приложении: граница ошибок (error boundary), логирование, сообщения пользователю.</li>
+</ul>
+<div class="note"><b>Как устроен модуль</b><p><a href="https://github.com/rolling-scopes-school/tasks/tree/master/stage2/modules/error-handling">Программа модуля</a> отводит около 2 часов. Теория: справочник MDN по <code>Error</code> и типам ошибок, главы javascript.info про <code>try...catch</code>, свои ошибки и ошибки в промисах, <a href="https://www.youtube.com/watch?v=99Qz8xRbl4k">лекция RS School</a> и <a href="https://slides.com/dzmitrytsebruk/error-handling">её слайды</a>. Практика: тест «[St2] Error handling» в RS App, раздел Auto Test. Лекция почти целиком состоит из живого кода; он разобран здесь с исправлениями.</p></div>
+<p>Для урока нужно знать промисы и <code>async/await</code> (они кратко объяснены в уроке <a href="/lessons/client-server#cs-promise">«Клиент-серверное взаимодействие»</a>) и классы с наследованием (урок <a href="/lessons/classes-prototypes">«Классы и прототипы»</a>).</p>
+</section>
