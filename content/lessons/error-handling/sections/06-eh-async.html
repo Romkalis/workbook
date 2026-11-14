@@ -57,6 +57,7 @@ async function withAwait() {
 <tr><td><code>Promise.race</code></td><td>Повторяет исход первого завершившегося, будь то успех или ошибка</td></tr>
 </tbody></table></div>
 <p>Проверка: <code>Promise.all([ok, fail('x'), fail('y')])</code> отклонился с <code>x</code>; <code>allSettled</code> вернул <code>fulfilled,rejected</code>; <code>Promise.any</code> из двух отказов дал <code>AggregateError</code> с <code>['x', 'y']</code>. Если нужно показать на странице всё, что загрузилось, даже когда часть запросов упала, выбирайте <code>allSettled</code>.</p>
+<p>Потренироваться на всех четырёх комбинаторах можно в задании core-js-promises — разбор решений в уроке <a href="/lessons/core-js-promises">«Core JS Promises»</a>.</p>
 <h3 id="eh-unhandled">Необработанные отклонения</h3>
 <p>Промис, отклонение которого никто не обработал, вызывает в консоли «Uncaught (in promise)». Лектор замечает, что такая ошибка часто не роняет всё приложение, как синхронная: просто какие-то данные тихо не появятся. Это хуже, потому что незаметно. В браузере такие случаи ловит событие <code>unhandledrejection</code> (следующий раздел), в Node.js — <code>process.on('unhandledRejection')</code>; начиная с Node.js 15 необработанное отклонение по умолчанию завершает процесс (из общих знаний).</p>
 </section>

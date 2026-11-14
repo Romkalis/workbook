@@ -1,0 +1,73 @@
+<section id="arr-reorder">
+<h2>Перестановки</h2>
+<p>Последняя группа — переставить элементы по правилу.</p>
+<h3 id="arr-distinct">29. distinct — только уникальные</h3>
+<pre><code>  distinct([ 1, 2, 3, 3, 2, 1 ]) =&gt; [ 1, 2, 3 ]
+  distinct([ &#x27;a&#x27;, &#x27;a&#x27;, &#x27;a&#x27;, &#x27;a&#x27; ])  =&gt; [ &#x27;a&#x27; ]
+  distinct([ 1, 1, 2, 2, 3, 3, 4, 4]) =&gt; [ 1, 2, 3, 4]
+  distinct([]) =&gt; []</code></pre>
+<p><code>Set</code> хранит каждое значение один раз и сохраняет порядок добавления. Spread <code>[...set]</code> превращает его обратно в массив. Тест проверяет наличие <code>Set</code>.</p>
+<pre><code>function distinct(arr) {
+  return [...new Set(arr)];
+}</code></pre>
+<h3 id="arr-propagate">30. propagateItemsByPositionIndex — элемент i повторить i+1 раз</h3>
+<pre><code> :
+ propagateItemsByPositionIndex([]) =&gt; []
+ propagateItemsByPositionIndex([ 1 ]) =&gt; [ 1 ]
+ propagateItemsByPositionIndex([ &#x27;a&#x27;, &#x27;b&#x27; ]) =&gt; [ &#x27;a&#x27;, &#x27;b&#x27;,&#x27;b&#x27; ]
+ propagateItemsByPositionIndex([ &#x27;a&#x27;, &#x27;b&#x27;, &#x27;c&#x27;, null ]) =&gt; [ &#x27;a&#x27;, &#x27;b&#x27;, &#x27;b&#x27;, &#x27;c&#x27;, &#x27;c&#x27;, &#x27;c&#x27;,  null, null, null, null ]
+ propagateItemsByPositionIndex([ 1,2,3,4,5 ]) =&gt; [ 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5 ]</code></pre>
+<p>Для элемента с индексом i создаём массив из <code>i + 1</code> копий (<code>new Array(i + 1).fill(item)</code>), а <code>flatMap</code> склеивает их. Здесь <code>fill</code> безопасен: значения простые, а для объектов копии были бы одной ссылкой (это не мешает тестам, но помните о ловушке из задачи 18).</p>
+<pre><code>function propagateItemsByPositionIndex(arr) {
+  return arr.flatMap((item, index) =&gt; new Array(index + 1).fill(item));
+}</code></pre>
+<h3 id="arr-shift">31. shiftArray — циклический сдвиг</h3>
+<pre><code>   shiftArray([1, 2, 3, 4, 5], 2) =&gt; [4, 5, 1, 2, 3]
+   shiftArray([&#x27;a&#x27;, &#x27;b&#x27;, &#x27;c&#x27;, &#x27;d&#x27;], -1) =&gt; [&#x27;b&#x27;, &#x27;c&#x27;, &#x27;d&#x27;, &#x27;a&#x27;]
+   shiftArray([10, 20, 30, 40, 50], -3) =&gt; [40, 50, 10, 20, 30]</code></pre>
+<p>Сдвиг на n вправо — то же, что разрезать массив в точке <code>длина − n</code> и поменять половины местами. Сначала приводим n к диапазону <code>0…длина−1</code>: формула <code>((n % len) + len) % len</code> работает и для отрицательных n (сдвиг влево), и для n больше длины. При разработке этого урока первая версия решения ломалась на <code>n = 0</code> (возвращала удвоенный массив из-за <code>slice(-0)</code>), а тесты задания этого не заметили — проверяйте краевые случаи сами.</p>
+<pre><code>function shiftArray(arr, n) {
+  if (arr.length === 0) return [];
+  const shift = ((n % arr.length) + arr.length) % arr.length;
+  const cut = arr.length - shift;
+  return [...arr.slice(cut), ...arr.slice(0, cut)];
+}</code></pre>
+<h3 id="arr-digit-names">32. sortDigitNamesByNumericOrder — сортировка названий цифр</h3>
+<pre><code>  sortDigitNamesByNumericOrder([]) =&gt; []
+  sortDigitNamesByNumericOrder([ &#x27;nine&#x27;,&#x27;one&#x27; ]) =&gt; [ &#x27;one&#x27;, &#x27;nine&#x27; ]
+  sortDigitNamesByNumericOrder([ &#x27;one&#x27;,&#x27;two&#x27;,&#x27;three&#x27; ]) =&gt; [ &#x27;one&#x27;,&#x27;two&#x27;, &#x27;three&#x27; ]
+  sortDigitNamesByNumericOrder([ &#x27;nine&#x27;,&#x27;eight&#x27;,&#x27;nine&#x27;,&#x27;eight&#x27; ]) =&gt; [ &#x27;eight&#x27;,&#x27;eight&#x27;,&#x27;nine&#x27;,&#x27;nine&#x27;]
+  sortDigitNamesByNumericOrder([ &#x27;one&#x27;,&#x27;one&#x27;,&#x27;one&#x27;,&#x27;zero&#x27; ]) =&gt; [ &#x27;zero&#x27;,&#x27;one&#x27;,&#x27;one&#x27;,&#x27;one&#x27; ]</code></pre>
+<p>Позиция слова в массиве <code>digits</code> и есть его числовое значение: <code>digits.indexOf('nine')</code> = 9. Компаратор сравнивает эти позиции. Копия <code>[...arr]</code> — чтобы не менять входной массив.</p>
+<pre><code>function sortDigitNamesByNumericOrder(arr) {
+  const digits = [
+    &#x27;zero&#x27;,
+    &#x27;one&#x27;,
+    &#x27;two&#x27;,
+    &#x27;three&#x27;,
+    &#x27;four&#x27;,
+    &#x27;five&#x27;,
+    &#x27;six&#x27;,
+    &#x27;seven&#x27;,
+    &#x27;eight&#x27;,
+    &#x27;nine&#x27;,
+  ];
+  return [...arr].sort((a, b) =&gt; digits.indexOf(a) - digits.indexOf(b));
+}</code></pre>
+<h3 id="arr-swap">33. swapHeadAndTail — поменять половины местами</h3>
+<pre><code>  [ 1, 2, 3, 4, 5 ]   =&gt;  [ 4, 5, 3, 1, 2 ]
+   \----/   \----/
+    head     tail
+  swapHeadAndTail([ 1, 2 ]) =&gt; [ 2, 1 ]
+  swapHeadAndTail([ 1, 2, 3, 4, 5, 6, 7, 8 ]) =&gt;  [ 5, 6, 7, 8, 1, 2, 3, 4 ]
+  swapHeadAndTail([ 1 ]) =&gt; [ 1 ]
+  swapHeadAndTail([]) =&gt; []</code></pre>
+<p>Половина — <code>Math.floor(длина / 2)</code>. Голова — первые <code>half</code> элементов, хвост — последние <code>half</code>, средний элемент (если длина нечётная) остаётся на месте. Собираем результат spread-ом: хвост, середина, голова.</p>
+<pre><code>function swapHeadAndTail(arr) {
+  const half = Math.floor(arr.length / 2);
+  const head = arr.slice(0, half);
+  const tail = arr.slice(arr.length - half);
+  const middle = arr.length % 2 === 1 ? [arr[half]] : [];
+  return [...tail, ...middle, ...head];
+}</code></pre>
+</section>

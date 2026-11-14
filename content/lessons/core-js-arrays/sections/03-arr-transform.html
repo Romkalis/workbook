@@ -1,0 +1,58 @@
+<section id="arr-transform">
+<h2>Преобразование и проверки</h2>
+<p>Здесь работают «трансформирующие» методы: <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array/map"><code>map</code></a> (каждый элемент → новое значение), <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce"><code>reduce</code></a> (все элементы → одно значение), <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array/every"><code>every</code></a> и <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array/some"><code>some</code></a> (проверка условия для всех или хотя бы одного).</p>
+<h3 id="arr-lengths">6. getStringsLength — длины строк</h3>
+<pre><code>   getStringsLength([ &#x27;&#x27;, &#x27;a&#x27;, &#x27;bc&#x27;, &#x27;def&#x27;, &#x27;ghij&#x27; ]) =&gt; [ 0, 1, 2, 3, 4 ]
+   getStringsLength([ &#x27;angular&#x27;, &#x27;react&#x27;, &#x27;ember&#x27; ]) =&gt; [ 7, 5, 5 ]</code></pre>
+<p><code>map</code> заменяет каждую строку её длиной; длина нового массива та же.</p>
+<pre><code>function getStringsLength(arr) {
+  return arr.map((str) =&gt; str.length);
+}</code></pre>
+<h3 id="arr-average">7. getAverage — среднее с округлением</h3>
+<pre><code>  getAverage([]) =&gt; 0
+  getAverage([ 1, 2, 3 ]) =&gt; 2
+  getAverage([ -1, 1, -1, 1 ]) =&gt; 0
+  getAverage([ 1, 10, 100, 1000 ])  =&gt; 277,75
+  getAverage([ 2, 3, 3 ])  =&gt; 2,67</code></pre>
+<p>Сумму считает <code>reduce</code> с начальным значением 0 — без него на пустом массиве была бы ошибка. Но пустой массив обрабатываем раньше: иначе получилось бы <code>0 / 0 = NaN</code>, а нужно 0. <code>toFixed(2)</code> округляет до двух знаков, но возвращает строку <code>'2.67'</code>, поэтому оборачиваем в <code>Number</code>. В условии написано «277,75» с запятой — это просто запись, ожидается число 277.75.</p>
+<pre><code>function getAverage(arr) {
+  if (arr.length === 0) return 0;
+  const sum = arr.reduce((acc, n) =&gt; acc + n, 0);
+  return Number((sum / arr.length).toFixed(2));
+}</code></pre>
+<h3 id="arr-same">8. isSameLength — одинаковой ли длины строки</h3>
+<pre><code>   isSameLength([&#x27;orange&#x27;, &#x27;banana&#x27;, &#x27;cherry&#x27;]) =&gt; true
+   isSameLength([&#x27;cat&#x27;, &#x27;dog&#x27;, &#x27;elephant&#x27;]) =&gt; false</code></pre>
+<p><code>every</code> возвращает <code>true</code>, если условие верно для всех элементов. Сравниваем каждую строку с длиной первой. На пустом массиве <code>every</code> сразу даёт <code>true</code> («нет ни одного нарушителя»), и <code>arr[0]</code> даже не читается.</p>
+<pre><code>function isSameLength(arr) {
+  return arr.every((str) =&gt; str.length === arr[0].length);
+}</code></pre>
+<h3 id="arr-value-index">9. isValueEqualsIndex — есть ли значение, равное индексу</h3>
+<pre><code>   isValueEqualsIndex([0, 1, 2, 3, 4]) =&gt; true
+   isValueEqualsIndex([2, 1, 0, 4, 5]) =&gt; true
+   isValueEqualsIndex([10, 20, 30, 40, 50]) =&gt; false</code></pre>
+<p><code>some</code> останавливается на первом элементе, для которого условие верно. Колбэк получает и значение, и индекс — их и сравниваем.</p>
+<pre><code>function isValueEqualsIndex(arr) {
+  return arr.some((value, index) =&gt; value === index);
+}</code></pre>
+<h3 id="arr-balance">10. calculateBalance — итоговый баланс</h3>
+<pre><code>  calculateBalance([ [ 10, 8 ], [ 5, 1 ] ]) =&gt; (10 - 8) + (5 - 1) = 2 + 4 = 6
+  calculateBalance([ [ 10, 8 ], [ 1, 5 ] ])  =&gt; (10 - 8) + (1 - 5) = 2 + -4 = -2
+  calculateBalance([]) =&gt; 0</code></pre>
+<p>Каждый элемент — пара <code>[доход, расход]</code>. Деструктуризация в параметрах колбэка (<code>[income, expense]</code>) сразу раскладывает пару на две переменные, а <code>reduce</code> копит разницу. Начальное значение 0 даёт правильный ответ для пустого массива.</p>
+<pre><code>function calculateBalance(arr) {
+  return arr.reduce(
+    (balance, [income, expense]) =&gt; balance + income - expense,
+    0
+  );
+}</code></pre>
+<h3 id="arr-falsy-count">11. getFalsyValuesCount — сколько ложных значений</h3>
+<pre><code> getFalsyValuesCount([]) =&gt; 0
+ getFalsyValuesCount([ 1, &#x27;&#x27;, 3 ]) =&gt; 1
+ getFalsyValuesCount([ -1, &#x27;false&#x27;, null, 0 ]) =&gt; 2
+ getFalsyValuesCount([ null, undefined, NaN, false, 0, &#x27;&#x27; ]) =&gt; 6</code></pre>
+<p>Обратная задача к removeFalsyValues: оставляем элементы, для которых <code>!value</code> истинно, и берём длину.</p>
+<pre><code>function getFalsyValuesCount(arr) {
+  return arr.filter((value) =&gt; !value).length;
+}</code></pre>
+</section>

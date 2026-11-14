@@ -1,0 +1,20 @@
+<section id="arr-start">
+<h2>Задание и правила</h2>
+<p><a href="https://github.com/rolling-scopes-school/core-js-arrays">core-js-arrays</a> — набор из 33 функций, которые нужно реализовать в файле <code>src/arrays-tasks.js</code>. Цель — научиться работать с методами массивов. Условие каждой задачи — в комментарии над функцией, примеры — в разделе <code>@example</code>, а если формулировка непонятна, загляните в тесты: <code>test/arrays-tests.js</code>.</p>
+<h3 id="arr-setup">Как запустить и сдать</h3>
+<ol>
+<li>Сделать форк репозитория на GitHub и склонировать <b>свой</b> форк.</li>
+<li><code>npm install</code> — поставить зависимости (Mocha для тестов, ESLint с правилами airbnb и Prettier). Нужен <a href="/lessons/node-basics">Node.js</a>, лучше 22-й версии: методы, которых нет в Node.js 22, проверяющая система не засчитает.</li>
+<li>В функции раскомментировать параметры, удалить строку <code>throw new Error('Not implemented')</code> и написать решение.</li>
+<li><code>npm test</code> — сначала запускается линтер, потом тесты. Нерешённые задачи показываются как pending, решённые — зелёными.</li>
+<li>Закоммитить и запушить в свой форк, в RS App на странице сдачи выбрать задание и нажать Submit.</li>
+</ol>
+<div class="warn"><b>Ограничения, за которые снимают баллы</b><ul>
+<li><b>Любая ошибка или предупреждение ESLint — 0 баллов за всё задание.</b> Перед сдачей запускайте <code>npm run lint</code>, автоисправление — <code>npm run lint:fix</code> (урок <a href="/lessons/linters-formatters">«Линтеры, форматтеры и Husky»</a>). На Windows частая причина ошибок — переводы строк CRLF; README советует настроить <a href="/lessons/git-recap">Git</a> на «Checkout as-is, commit as-is» и поставить плагин EditorConfig.</li>
+<li><b>Циклы запрещены.</b> Тест проверяет текст каждой функции и падает, если находит <code>for (</code>, <code>while (</code> или <code>.forEach(</code>. Всё решается методами массивов.</li>
+<li><b>Для части задач нужен конкретный метод.</b> Тесты «optimal implementation» ищут в коде функции слово: <code>from</code>, <code>indexOf</code>, <code>filter</code>, <code>map</code>, <code>reduce</code>, <code>every</code>, <code>some</code>, <code>splice</code>, <code>slice</code>, <code>concat</code>, <code>join</code>, <code>Set</code>, <code>fill</code>, <code>flat</code>, <code>flatMap</code>. Решение, которое работает, но обходится без нужного метода, не пройдёт этот тест.</li>
+<li>Каждый тест должен уложиться в 30 секунд.</li>
+<li>Пул-реквест с ответами в оригинальный репозиторий открывать нельзя — только свой форк.</li>
+</ul></div>
+<p>Решения ниже — один из возможных вариантов, не единственно правильный. Они прошли все 49 тестов задания и линтер в Node.js 22. Полезнее сначала решить самому и сравнить, чем переписать: тест в RS App и собеседования проверяют, понимаете ли вы, <i>почему</i> выбран метод. Справка по всем методам — <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array">MDN: Array</a>, теория — уроки <a href="/lessons/basic-js">BasicJS</a> и <a href="/lessons/fp-basics">«Основы функционального программирования»</a> (чистые функции и неизменяемость).</p>
+</section>

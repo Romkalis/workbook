@@ -1,6 +1,6 @@
 <section id="ds-iterate">
 <h2>Обход массива: циклы и методы</h2>
-<p>Почти любая задача на массив начинается с прохода по элементам. В JavaScript для этого есть обычный цикл <code>for</code>, цикл <code>for...of</code> и методы массива: <code>forEach</code>, <code>map</code>, <code>filter</code>, <code>find</code>, <code>some</code>, <code>every</code>, <code>reduce</code>. Все они делают проход за O(n), но отвечают на разные вопросы. Если выбрать метод по вопросу, код становится короче и понятнее.</p>
+<p>Почти любая задача на массив начинается с прохода по элементам. В JavaScript для этого есть обычный цикл <code>for</code>, цикл <code>for...of</code> и <a href="/lessons/core-js-arrays">методы массива</a>: <code>forEach</code>, <code>map</code>, <code>filter</code>, <code>find</code>, <code>some</code>, <code>every</code>, <code>reduce</code>. Все они делают проход за O(n), но отвечают на разные вопросы. Если выбрать метод по вопросу, код становится короче и понятнее.</p>
 <p>Методу передают функцию, которую он вызывает для каждого элемента. Такую функцию называют <strong>колбэком</strong> (callback, «обратный вызов»). Колбэк, который возвращает <code>true</code> или <code>false</code>, называют <strong>предикатом</strong>: он отвечает на вопрос «подходит ли элемент?».</p>
 <h3 id="ds-iterate-methods">Какой метод на какой вопрос отвечает</h3>
 <div class="tbl"><table><thead><tr><th scope="col">Вопрос</th><th scope="col">Метод</th><th scope="col">Что вернёт</th><th scope="col">Проходит до конца?</th></tr></thead><tbody>

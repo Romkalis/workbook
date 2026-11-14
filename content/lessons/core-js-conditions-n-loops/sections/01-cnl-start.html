@@ -1,0 +1,13 @@
+<section id="cnl-start">
+<h2>Задание и правила</h2>
+<p><a href="https://github.com/rolling-scopes-school/core-js-conditions-n-loops-tasks">core-js-conditions-n-loops-tasks</a> — 15 функций в файле <code>src/conditions-n-loops-tasks.js</code> на условия (<code>if</code>, <code>switch</code>, тернарный оператор) и циклы (<code>for</code>, <code>while</code>, <code>do...while</code>). Запуск и сдача такие же, как у <a href="/lessons/core-js-arrays#arr-setup">core-js-arrays</a>: форк, <code>npm install</code>, решение, <code>npm test</code>, пуш в форк, Submit в RS App.</p>
+<div class="warn"><b>Что проверяют тесты</b><ul>
+<li><b>Запрещённые методы.</b> Файл <code>extensions/forbidden.js</code> ищет в тексте функции вызовы методов: для массивов — <code>.push(</code>, <code>.map(</code>, <code>.slice(</code>, <code>.join(</code>, <code>.indexOf(</code>, <code>.toString(</code> и ещё три десятка; для строк — <code>.split(</code>, <code>.charAt(</code>, <code>.includes(</code> и подобные; для отдельных задач — <code>Math.</code> и <code>Number.</code>. Какие запреты действуют, написано в условии каждой задачи.</li>
+<li><b>Комментарии внутри функции запрещены.</b> Проверка ищет <code>//</code> и <code>*/</code> в тексте функции — даже безобидный поясняющий комментарий провалит тест.</li>
+<li><b>Тесты на скорость.</b> <code>sortByAsc</code> (7500 чисел за 35 мс), <code>shuffleChar</code> (1000 символов, 10 000 итераций за 30 мс) и <code>getNearestBigger</code> (16-значное число за 10 мс). Решения «в лоб» их не проходят.</li>
+<li><b>Обязательный <code>switch</code></b> в <code>convertNumberToString</code>.</li>
+<li><b>Эталонные решения</b> зашиты в тесты в обфусцированном (специально запутанном) виде — с ними сравниваются ответы на случайных данных.</li>
+<li>Как и в других заданиях, <b>любая ошибка <a href="/lessons/linters-formatters#lf-eslint">ESLint</a> — 0 баллов</b>. Правила airbnb запрещают, например, побитовые операторы (<code>&gt;&gt;</code>, <code>|</code>) — правило <code>no-bitwise</code> — и изменение свойств параметров функции — <code>no-param-reassign</code>.</li>
+</ul></div>
+<p>Что остаётся разрешённым: обращение по индексу <code>str[i]</code> и <code>arr[i] = x</code>, свойство <code>length</code> (это не метод), литералы <code>[]</code>, склейка строк <code>+</code> и шаблонные строки. Решения ниже прошли все 19 тестов 40 запусков подряд и линтер в <a href="/lessons/node-basics">Node.js</a> 22. Теория по сложности алгоритмов, сортировкам и матрицам — в уроке <a href="/lessons/data-structures-and-algorithms">«Алгоритмы и структуры данных»</a>.</p>
+</section>

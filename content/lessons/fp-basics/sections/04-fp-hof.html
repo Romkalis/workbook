@@ -9,7 +9,7 @@ actions.map((fn) =&gt; fn('Аня')); // ['Привет, Аня', 'АНЯ']</cod
 const twice = (fn) =&gt; (x) =&gt; fn(fn(x));
 const inc = (x) =&gt; x + 1;
 twice(inc)(5); // 7</code></pre>
-<p>Самые частые HOF — методы массивов: <code>map</code> (преобразовать каждый элемент), <code>filter</code> (оставить подходящие), <code>reduce</code> (свернуть в одно значение), <code>some</code>, <code>every</code>, <code>find</code>. Функция, которая возвращает <code>true</code> или <code>false</code>, называется <strong>предикатом</strong>: <code>filter</code> и <code>every</code> принимают предикаты.</p>
+<p>Самые частые HOF — <a href="/lessons/core-js-arrays">методы массивов</a>: <code>map</code> (преобразовать каждый элемент), <code>filter</code> (оставить подходящие), <code>reduce</code> (свернуть в одно значение), <code>some</code>, <code>every</code>, <code>find</code>. Функция, которая возвращает <code>true</code> или <code>false</code>, называется <strong>предикатом</strong>: <code>filter</code> и <code>every</code> принимают предикаты.</p>
 <h3 id="fp-own-map">Как устроены map и filter</h3>
 <p>Две задачи Codewars из модуля просят написать <code>map</code> и <code>filter</code> самостоятельно. Вот чистые версии через <code>reduce</code>:</p>
 <pre><code>const map = (arr, fn) =&gt;

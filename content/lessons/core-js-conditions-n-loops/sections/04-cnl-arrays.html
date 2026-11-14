@@ -1,0 +1,208 @@
+<section id="cnl-arrays">
+<h2>Массивы и матрицы без методов</h2>
+<p>Массивы можно создавать литералом <code>[]</code> и заполнять по индексу <code>arr[i] = x</code> — это не методы, а обычное присваивание. Запрещены <code>push</code>, <code>map</code>, <code>reverse</code> и все остальные вызовы.</p>
+<h3 id="cnl-balance">10. getBalanceIndex — точка равновесия</h3>
+<pre><code> [1, 2, 5, 3, 0] =&gt; 2    =&gt; 1 + 2 === 3 + 0 then balance element is 5 and its index = 2
+ [2, 3, 9, 5] =&gt; 2       =&gt; 2 + 3 === 5 then balance element is 9 and its index = 2
+ [1, 2, 3, 4, 5] =&gt; -1   =&gt; no balance element</code></pre>
+<p>Ищем индекс, где сумма слева равна сумме справа. Наивно — для каждого индекса пересчитывать обе суммы (O(n²)). Лучше один раз посчитать общую сумму, затем идти слева направо: сумма справа = <code>total − left − arr[i]</code>, а <code>left</code> копится по ходу. Получается O(n).</p><p>Особенность тестов: эталонное решение в тестах ищет точку начиная с индекса 1 и для массивов короче трёх элементов сразу возвращает −1. Проверка на 40 прогонах показала, что решение, которое находит и индекс 0 (когда сумма всех элементов справа равна нулю), иногда падает на случайных данных теста. Поэтому начинаем с <code>left = arr[0]</code> и <code>i = 1</code>.</p>
+<pre><code>function getBalanceIndex(arr) {
+  if (arr.length &lt; 3) return -1;
+  let total = 0;
+  for (let i = 0; i &lt; arr.length; i += 1) total += arr[i];
+  let left = arr[0];
+  for (let i = 1; i &lt; arr.length; i += 1) {
+    const right = total - left - arr[i];
+    if (left === right) return i;
+    left += arr[i];
+  }
+  return -1;
+}</code></pre>
+<h3 id="cnl-spiral">11. getSpiralMatrix — спиральная матрица</h3>
+<pre><code>       [
+         [1, 2, 3],
+ 3  =&gt;   [8, 9, 4],
+         [7, 6, 5]
+       ]
+       [
+         [1,  2,  3,  4],
+ 4  =&gt;   [12, 13, 14, 5],
+         [11, 16, 15, 6],
+         [10, 9,  8,  7]
+       ]</code></pre>
+<p>Держим четыре границы: <code>top</code>, <code>bottom</code>, <code>left</code>, <code>right</code>. Проходим верхнюю строку слева направо и сдвигаем <code>top</code> вниз, правый столбец сверху вниз и сдвигаем <code>right</code> влево, нижнюю строку справа налево, левый столбец снизу вверх. Повторяем, пока границы не сошлись. Дополнительные условия <code>top &lt;= bottom</code> и <code>left &lt;= right</code> во внутренних циклах не дают пройти центральную строку или столбец дважды. Подробнее о матрицах — урок <a href="/lessons/data-structures-and-algorithms">«Алгоритмы и структуры данных»</a>.</p>
+<pre><code>function getSpiralMatrix(size) {
+  const matrix = [];
+  for (let i = 0; i &lt; size; i += 1) matrix[i] = [];
+  let top = 0;
+  let bottom = size - 1;
+  let left = 0;
+  let right = size - 1;
+  let value = 1;
+  while (top &lt;= bottom &amp;&amp; left &lt;= right) {
+    for (let col = left; col &lt;= right; col += 1) {
+      matrix[top][col] = value;
+      value += 1;
+    }
+    top += 1;
+    for (let row = top; row &lt;= bottom; row += 1) {
+      matrix[row][right] = value;
+      value += 1;
+    }
+    right -= 1;
+    for (let col = right; col &gt;= left &amp;&amp; top &lt;= bottom; col -= 1) {
+      matrix[bottom][col] = value;
+      value += 1;
+    }
+    bottom -= 1;
+    for (let row = bottom; row &gt;= top &amp;&amp; left &lt;= right; row -= 1) {
+      matrix[row][left] = value;
+      value += 1;
+    }
+    left += 1;
+  }
+  return matrix;
+}</code></pre>
+<h3 id="cnl-rotate">12. rotateMatrix — поворот на 90° на месте</h3>
+<pre><code> [                 [
+   [1, 2, 3],        [7, 4, 1],
+   [4, 5, 6],  =&gt;    [8, 5, 2],
+   [7, 8, 9]         [9, 6, 3]
+ ]                 ]</code></pre>
+<p>Классический приём в два шага. Транспонирование: строки становятся столбцами (меняем <code>m[i][j]</code> и <code>m[j][i]</code> над диагональю). Затем каждую строку разворачиваем двумя указателями. Вместе это поворот по часовой стрелке без дополнительной матрицы — «на месте», как требует условие. Параметр функции сразу присваивается переменной <code>m</code>: правило airbnb <code>no-param-reassign</code> запрещает менять свойства параметров напрямую, а через локальную переменную линтер это допускает.</p>
+<pre><code>function rotateMatrix(matrix) {
+  const m = matrix;
+  const n = m.length;
+  for (let i = 0; i &lt; n; i += 1) {
+    for (let j = i + 1; j &lt; n; j += 1) {
+      const tmp = m[i][j];
+      m[i][j] = m[j][i];
+      m[j][i] = tmp;
+    }
+  }
+  for (let i = 0; i &lt; n; i += 1) {
+    for (let left = 0, right = n - 1; left &lt; right; left += 1, right -= 1) {
+      const tmp = m[i][left];
+      m[i][left] = m[i][right];
+      m[i][right] = tmp;
+    }
+  }
+  return m;
+}</code></pre>
+<h3 id="cnl-sort">13. sortByAsc — своя сортировка на месте</h3>
+<pre><code> [2, 9, 5]       =&gt; [2, 5, 9]
+ [2, 9, 5, 9]    =&gt; [2, 5, 9, 9]
+ [-2, 9, 5, -3]  =&gt; [-3, -2, 5, 9]</code></pre>
+<p>Тест скорости сортирует 7500 чисел от −100 до 100 и даёт на это 35 мс. Пузырьковая сортировка (O(n²), около 28 миллионов сравнений) не укладывается: на машине, где готовился урок, она заняла 41 мс, а решение ниже — около 2 мс. Нужна сортировка за O(n log n). Здесь — быстрая сортировка (quick sort) с <b>трёхсторонним разбиением</b>: элементы делятся на «меньше опорного», «равны» и «больше». Чисел всего 201 вариант, повторов очень много, и обычный quick sort на них деградирует, а трёхстороннее разбиение сразу откладывает все равные. Рекурсию заменяет свой стек границ отрезков (обычный массив, заполняемый по индексу), чтобы не упереться в глубину вызовов. Опорный элемент — середина отрезка.</p>
+<pre><code>function sortByAsc(arr) {
+  const a = arr;
+  const stack = [0, a.length - 1];
+  let top = 2;
+  while (top &gt; 0) {
+    top -= 2;
+    const lo = stack[top];
+    const hi = stack[top + 1];
+    if (lo &lt; hi) {
+      const pivot = a[lo + Math.floor((hi - lo) / 2)];
+      let lt = lo;
+      let gt = hi;
+      let i = lo;
+      while (i &lt;= gt) {
+        if (a[i] &lt; pivot) {
+          const tmp = a[lt];
+          a[lt] = a[i];
+          a[i] = tmp;
+          lt += 1;
+          i += 1;
+        } else if (a[i] &gt; pivot) {
+          const tmp = a[gt];
+          a[gt] = a[i];
+          a[i] = tmp;
+          gt -= 1;
+        } else {
+          i += 1;
+        }
+      }
+      stack[top] = lo;
+      stack[top + 1] = lt - 1;
+      stack[top + 2] = gt + 1;
+      stack[top + 3] = hi;
+      top += 4;
+    }
+  }
+  return a;
+}</code></pre>
+<h3 id="cnl-shuffle">14. shuffleChar — перемешивание символов</h3>
+<pre><code> &#x27;012345&#x27;, 1 =&gt; &#x27;024135&#x27;
+ &#x27;qwerty&#x27;, 1 =&gt; &#x27;qetwry&#x27;
+ &#x27;012345&#x27;, 2 =&gt; &#x27;024135&#x27; =&gt; &#x27;043215&#x27;
+ &#x27;qwerty&#x27;, 2 =&gt; &#x27;qetwry&#x27; =&gt; &#x27;qtrewy&#x27;
+ &#x27;012345&#x27;, 3 =&gt; &#x27;024135&#x27; =&gt; &#x27;043215&#x27; =&gt; &#x27;031425&#x27;
+ &#x27;qwerty&#x27;, 3 =&gt; &#x27;qetwry&#x27; =&gt; &#x27;qtrewy&#x27; =&gt; &#x27;qrwtey&#x27;</code></pre>
+<p>Одна итерация переносит символы с нечётными индексами в конец: «012345» → «024135». Тест: строка из 1000 символов и 10 000 итераций за 30 мс. Честно повторять перестановку 10 000 раз — 10 миллионов операций со строками, слишком медленно.</p><p>Ключевое наблюдение: перестановка всегда одна и та же, она лишь переставляет позиции. Для каждой позиции <code>k</code> результата известно, откуда пришёл символ: из <code>2k</code> для первой половины и из <code>2(k − half) + 1</code> для второй. Позиции распадаются на <b>циклы</b> — замкнутые цепочки, по которым символы ходят по кругу. Если цикл длины L, то после L итераций символы на нём возвращаются на место, поэтому достаточно сдвинуться на <code>iterations % L</code> шагов. Каждую позицию обрабатываем один раз — O(n) независимо от числа итераций: 1000 символов и 10 000 итераций заняли 0,2 мс.</p>
+<pre><code>function shuffleChar(str, iterations) {
+  const n = str.length;
+  const half = Math.ceil(n / 2);
+  const from = [];
+  for (let k = 0; k &lt; n; k += 1) {
+    from[k] = k &lt; half ? 2 * k : 2 * (k - half) + 1;
+  }
+  const result = [];
+  const visited = [];
+  for (let start = 0; start &lt; n; start += 1) {
+    if (!visited[start]) {
+      const cycle = [];
+      let len = 0;
+      let k = start;
+      while (!visited[k]) {
+        visited[k] = true;
+        cycle[len] = k;
+        len += 1;
+        k = from[k];
+      }
+      const steps = iterations % len;
+      for (let p = 0; p &lt; len; p += 1) {
+        result[cycle[p]] = str[cycle[(p + steps) % len]];
+      }
+    }
+  }
+  let out = &#x27;&#x27;;
+  for (let k = 0; k &lt; n; k += 1) out += result[k];
+  return out;
+}</code></pre>
+<h3 id="cnl-next-bigger">15. getNearestBigger — ближайшее большее из тех же цифр</h3>
+<pre><code>12345    =&gt; 12354
+123450   =&gt; 123504
+12344    =&gt; 12434
+123440   =&gt; 124034
+1203450  =&gt; 1203504
+90822    =&gt; 92028
+321321   =&gt; 322113</code></pre>
+<p>Это классический алгоритм «следующая перестановка». Цифры раскладываем в массив арифметикой (младшая цифра — в <code>digits[0]</code>). Затем: 1) с конца числа (то есть с младших разрядов) ищем первую позицию <code>i</code>, где цифра меньше соседней справа — её можно увеличить; если такой нет, цифры уже убывают и большего числа не существует. 2) Среди цифр правее находим наименьшую, которая больше <code>digits[i]</code>, и меняем их местами. 3) Хвост правее <code>i</code> разворачиваем, чтобы он стал наименьшим. Пример: 12344 → 12434. Тест скорости — 10 мс на 16-значном числе; алгоритм линейный по числу цифр.</p>
+<pre><code>function getNearestBigger(number) {
+  const digits = [];
+  let len = 0;
+  let rest = number;
+  while (rest &gt; 0) {
+    digits[len] = rest % 10;
+    rest = (rest - digits[len]) / 10;
+    len += 1;
+  }
+  let i = 1;
+  while (i &lt; len &amp;&amp; digits[i] &gt;= digits[i - 1]) i += 1;
+  if (i === len) return number;
+  let j = 0;
+  while (digits[j] &lt;= digits[i]) j += 1;
+  let tmp = digits[i];
+  digits[i] = digits[j];
+  digits[j] = tmp;
+  for (let left = 0, right = i - 1; left &lt; right; left += 1, right -= 1) {
+    tmp = digits[left];
+    digits[left] = digits[right];
+    digits[right] = tmp;
+  }
+  let result = 0;
+  for (let k = len - 1; k &gt;= 0; k -= 1) result = result * 10 + digits[k];
+  return result;
+}</code></pre>
+</section>

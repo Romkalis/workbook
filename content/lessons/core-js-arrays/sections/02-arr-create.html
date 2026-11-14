@@ -1,0 +1,48 @@
+<section id="arr-create">
+<h2>Создание массивов и поиск</h2>
+<p>Первая группа — создать массив нужной длины и найти в нём элемент. Главный инструмент — <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array/from"><code>Array.from</code></a>: он создаёт массив из «похожего на массив» объекта и сразу пропускает каждый элемент через функцию.</p>
+<h3 id="arr-interval">1. getIntervalArray — числа от start до end</h3>
+<pre><code>   getIntervalArray(1, 5)  =&gt; [ 1, 2, 3, 4, 5 ]
+   getIntervalArray(-2, 2)  =&gt; [ -2, -1, 0, 1, 2 ]
+   getIntervalArray(0, 100) =&gt; [ 0, 1, 2, ..., 100 ]
+   getIntervalArray(3, 3) =&gt; [ 3 ]</code></pre>
+<p>Длина интервала включительно — <code>end - start + 1</code>. <code>Array.from({ length })</code> создаёт массив такой длины, а второй аргумент получает индекс <code>i</code> и превращает его в число <code>start + i</code>. Объект <code>{ length: 5 }</code> — «похожий на массив»: у него есть длина, но нет элементов, поэтому первый параметр функции (значение) не нужен, его называют <code>_</code>. Тест «оптимальной реализации» проверяет, что в коде есть <code>from</code>.</p>
+<pre><code>function getIntervalArray(start, end) {
+  return Array.from({ length: end - start + 1 }, (_, i) =&gt; start + i);
+}</code></pre>
+<h3 id="arr-sum">2. sumArrays — поэлементная сумма двух массивов</h3>
+<pre><code>   sumArrays([1, 2, 3], [4, 5, 6]) =&gt; [5, 7, 9]
+   sumArrays([10, 20, 30], [5, 10, 15]) =&gt; [15, 30, 45]
+   sumArrays([-1, 0, 1], [1, 2, 3, 4]) =&gt; [0, 2, 4, 4]</code></pre>
+<p>Массивы бывают разной длины, поэтому длина результата — большая из двух. Когда в коротком массиве элемента нет, <code>arr[i]</code> даёт <code>undefined</code>, и оператор <code>??</code> подставляет 0. <code>??</code> заменяет только <code>null</code> и <code>undefined</code>, а настоящий 0 оставляет как есть — в отличие от <code>||</code>, который здесь тоже сработал бы, но в других задачах заменил бы и 0.</p>
+<pre><code>function sumArrays(arr1, arr2) {
+  const length = Math.max(arr1.length, arr2.length);
+  return Array.from({ length }, (_, i) =&gt; (arr1[i] ?? 0) + (arr2[i] ?? 0));
+}</code></pre>
+<h3 id="arr-find">3. findElement — индекс элемента</h3>
+<pre><code>   findElement([&#x27;Ace&#x27;, 10, true], 10) =&gt; 1
+   findElement([&#x27;Array&#x27;, &#x27;Number&#x27;, &#x27;string&#x27;], &#x27;Date&#x27;) =&gt; -1
+   findElement([0, 1, 2, 3, 4, 5], 5) =&gt; 5</code></pre>
+<p>Ровно то, что делает <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array/indexOf"><code>indexOf</code></a>: возвращает индекс первого совпадения или −1. Сравнение строгое (<code>===</code>), поэтому <code>10</code> и <code>'10'</code> — разные значения.</p>
+<pre><code>function findElement(arr, value) {
+  return arr.indexOf(value);
+}</code></pre>
+<h3 id="arr-occurrences">4. findAllOccurrences — сколько раз встречается</h3>
+<pre><code>   findAllOccurrences([ 0, 0, 1, 1, 1, 2 ], 1) =&gt; 3
+   findAllOccurrences([ 1, 2, 3, 4, 5 ], 0) =&gt; 0
+   findAllOccurrences([ &#x27;a&#x27;,&#x27;b&#x27;,&#x27;c&#x27;,&#x27;c&#x27; ], &#x27;c&#x27;) =&gt; 2
+   findAllOccurrences([ null, undefined, null ], null) =&gt; 2
+   findAllOccurrences([ true, 0, 1, &#x27;true&#x27; ], true) =&gt; 1</code></pre>
+<p><a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array/filter"><code>filter</code></a> оставляет только совпадающие элементы, длина результата — их число. Строгое сравнение важно: в примере <code>[true, 0, 1, 'true']</code> с <code>true</code> совпадает только сам <code>true</code>. Альтернатива без лишнего массива — <code>reduce</code> со счётчиком.</p>
+<pre><code>function findAllOccurrences(arr, item) {
+  return arr.filter((el) =&gt; el === item).length;
+}</code></pre>
+<h3 id="arr-falsy">5. removeFalsyValues — убрать ложные значения</h3>
+<pre><code>   removeFalsyValues([ 0, false, &#x27;cat&#x27;, NaN, true, &#x27;&#x27; ]) =&gt; [ &#x27;cat&#x27;, true ]
+   removeFalsyValues([ 1, 2, 3, 4, 5, &#x27;false&#x27; ]) =&gt; [ 1, 2, 3, 4, 5, &#x27;false&#x27; ]
+   removeFalsyValues([ false, 0, NaN, &#x27;&#x27;, undefined ]) =&gt; [ ]</code></pre>
+<p>Ложные (falsy) значения — <code>false</code>, <code>0</code>, <code>''</code>, <code>null</code>, <code>undefined</code>, <code>NaN</code>. <code>filter(Boolean)</code> передаёт каждый элемент в функцию <code>Boolean</code>, которая возвращает <code>false</code> ровно для них. Строка <code>'false'</code> непустая, поэтому остаётся.</p>
+<pre><code>function removeFalsyValues(arr) {
+  return arr.filter(Boolean);
+}</code></pre>
+</section>
