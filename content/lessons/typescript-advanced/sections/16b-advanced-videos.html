@@ -1,0 +1,50 @@
+<section id="advanced-videos">
+<h2>Что показывают видео и статьи модуля</h2>
+<p>Программа модуля советует плейлист «Webpack &amp; TypeScript Setup» (7 коротких видео), ролик об утилитных типах и две статьи freeCodeCamp. Они разобраны по расшифровкам и тексту; ниже — что в них полезно и что устарело.</p>
+
+<h3 id="advanced-videos-webpack">Плейлист «Webpack &amp; TypeScript Setup»</h3>
+<p>В <a href="https://youtube.com/playlist?list=PL4cUxeGkcC9hOkGbwzgYFmaxB0WiduYJC">плейлисте</a> автор канала Net Ninja собирает проект без фреймворков: TypeScript в папке <code>src</code>, готовые файлы в <code>public</code>, Webpack склеивает всё в один <code>bundle.js</code>. По шагам:</p>
+<ol>
+<li><b>Зачем Webpack.</b> Это сборщик (bundler): он берёт исходники, прогоняет через загрузчики (TypeScript → JavaScript, SASS → CSS) и выдаёт файлы, готовые для браузера. Подробнее о сборщиках — в уроке <a href="/lessons/modules-in-js#mod-loaders">«Модули в JavaScript»</a>.</li>
+<li><b>Установка.</b> <code>tsc --init</code> создаёт <code>tsconfig.json</code>, затем ставятся dev-зависимости: <code>webpack</code> (ядро), <code>webpack-cli</code> (команды в терминале), <code>ts-loader</code> (учит Webpack компилировать TypeScript) и локальный <code>typescript</code>.</li>
+<li><b>Конфиг.</b> Файл <code>webpack.config.js</code> экспортирует объект через <code>module.exports</code> (его читает Node.js). Главное: <code>entry</code> — точка входа, <code>output</code> — имя и абсолютный путь итогового файла (через <code>path.resolve(__dirname, 'public')</code>), правило <code>module.rules</code> с регулярным выражением <code>/\.ts$/</code> — «файлы, которые оканчиваются на .ts, отдавать ts-loader».</li>
+<li><b>Dev-сервер</b> пересобирает проект при сохранении и держит результат в памяти, а не на диске.</li>
+<li><b>Модули.</b> Код делится на файлы через <code>import</code> и <code>export</code>; чтобы Webpack находил <code>import './forms'</code> без расширения, нужен <code>resolve.extensions: ['.ts', '.js']</code>.</li>
+<li><b>Source maps</b> связывают собранный <code>bundle.js</code> с исходными <code>.ts</code>: ошибки в консоли и точки останова в DevTools показывают ваш TypeScript, а не склеенный код. В <code>tsconfig</code> включают <code>sourceMap</code>, в конфиге Webpack — <code>devtool</code>.</li>
+<li><b>Режим</b> <code>mode: 'development'</code> или <code>'production'</code> убирает предупреждение и включает оптимизации для выбранного режима (в production — минификация).</li>
+</ol>
+<p>Плейлист записан для Webpack 4, поэтому две вещи сейчас делаются иначе. Команда <code>webpack-dev-server</code> заменена на <code>webpack serve</code>, а папка для раздачи указывается не через <code>output.publicPath</code>, как в видео, а через <code>devServer.static</code>. Актуальный конфиг, проверенный с Webpack 5.112, webpack-cli 7.3, webpack-dev-server 6.1, ts-loader 9.6 и TypeScript 5.9:</p>
+<pre><code>const path = require('node:path');
+
+module.exports = {
+  mode: 'development',
+  entry: './src/index.ts',
+  devtool: 'eval-source-map',
+  module: {
+    rules: [{ test: /\.ts$/, use: 'ts-loader', include: path.resolve(__dirname, 'src') }],
+  },
+  resolve: { extensions: ['.ts', '.js'] },
+  output: { filename: 'bundle.js', path: path.resolve(__dirname, 'public') },
+  devServer: { static: path.resolve(__dirname, 'public'), port: 8085 },
+};</code></pre>
+<p>Результат проверки: <code>npx webpack</code> собрал <code>public/bundle.js</code> с встроенными картами исходников; <code>npx webpack serve</code> поднял сервер, и <code>bundle.js</code> отдавался по адресу <code>localhost:8085</code>. Без строки <code>resolve</code> сборка упала с ошибкой «Can't resolve './forms'» — ровно как в видео. Полная настройка проекта для News API — в разделе <a href="#advanced-webpack-install">«Сборка TypeScript с Webpack»</a>.</p>
+<div class="warn"><b>TypeScript 7 и ts-loader</b><p>Сейчас <code>npm install typescript</code> ставит TypeScript 7 — новую версию компилятора, переписанную на Go. Команда <code>tsc</code> в ней работает как раньше (проверено: ошибка типа в файле нашлась). Но часть инструментов, которые подключаются к компилятору изнутри, её ещё не поддерживает. С TypeScript 7.0.2 <code>ts-loader</code> 9.6 упал с ошибкой «Cannot read properties of undefined (reading 'fileExists')», а <code>typescript-eslint</code> 8.72 требует TypeScript ниже 6.1 и не установился поверх версии 7. Если проект собирается Webpack с <code>ts-loader</code> или проверяется typescript-eslint, фиксируйте версию: <code>npm install --save-dev typescript@5.9</code>. При установке TypeScript и typescript-eslint <i>одной</i> командой npm сам выбирает совместимую 5.9.3.</p></div>
+
+<h3 id="advanced-videos-utility">Видео «Utility Types — Advanced TypeScript»</h3>
+<p>В <a href="https://youtu.be/Fgcu_iB2X04">ролике</a> утилитные типы разобраны на примере звездолётов. Полезные примеры, которых нет в разделах урока выше:</p>
+<ul>
+<li><b>Partial</b> для функции частичного обновления: <code>updateStarship(id: number, starship: Partial&lt;Starship&gt;)</code> позволяет передать только <code>name</code>.</li>
+<li><b>Exclude и Extract</b> на напитках: из <code>'coffee' | 'tea' | 'orange juice' | 'lemonade'</code> исключаем то, что Джейн не пьёт, и TypeScript не даст «налить» ей кофе. <code>Extract</code> с вариантом <code>'mojito'</code>, которого нет в меню, просто его отбросит.</li>
+<li><b>NonNullable</b> работает так, как ожидается, только при <code>strictNullChecks</code>: автор показывает, что без этого флага <code>null</code> и <code>undefined</code> можно присвоить любому типу. В режиме <code>strict</code> флаг включён (урок <a href="/lessons/typescript-basic">«TypeScript: основы»</a>).</li>
+<li><b>InstanceType</b> по-настоящему нужен с миксинами (урок <a href="/lessons/design-patterns#patterns-lecture-poland">о паттернах</a>): класс, возвращённый функцией <code>Deletable(User)</code>, хранится в переменной, а переменную нельзя использовать как тип. Тип её экземпляров получают так: <code>InstanceType&lt;typeof DeletableUser&gt;</code>.</li>
+<li><b>ThisType</b> — маркер, задающий тип <code>this</code> внутри методов объекта; работает только при включённом <code>noImplicitThis</code> (входит в <code>strict</code>).</li>
+</ul>
+<p>Пример с напитками проверен компилятором TypeScript 5.9: строка <code>const janeDrink: Exclude&lt;Drinks, 'coffee' | 'orange juice'&gt; = 'coffee'</code> дала ошибку «Type '"coffee"' is not assignable», а значение <code>'tea'</code> прошло.</p>
+
+<h3 id="advanced-videos-articles">Статьи freeCodeCamp</h3>
+<ul>
+<li><a href="https://www.freecodecamp.org/news/how-to-set-up-a-typescript-project-67b427114884/">«How to set up a TypeScript project»</a> (2018) — обзор экосистемы для новичка: «какой JavaScript» (ES5, ES2015+, TypeScript), фреймворки, сборщики, CSS-препроцессоры, тесты, форматы модулей и полифиллы; затем установка Node.js, редактора, <code>package.json</code>, TypeScript и React. Статья старая: в ней Parcel и React-шаблоны той поры; общая схема (Node.js → npm → tsconfig → сборка) по-прежнему верна.</li>
+<li><a href="https://www.freecodecamp.org/news/how-to-add-typescript-to-a-javascript-project/">«How to Add TypeScript to a JavaScript Project»</a> (2020) — четыре стратегии перехода: начать с поддержки TS в существующем приложении, добавить типы к библиотеке, сделать «скелет» на будущее или перевести всё сразу. Затем шаги: установить TypeScript, создать <code>tsconfig.json</code>, первый <code>.ts</code>-файл, поправить <code>package.json</code>, подключить source maps, сборку и линтинг. Та же идея постепенной миграции — в разделе <a href="#advanced-migration-boundaries">«Миграция JS → TS»</a>.</li>
+</ul>
+<p>Курс Scrimba «Learn TypeScript» интерактивный: он требует входа на сайт и проходится в браузере, поэтому не пересказан.</p>
+</section>

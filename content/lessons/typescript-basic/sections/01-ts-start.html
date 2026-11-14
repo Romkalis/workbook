@@ -14,7 +14,8 @@ npm install --save-dev typescript
 npx tsc --init
 npx tsc --project tsconfig.json
 node dist/index.js
-</code></pre><p>Замените созданный конфиг следующим минимальным вариантом. Здесь <code>target</code> задаёт уровень выходного JS, <code>module</code> — формат модулей, <code>outDir</code> — папку результата. Это вариант для небольших упражнений в Node.js, а настройки приложения с бандлером могут отличаться.</p><pre><code>{
+</code></pre>
+<div class="note"><b>Какая версия поставится</b><p>Сейчас эта команда ставит TypeScript 7 — компилятор, переписанный на Go: <code>tsc</code> в нём работает как раньше. Но <code>ts-loader</code> для Webpack и typescript-eslint пока требуют TypeScript 5.x. Если они нужны в проекте, ставьте <code>typescript@5.9</code> (подробности — в уроке <a href="/lessons/typescript-advanced#advanced-videos-webpack">TypeScript Advanced</a>).</p></div><p>Замените созданный конфиг следующим минимальным вариантом. Здесь <code>target</code> задаёт уровень выходного JS, <code>module</code> — формат модулей, <code>outDir</code> — папку результата. Это вариант для небольших упражнений в Node.js, а настройки приложения с бандлером могут отличаться.</p><pre><code>{
   &quot;compilerOptions&quot;: {
     &quot;target&quot;: &quot;ES2020&quot;,
     &quot;module&quot;: &quot;CommonJS&quot;,
