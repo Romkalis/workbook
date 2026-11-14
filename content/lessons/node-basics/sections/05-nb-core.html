@@ -1,0 +1,58 @@
+<section id="nb-core">
+<h2>process, .env, файлы, пути и события</h2>
+<h3 id="nb-process">process</h3>
+<p>Глобальный объект <code>process</code> описывает запущенную программу:</p>
+<ul>
+<li><code>process.argv</code> — аргументы командной строки. <code>node app.js --port 4000</code> даёт массив, где первые два элемента — путь к node и к файлу, дальше ваши аргументы.</li>
+<li><code>process.env</code> — переменные окружения (следующий подраздел).</li>
+<li><code>process.exit(1)</code> — завершить программу. Код 0 означает успех, любой другой — ошибку; по нему скрипты и CI понимают, что что-то пошло не так.</li>
+<li><code>process.cwd()</code> — папка, из которой запустили программу (не обязательно папка файла).</li>
+<li><code>process.version</code>, <code>process.platform</code> — версия Node.js и система: у нас вывело <code>v22.23.2 darwin</code>.</li>
+</ul>
+<h3 id="nb-env">Переменные окружения и .env</h3>
+<p><b>Переменные окружения</b> — настройки, которые передаются программе снаружи, а не пишутся в коде: порт, адрес базы данных, секретные ключи. Один и тот же код запускают на ноутбуке и на сервере с разными значениями. А секреты не попадают в git (<a href="https://nodejs.org/en/learn/command-line/how-to-read-environment-variables-from-nodejs">документация</a>).</p>
+<p>Локально их удобно держать в файле <code>.env</code> в корне проекта:</p>
+<pre><code>PORT=4000
+MONGO_URI=mongodb://localhost:27017/todo
+JWT_SECRET=длинная-случайная-строка</code></pre>
+<p>Прочитать его можно двумя способами:</p>
+<ul>
+<li>Встроенный флаг (Node.js 20.6+): <code>node --env-file=.env app.js</code>.</li>
+<li>Пакет <code>dotenv</code>, как в уроке о JWT: <code>require('dotenv').config()</code> в самом начале программы.</li>
+</ul>
+<p>Проверка: <code>node --env-file=.env -e "console.log(process.env.PORT, typeof process.env.PORT)"</code> вывела <code>4000 string</code>. Все значения в <code>process.env</code> — <b>строки</b>, числа и логические значения нужно преобразовать: <code>Number(process.env.PORT) || 3000</code>. Файл <code>.env</code> всегда добавляют в <code>.gitignore</code>, а в репозиторий кладут <code>.env.example</code> с названиями переменных без настоящих значений.</p>
+<h3 id="nb-fs">Файлы: fs</h3>
+<p>Модуль <a href="https://nodejs.org/api/fs.html"><code>fs</code></a> (file system) работает с файлами. У большинства функций три вида: с колбэком (<code>fs.readFile</code>), синхронный (<code>fs.readFileSync</code>) и на промисах (<code>fs/promises</code>). В новом коде берите промисы, а синхронные — только в коротких скриптах: пока файл читается синхронно, сервер не отвечает никому.</p>
+<pre><code>import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+const file = path.join(import.meta.dirname, 'notes.txt');
+await writeFile(file, 'первая строка\n', 'utf8');
+console.log(await readFile(file, 'utf8')); // первая строка
+
+try {
+  await readFile(path.join(import.meta.dirname, 'nope.txt'), 'utf8');
+} catch (error) {
+  console.log(error.code); // ENOENT — такого файла нет
+}</code></pre>
+<p>Без второго аргумента <code>'utf8'</code> <code>readFile</code> вернёт не строку, а <code>Buffer</code> — набор байтов. Ошибки Node.js имеют свойство <code>code</code>: <code>ENOENT</code> (нет файла), <code>EACCES</code> (нет прав), <code>EADDRINUSE</code> (порт занят) — по нему удобно ветвиться, как учил урок <a href="/lessons/error-handling#eh-codes">об обработке ошибок</a>.</p>
+<h3 id="nb-path">Пути: path</h3>
+<p>Пути в Windows пишутся через <code>\</code>, в macOS и Linux через <code>/</code>. Модуль <a href="https://nodejs.org/api/path.html"><code>path</code></a> собирает их правильно для любой системы, поэтому строки руками не склеивают:</p>
+<ul>
+<li><code>path.join('src', 'routes', 'todos.js')</code> → <code>src/routes/todos.js</code>.</li>
+<li><code>path.resolve('public')</code> → абсолютный путь от папки запуска.</li>
+<li><code>path.extname('photo.final.jpg')</code> → <code>.jpg</code>; <code>path.basename(file)</code> → имя файла.</li>
+</ul>
+<p>Относительные пути в <code>readFile('data.json')</code> считаются от <code>process.cwd()</code>, а не от файла с кодом. Запустили из другой папки — файл «пропал». Надёжнее строить путь от <code>import.meta.dirname</code> или <code>__dirname</code>.</p>
+<h3 id="nb-events">События: EventEmitter</h3>
+<p>Многие объекты Node.js (сервер, потоки, процесс) сообщают о происходящем через события, как кнопки в браузере. Основа — класс <a href="https://nodejs.org/api/events.html"><code>EventEmitter</code></a>:</p>
+<pre><code>const { EventEmitter } = require('node:events');
+
+const shop = new EventEmitter();
+shop.on('order', (id) =&gt; console.log('новый заказ', id));
+shop.emit('order', 42);
+console.log('после emit');
+// новый заказ 42
+// после emit</code></pre>
+<p><code>on</code> подписывается, <code>emit</code> вызывает всех подписчиков — синхронно, сразу. Если у эмиттера случилось событие <code>'error'</code>, а подписчика на него нет, программа упадёт, поэтому на <code>'error'</code> подписываются всегда.</p>
+</section>

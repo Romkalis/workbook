@@ -1,0 +1,20 @@
+<section id="nb-practice">
+<h2>Практика и вопросы</h2>
+<h3 id="nb-exercises">Упражнения</h3>
+<ol>
+<li>Установите Node.js LTS через nvm. Откройте REPL, выполните <code>process.version</code> и <code>process.platform</code>.</li>
+<li>Напишите скрипт <code>count.js</code>, который получает имя файла из <code>process.argv</code>, читает его через <code>fs/promises</code> и выводит число строк. Если файла нет, печатает понятное сообщение и завершается с кодом 1.</li>
+<li>Создайте проект через <code>npm init -y</code>, поставьте Express, добавьте скрипт <code>dev</code> с <code>node --watch</code>. Посмотрите, что появилось в <code>package.json</code> и <code>package-lock.json</code>, и добавьте <code>.gitignore</code>.</li>
+<li>Соберите API задач из раздела про Express и проверьте каждый маршрут через curl, Postman или файл <code>.http</code> в редакторе. Добавьте маршрут <code>PUT</code>.</li>
+<li>Напишите middleware, которая измеряет время ответа и печатает «GET /api/todos — 3 мс». Подсказка: событие <code>res.on('finish', ...)</code>.</li>
+<li>Подключите MongoDB (Docker или Atlas) и переведите API с массива на модель <code>Todo</code>. Проверьте ответы на несуществующий и некорректный id.</li>
+<li>Сделайте страницу на Vite, которая показывает и добавляет задачи через ваш API. Настройте CORS.</li>
+</ol>
+<h3 id="nb-questions">Вопросы</h3>
+<details class="q"><summary>Почему в Node.js нет document и window?</summary><p>Node.js выполняет JavaScript вне браузера: нет страницы, значит нет DOM. Зато есть то, чего нет в браузере: файлы, процесс, сервер.</p></details>
+<details class="q"><summary>Почему node_modules не добавляют в git, а package-lock.json добавляют?</summary><p><code>node_modules</code> огромна и восстанавливается командой <code>npm install</code>. Lock-файл фиксирует точные версии, чтобы у всех установилось одно и то же.</p></details>
+<details class="q"><summary>Как однопоточный Node.js обслуживает много запросов одновременно?</summary><p>Пока ждёт базу, файлы и сеть, он не простаивает: операции ввода-вывода выполняются вне потока JavaScript, а поток берётся за следующий запрос. Готовые результаты обрабатывает цикл событий.</p></details>
+<details class="q"><summary>Что будет, если middleware не вызовет next() и не ответит?</summary><p>Запрос повиснет: клиент будет ждать ответа, пока не сработает тайм-аут.</p></details>
+<details class="q"><summary>Почему req.params.id нужно превращать в число?</summary><p>Параметры пути и query string всегда строки. <code>'5' === 5</code> ложно, поэтому без <code>Number</code> поиск не найдёт задачу.</p></details>
+<details class="q"><summary>Как Express понимает, что middleware — обработчик ошибок?</summary><p>По четырём параметрам: <code>(err, req, res, next)</code>. Его подключают последним.</p></details>
+</section>
