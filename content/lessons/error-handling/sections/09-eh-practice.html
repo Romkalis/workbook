@@ -1,0 +1,19 @@
+<section id="eh-practice">
+<h2>Практика и вопросы</h2>
+<h3 id="eh-exercises">Упражнения</h3>
+<ol>
+<li>В консоли браузера вызовите по очереди: <code>null.x</code>, <code>notDefined</code>, <code>new Array(-1)</code>, <code>decodeURIComponent('%')</code>, <code>JSON.parse('{')</code>. Запишите тип каждой ошибки и сравните сообщения в Chrome и Firefox.</li>
+<li>Напишите функцию <code>safeParse(text, fallback)</code>: возвращает разобранный JSON или <code>fallback</code>, если JSON битый, но пробрасывает любые другие ошибки.</li>
+<li>Создайте <code>AppError</code>, <code>HttpError</code> и <code>ValidationError</code> из урока. Проверьте <code>name</code>, <code>instanceof</code> и <code>cause</code>. Удалите строку с <code>this.name</code> и посмотрите, что изменится в консоли.</li>
+<li>Оберните <code>fetch</code> в функцию <code>getJson(url)</code>, которая выбрасывает <code>HttpError</code> при неуспешном статусе. Покажите в интерфейсе разные сообщения для 404, для 5xx и для отсутствия сети (режим Offline в DevTools → Network).</li>
+<li>Добавьте на страницу глобальные обработчики <code>error</code> и <code>unhandledrejection</code>, которые выводят плашку «Что-то пошло не так». Проверьте их ошибкой в <code>setTimeout</code> и забытым <code>Promise.reject</code>.</li>
+<li>Сделайте картинку с битым адресом и заглушкой через событие <code>error</code>.</li>
+</ol>
+<h3 id="eh-questions">Вопросы</h3>
+<details class="q"><summary>Почему try...catch не ловит ошибку в setTimeout?</summary><p><code>try</code> работает синхронно и заканчивается раньше, чем запустится колбэк таймера. Когда колбэк выбросит ошибку, обёртки уже нет. <code>try</code> нужно ставить внутри колбэка.</p></details>
+<details class="q"><summary>Чем плох пустой catch?</summary><p>Он прячет все ошибки, включая баги, о которых вы не знаете. Код молча работает неправильно, а причину не найти. Обрабатывайте ожидаемые ошибки и пробрасывайте остальные.</p></details>
+<details class="q"><summary>Зачем в своём классе ошибки строка this.name = this.constructor.name?</summary><p>Без неё <code>name</code> берётся у <code>Error</code> и равно <code>'Error'</code>. В консоли и журнале все ваши ошибки будут выглядеть одинаково.</p></details>
+<details class="q"><summary>Почему внутри try пишут return await, а не просто return?</summary><p>Без <code>await</code> функция возвращает промис и выходит из <code>try</code>. Если промис потом отклонится, <code>catch</code> уже не сработает, и ошибка уйдёт наружу.</p></details>
+<details class="q"><summary>Можно ли поймать SyntaxError?</summary><p>Только если текст разбирается во время работы: <code>JSON.parse</code>, <code>eval</code>, <code>new Function</code>. Синтаксическая ошибка в самом скрипте не даст ему запуститься.</p></details>
+<details class="q"><summary>Какое событие ловит забытые отклонения промисов?</summary><p><code>unhandledrejection</code> на <code>window</code>. Событие <code>error</code> для них не срабатывает.</p></details>
+</section>

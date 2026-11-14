@@ -1,0 +1,58 @@
+<section id="eh-custom">
+<h2>Свои классы ошибок</h2>
+<p>Встроенных типов мало, чтобы описать проблемы приложения. Сервер вернул 404, пользователь ввёл неправильный email, кончился лимит запросов — всё это <code>Error</code>, но реагировать на них нужно по-разному. Лектор показывает пример: нужно передать вместе с ошибкой код HTTP-статуса, а <code>new Error('...', 404)</code> его просто проигнорирует. Решение — свой класс, наследник <code>Error</code> (глава <a href="https://javascript.info/custom-errors">javascript.info «Custom errors»</a>, <a href="https://learn.javascript.ru/custom-errors">на русском</a>).</p>
+<pre><code>class AppError extends Error {
+  constructor(message, options) {
+    super(message, options);
+    this.name = this.constructor.name;
+  }
+}
+
+class HttpError extends AppError {
+  constructor(status, message) {
+    super(message ?? `HTTP ${status}`);
+    this.status = status;
+  }
+}
+
+class ValidationError extends AppError {
+  constructor(field, message) {
+    super(message);
+    this.field = field;
+  }
+}
+
+const error = new HttpError(404);
+error.name;                    // 'HttpError'
+error.message;                 // 'HTTP 404'
+error.status;                  // 404
+error instanceof HttpError;    // true
+error instanceof AppError;     // true
+error instanceof Error;        // true</code></pre>
+<p>Что здесь важно:</p>
+<ul>
+<li><code>super(message, options)</code> передаёт сообщение и <code>cause</code> в конструктор <code>Error</code>. Он же заполняет <code>stack</code>.</li>
+<li><code>this.name = this.constructor.name</code> записывает имя класса. Один раз в базовом классе — и у всех наследников будет правильное имя. Без этой строки <code>name</code> останется <code>'Error'</code>, и в консоли все ваши ошибки будут выглядеть одинаково.</li>
+<li>Иерархия даёт гибкость проверок: <code>instanceof AppError</code> — «любая наша, ожидаемая ошибка», <code>instanceof HttpError</code> — конкретно сетевая.</li>
+</ul>
+<div class="warn"><b>Поправка к коду лекции</b><p>В лекции и на слайдах классы написаны так: <code>super(); this.message = message; this.statusCode = statusCode;</code>. Это работает, но с двумя недостатками. Сообщение не передано в <code>super</code>, поэтому присваивается вручную. И не задан <code>name</code>: проверка в Node.js 22 показала, что <code>new CustomError('x', 500).name</code> равно <code>'Error'</code>. В классе <code>GoogleApiError</code> присваивания повторяются ещё раз вместо передачи аргументов в <code>super(message, statusCode)</code>. Версия выше делает то же короче и правильнее.</p></div>
+<h3 id="eh-codes">Коды ошибок</h3>
+<p>Лектор обращает внимание: серьёзные библиотеки и API сопровождают ошибки кодами — числовыми (<code>234</code>, <code>PD3212</code>) или словесными (<code>NOT_FOUND</code>, <code>AuthorisationFailed</code>). Код не меняется при переводе сообщения, по нему удобно ветвиться в коде и искать описание в документации. Его стоит хранить в своём классе ошибки и писать в лог. Например, у ошибок Node.js есть свойство <code>code</code>: <code>'ENOENT'</code> — файл не найден (из общих знаний).</p>
+<h3 id="eh-cause">Оборачивание ошибок: cause</h3>
+<p>Низкоуровневая ошибка («Unexpected token } in JSON») мало что говорит тому, кто вызывал вашу функцию. Её оборачивают в понятную, сохраняя исходную в <code>cause</code>:</p>
+<pre><code>function parseConfig(text) {
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new AppError('Конфиг повреждён', { cause: error });
+  }
+}
+
+try {
+  parseConfig('{');
+} catch (error) {
+  console.log(error.name, error.message, error.cause.name);
+  // AppError Конфиг повреждён SyntaxError
+}</code></pre>
+<p>В лекции эта же идея реализована вручную: <code>callGoogleApi</code> ловит «сырую» ошибку API и выбрасывает <code>GoogleApiError</code>. С <code>cause</code> исходная ошибка со своим стеком не теряется, и DevTools показывает обе.</p>
+</section>

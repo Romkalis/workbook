@@ -1,0 +1,34 @@
+<section id="eh-events">
+<h2>Глобальные события ошибок</h2>
+<p>Есть ошибки, которые до вашего <code>catch</code> не дошли, и ресурсы, которые не загрузились. Для них у браузера есть события. Используют их не для «починки», а как последнюю линию: записать в журнал и показать пользователю, что что-то пошло не так.</p>
+<h3 id="eh-window-error">window.onerror и событие error</h3>
+<p>Событие <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/error_event"><code>error</code> на <code>window</code></a> срабатывает при любой неперехваченной ошибке JavaScript. Подписаться можно двумя способами. Старый — свойство <code>window.onerror</code> с пятью аргументами:</p>
+<pre><code>window.onerror = (message, source, line, column, error) =&gt; {
+  sendToLog({ message, source, line, column, stack: error?.stack });
+  return true; // не показывать ошибку в консоли
+};</code></pre>
+<p>Новый — <code>addEventListener</code>, где все данные лежат в объекте события: <code>event.message</code>, <code>event.filename</code>, <code>event.lineno</code>, <code>event.colno</code>, <code>event.error</code>. Чтобы подавить вывод в консоль, здесь вызывают <code>event.preventDefault()</code>, а не возвращают <code>true</code>.</p>
+<pre><code>window.addEventListener('error', (event) =&gt; {
+  sendToLog(event.error);
+});</code></pre>
+<p>Проверено в Chrome: ошибка, выброшенная в <code>setTimeout</code>, вызвала оба обработчика. В <code>onerror</code> пришло сообщение «Uncaught TypeError: из таймера» и объект ошибки, а после <code>return true</code> в консоли ничего не появилось. Лектор объясняет <code>return true</code> как «заткнуть ошибку» — это верно, но глушить ошибки в консоли во время разработки не стоит: вы перестанете их видеть.</p>
+<h3 id="eh-script-error">«Script error.»</h3>
+<p>Если ошибка произошла в скрипте с другого домена (например, с CDN), браузер из соображений безопасности скрывает подробности: в обработчик приходит только «Script error.» без файла, строки и стека. Чтобы получить детали, скрипт подключают с атрибутом <code>crossorigin="anonymous"</code>, а сервер отдаёт его с заголовком <code>Access-Control-Allow-Origin</code> — это тот же механизм CORS, что разобран в <a href="/lessons/client-server#cs-cors">уроке о клиенте и сервере</a>.</p>
+<h3 id="eh-resource-error">Ошибки загрузки ресурсов</h3>
+<p>Событие <code>error</code> бывает и у элементов, которые что-то загружают: <code>&lt;img&gt;</code>, <code>&lt;script&gt;</code>, <code>&lt;link&gt;</code>, <code>&lt;video&gt;</code>, <code>&lt;audio&gt;</code> (<a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/error_event">MDN: HTMLElement error event</a>). Лектор приводит пример: картинку создают на лету из JavaScript, и если она не загрузилась, нужно что-то показать вместо неё.</p>
+<pre><code>const img = document.createElement('img');
+img.addEventListener('error', () =&gt; {
+  img.src = '/img/placeholder.svg';
+  img.alt = 'Картинка не загрузилась';
+}, { once: true });
+img.src = user.avatarUrl;</code></pre>
+<p><code>{ once: true }</code> защищает от бесконечного цикла, если не загрузится и заглушка. В лекции лектор не смог вспомнить, как это сделать; рабочий вариант проверен в Chrome: для несуществующего адреса событие <code>error</code> у картинки сработало.</p>
+<p>Важная деталь: ошибка загрузки ресурса <b>не всплывает</b> до <code>window</code>. Обработчик <code>window.addEventListener('error', ...)</code> увидит её, только если подписаться на фазе перехвата — третьим аргументом <code>true</code>. В Chrome такой обработчик получил событие с <code>event.target</code>, равным элементу <code>IMG</code>. А <code>window.onerror</code> ошибки ресурсов не получает совсем.</p>
+<h3 id="eh-unhandledrejection">unhandledrejection</h3>
+<p>Для промисов без <code>.catch</code> есть отдельное событие:</p>
+<pre><code>window.addEventListener('unhandledrejection', (event) =&gt; {
+  sendToLog(event.reason);
+  event.preventDefault(); // убрать «Uncaught (in promise)» из консоли
+});</code></pre>
+<p>В <code>event.reason</code> — то, с чем отклонился промис. В Chrome <code>Promise.reject(new Error('забытый reject'))</code> вызвал этот обработчик. Событие <code>error</code> на <code>window</code> для отклонённых промисов <b>не срабатывает</b>, поэтому в приложении обычно подписываются на оба.</p>
+</section>
