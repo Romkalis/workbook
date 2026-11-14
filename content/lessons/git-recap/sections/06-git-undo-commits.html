@@ -1,0 +1,45 @@
+<section id="git-undo-commits">
+<h2>Отмена и исправление коммитов</h2>
+<h3 id="git-amend">Исправить последний коммит</h3>
+<pre><code>$ git commit -m "Добавть b"            # опечатка
+$ git commit --amend -m "Добавить b"   # заменить сообщение
+$ git log --oneline
+ddffd94 Добавить b
+6c3b002 Первый коммит</code></pre>
+<p><code>--amend</code> не редактирует коммит, а <b>заменяет</b> его новым: хеш изменился (было <code>c249abc</code>, стало <code>ddffd94</code>). Забыли добавить файл — <code>git add забытый.txt</code>, потом <code>git commit --amend --no-edit</code> (сообщение оставить прежним).</p>
+<h3 id="git-old-version">Достать старую версию файла</h3>
+<pre><code>git restore --source=HEAD~2 hello.txt   # старый вариант: git checkout HEAD~2 -- hello.txt</code></pre>
+<p>Файл в рабочей папке станет таким, каким был два коммита назад, а история не изменится. Проверено: содержимое вернулось к «привет», <code>git status</code> показал обычное изменение <code> M hello.txt</code>, которое можно закоммитить или отменить. Просто посмотреть старую версию, не трогая файл: <code>git show HEAD~2:hello.txt</code>.</p>
+<h3 id="git-revert">revert: отменить опубликованный коммит</h3>
+<pre><code>$ git revert --no-edit HEAD
+[main bcbc1f4] Revert "Версия 3"
+$ git log --oneline -2
+bcbc1f4 Revert "Версия 3"
+aad07a7 Версия 3</code></pre>
+<p><code>revert</code> создаёт <b>новый коммит</b>, который делает обратные изменения. Старый коммит остаётся в истории. Это единственный безопасный способ отменить коммит, который уже отправлен на сервер и мог попасть к коллегам: история только растёт, ничего не переписывается. Отменить можно и коммит из середины истории: <code>git revert &lt;хеш&gt;</code>.</p>
+<h3 id="git-reset">reset: переместить ветку</h3>
+<p><code>git reset &lt;коммит&gt;</code> переставляет текущую ветку (и HEAD) на указанный коммит. Режим определяет, что станет с индексом и рабочей папкой — это и есть три дерева в действии:</p>
+<div class="tbl"><table>
+<thead><tr><th>Режим</th><th>HEAD (ветка)</th><th>Индекс</th><th>Рабочая папка</th><th>Когда нужен</th></tr></thead>
+<tbody>
+<tr><td><code>--soft</code></td><td>переезжает</td><td>не меняется</td><td>не меняется</td><td>Склеить последние коммиты в один: изменения остаются подготовленными</td></tr>
+<tr><td><code>--mixed</code> (по умолчанию)</td><td>переезжает</td><td>как в коммите</td><td>не меняется</td><td>Разобрать коммит и закоммитить иначе: правки остаются в файлах</td></tr>
+<tr><td><code>--hard</code></td><td>переезжает</td><td>как в коммите</td><td>как в коммите</td><td>Выбросить всё: и коммиты, и незакоммиченные правки</td></tr>
+</tbody></table></div>
+<p>Проверено по шагам. После <code>git reset --soft HEAD~1</code> последний коммит исчез из <code>log</code>, а его изменения стоят в индексе (<code>M&nbsp; hello.txt</code>). После <code>git reset HEAD</code> (mixed) они ушли из индекса, но остались в файле (<code> M hello.txt</code>). После <code>git reset --hard HEAD</code> правки исчезли совсем.</p>
+<div class="warn"><b>Опасность --hard и правило публичной истории</b><p><code>reset --hard</code> удаляет незакоммиченные изменения без возможности восстановления. Закоммиченное можно вернуть через reflog. Второе правило: не делайте <code>reset</code> (и <code>--amend</code>, и <code>rebase</code> — команду, которая переписывает цепочку коммитов, о ней ниже) для коммитов, которые уже отправлены в общую ветку. Вы переписываете историю, а у коллег осталась старая; придётся делать <code>git push --force</code> — принудительно заменить историю на сервере своей, и их работа может потеряться. Для опубликованного — <code>revert</code>.</p></div>
+<h3 id="git-compare">reset, revert и checkout/restore: шпаргалка</h3>
+<p>Сводная таблица из руководства Atlassian <a href="https://www.atlassian.com/git/tutorials/resetting-checking-out-and-reverting">«Resetting, Checking Out &amp; Reverting»</a> с новыми командами:</p>
+<div class="tbl"><table>
+<thead><tr><th>Команда</th><th>Уровень</th><th>Для чего</th></tr></thead>
+<tbody>
+<tr><td><code>git reset</code></td><td>коммиты</td><td>Убрать коммиты в локальной ветке</td></tr>
+<tr><td><code>git reset &lt;файл&gt;</code> / <code>git restore --staged</code></td><td>файл</td><td>Убрать файл из индекса</td></tr>
+<tr><td><code>git switch</code> / <code>git checkout &lt;ветка или хеш&gt;</code></td><td>коммиты</td><td>Переключиться на ветку или посмотреть старый коммит</td></tr>
+<tr><td><code>git restore</code> / <code>git checkout -- &lt;файл&gt;</code></td><td>файл</td><td>Отменить правки в рабочей папке</td></tr>
+<tr><td><code>git revert</code></td><td>коммиты</td><td>Отменить коммит в общей ветке новым коммитом</td></tr>
+</tbody></table></div>
+<h3 id="git-rewrite">Перезапись истории</h3>
+<p>Глава Pro Git <a href="https://git-scm.com/book/ru/v2/Инструменты-Git-Перезапись-истории">«Перезапись истории»</a> показывает инструмент для правки нескольких последних коммитов — интерактивный rebase: <code>git rebase -i HEAD~3</code>. Откроется список трёх коммитов, где у каждого можно заменить слово <code>pick</code>: <code>reword</code> — поменять сообщение, <code>squash</code> — слить с предыдущим, <code>edit</code> — остановиться и изменить содержимое, <code>drop</code> или удаление строки — выбросить коммит; строки можно менять местами. Так приводят в порядок свою ветку перед пул-реквестом (запросом на слияние ветки в основную на GitHub). Правило то же: только для коммитов, которые ещё никто не забрал. Если что-то пошло не так посреди rebase, <code>git rebase --abort</code> вернёт всё как было.</p>
+<p>Если совсем запутались, есть шутливый, но полезный сайт <a href="https://ohshitgit.com/ru">«Ох, чёрт, Git!»</a> с рецептами на типичные беды.</p>
+</section>

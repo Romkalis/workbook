@@ -1,0 +1,23 @@
+<section id="git-undo-files">
+<h2>Отмена изменений до коммита</h2>
+<p>Руководство Atlassian <a href="https://www.atlassian.com/git/tutorials/undoing-changes">«Undoing Commits &amp; Changes»</a> делит отмену на уровни: рабочая папка, индекс, коммиты. Начнём с того, что ещё не закоммичено. Глава Pro Git <a href="https://git-scm.com/book/ru/v2/Основы-Git-Операции-отмены">«Операции отмены»</a> описывает то же на русском.</p>
+<h3 id="git-restore">Отменить правку в файле</h3>
+<pre><code>git restore hello.txt          # старый вариант: git checkout -- hello.txt</code></pre>
+<p>Вернёт файл в рабочей папке к версии из индекса (а если в индексе изменений нет — к версии из HEAD). <b>Правки будут потеряны безвозвратно</b>: их не было ни в одном коммите, reflog не поможет. Отменить всё в проекте: <code>git restore .</code>.</p>
+<h3 id="git-unstage">Убрать файл из индекса</h3>
+<pre><code>git restore --staged hello.txt # старый вариант: git reset HEAD hello.txt</code></pre>
+<p>Файл перестанет быть подготовленным к коммиту, но правки в рабочей папке останутся. Проверено: из состояния <code>M&nbsp; hello.txt</code> файл перешёл в <code> M hello.txt</code>, содержимое на диске не изменилось. Это безопасная команда.</p>
+<h3 id="git-clean">Удалить неотслеживаемые файлы</h3>
+<p><code>git restore</code> и <code>reset</code> не трогают файлы, которых Git ещё не видел (<code>??</code>). Для них есть <code>git clean</code>, и с ним нужна осторожность: удалённые файлы не попадают в корзину.</p>
+<pre><code>$ git clean -n       # «пробный прогон»: только показать
+Would remove tmp.log
+$ git clean -nd      # -d — включая папки
+Would remove build/
+Would remove tmp.log
+$ git clean -fd      # -f — действительно удалить
+Removing build/
+Removing tmp.log</code></pre>
+<p>Без <code>-f</code> Git откажется удалять (защита от случайности). Флаг <code>-x</code> удалит ещё и игнорируемые файлы — например, <code>node_modules</code> и <code>.env</code>; с ним будьте особенно аккуратны. Привычка: всегда сначала <code>-n</code>.</p>
+<h3 id="git-stash">Отложить, а не удалять</h3>
+<p>Если правки жалко, но сейчас они мешают (нужно срочно переключиться на другую ветку), спрячьте их: <code>git stash</code> (stash — «тайник») убирает изменения в специальное хранилище, <code>git stash pop</code> возвращает. Это не входит в программу модуля, но спасает от потери работы (из общих знаний).</p>
+</section>

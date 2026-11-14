@@ -1,0 +1,64 @@
+<section id="git-ignore">
+<h2>.gitignore</h2>
+<p>Не всё в папке проекта должно попасть в репозиторий. Файл <code>.gitignore</code> перечисляет, что Git не должен отслеживать (руководство Atlassian <a href="https://www.atlassian.com/git/tutorials/saving-changes/gitignore">«.gitignore»</a>, <a href="https://git-scm.com/docs/gitignore">документация</a>).</p>
+<h3 id="git-what-ignore">Что игнорировать</h3>
+<ul>
+<li><b>Зависимости:</b> <code>node_modules/</code> — восстанавливаются через <code>npm install</code>.</li>
+<li><b>Результаты сборки:</b> <code>dist/</code>, <code>build/</code>, <code>.next/</code> — создаются из исходников.</li>
+<li><b>Секреты:</b> <code>.env</code> с паролями и ключами.</li>
+<li><b>Логи и временные файлы:</b> <code>*.log</code>, <code>*.tmp</code>.</li>
+<li><b>Файлы системы и редактора:</b> <code>.DS_Store</code> (macOS), <code>Thumbs.db</code> (Windows), <code>.idea/</code>. Их лучше вынести в глобальный список (ниже).</li>
+</ul>
+<p>Готовые шаблоны для разных языков и фреймворков — в репозитории <a href="https://github.com/github/gitignore">github/gitignore</a>; GitHub предлагает их при создании репозитория.</p>
+<h3 id="git-patterns">Шаблоны</h3>
+<pre><code># зависимости и сборка
+node_modules/
+dist/
+# логи, кроме одного
+*.log
+!keep.log
+# только в корне
+/config.local.js
+# любые .env, кроме образца
+.env
+.env.*
+!.env.example</code></pre>
+<div class="tbl"><table>
+<thead><tr><th>Шаблон</th><th>Что значит</th></tr></thead>
+<tbody>
+<tr><td><code># текст</code></td><td>Комментарий</td></tr>
+<tr><td><code>*.log</code></td><td><code>*</code> — любые символы, кроме <code>/</code>. Все файлы с расширением .log в любой папке</td></tr>
+<tr><td><code>dist/</code></td><td>Слеш в конце — только папки с таким именем, на любом уровне</td></tr>
+<tr><td><code>/config.local.js</code></td><td>Слеш в начале — только в той же папке, где лежит .gitignore</td></tr>
+<tr><td><code>**/logs</code>, <code>logs/**</code></td><td><code>**</code> — любое число вложенных папок</td></tr>
+<tr><td><code>!keep.log</code></td><td><code>!</code> — исключение: снова отслеживать то, что игнорировал шаблон выше</td></tr>
+</tbody></table></div>
+<p>Проверка на учебном репозитории: из пятнадцати созданных файлов Git показал только четыре — <code>.env.example</code>, <code>.gitignore</code>, <code>keep.log</code> и <code>src/config.local.js</code>. Заметьте: <code>src/dist/b.js</code> игнорируется (папка <code>dist/</code> на любом уровне), а <code>src/config.local.js</code> нет (шаблон со слешем в начале действует только в корне).</p>
+<p>У исключений есть ограничение: если игнорируется сама папка (<code>logs/</code>), вернуть файл внутри неё через <code>!logs/важный.log</code> нельзя — Git даже не заглядывает в игнорируемую папку. Нужно игнорировать содержимое: <code>logs/*</code> и <code>!logs/важный.log</code>.</p>
+<h3 id="git-check-ignore">Почему файл игнорируется?</h3>
+<pre><code>$ git check-ignore -v app.log src/dist/b.js .env.local keep.log src/config.local.js
+.gitignore:5:*.log	app.log
+.gitignore:3:dist/	src/dist/b.js
+.gitignore:11:.env.*	.env.local
+.gitignore:6:!keep.log	keep.log</code></pre>
+<p>Для каждого файла видно, какая строка какого файла сработала. Для <code>keep.log</code> последним совпал шаблон с <code>!</code> — значит, файл <i>не</i> игнорируется. <code>src/config.local.js</code> в выводе нет: ни один шаблон его не задел.</p>
+<h3 id="git-tracked-ignored">Файл уже в репозитории</h3>
+<p><code>.gitignore</code> действует только на <b>неотслеживаемые</b> файлы. Если файл уже закоммичен, добавление его в <code>.gitignore</code> ничего не даст — проверено: Git продолжил показывать изменения в <code>secret.txt</code>. Нужно убрать файл из индекса, оставив на диске:</p>
+<pre><code>$ echo "secret.txt" &gt;&gt; .gitignore
+$ git rm --cached secret.txt
+$ git status -s
+D  secret.txt       # будет удалён из репозитория, но файл на диске остался
+$ git commit -m "Убрать secret.txt из репозитория"</code></pre>
+<div class="warn"><b>Секрет уже на GitHub</b><p>Если в репозиторий попал пароль или ключ, <code>git rm --cached</code> не поможет: он остаётся в старых коммитах, и любой может их посмотреть. Секрет нужно сразу <b>сменить</b> (выпустить новый ключ, поменять пароль), а уже потом при необходимости чистить историю специальными инструментами.</p></div>
+<h3 id="git-global-ignore">Личные и глобальные правила</h3>
+<ul>
+<li><code>.gitignore</code> в репозитории — общий для всей команды, коммитится. Таких файлов может быть несколько, в разных папках.</li>
+<li><code>.git/info/exclude</code> — правила только для вашей копии этого репозитория, не коммитится.</li>
+<li>Глобальный файл — для всех ваших репозиториев. Удобно для файлов системы и редактора:</li>
+</ul>
+<pre><code>git config --global core.excludesFile ~/.gitignore_global
+echo ".DS_Store" &gt;&gt; ~/.gitignore_global</code></pre>
+<p>Если игнорируемый файл всё же нужно закоммитить, есть <code>git add -f файл</code> — но обычно это признак, что правило в <code>.gitignore</code> слишком широкое.</p>
+<h3 id="git-empty-dirs">Пустые папки</h3>
+<p>Git отслеживает только файлы, а не папки: пустая папка <code>empty</code> не появилась даже в <code>git status</code>. Чтобы сохранить её в репозитории, туда кладут пустой файл, по соглашению <code>.gitkeep</code> (особого смысла для Git у этого имени нет, это договорённость). После этого <code>git status</code> показал <code>?? empty/.gitkeep</code>.</p>
+</section>
