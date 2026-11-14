@@ -1,0 +1,28 @@
+<section id="cs-dns">
+<h2>URL и DNS: как найти сервер</h2>
+<h3 id="cs-url">Из чего состоит URL</h3>
+<p>URL (Uniform Resource Locator) говорит, по какому протоколу, к какому серверу и за каким ресурсом идти.</p>
+<pre><code>https://api.github.com:443/search/users?q=rolling&amp;per_page=5#top
+└─┬─┘   └─────┬──────┘ └┬┘└─────┬─────┘ └─────────┬────────┘ └┬┘
+схема       хост      порт   путь        строка запроса     фрагмент</code></pre>
+<ul>
+<li><b>Схема</b> — протокол: <code>http</code>, <code>https</code>, <code>ws</code>, <code>file</code>.</li>
+<li><b>Хост</b> — доменное имя или IP-адрес сервера.</li>
+<li><b>Порт</b> — номер «двери» на сервере. Если не указан, берётся стандартный: 80 для HTTP, 443 для HTTPS.</li>
+<li><b>Путь</b> — какой ресурс нужен на сервере.</li>
+<li><b>Строка запроса</b> (query string) начинается с <code>?</code>, пары <code>ключ=значение</code> разделяются <code>&amp;</code>. Значения с пробелами и кириллицей нужно кодировать: <code>encodeURIComponent('рыжий кот')</code> или <code>URLSearchParams</code>.</li>
+<li><b>Фрагмент</b> после <code>#</code> на сервер не отправляется: это якорь внутри страницы, его читает только браузер.</li>
+</ul>
+<p>Схема, хост и порт вместе называются <b>origin</b> (источник). Это понятие понадобится в разделе про CORS.</p>
+
+<h3 id="cs-dns-lookup">DNS: имя превращается в адрес</h3>
+<p>Маршрутизаторы знают только IP-адреса вроде <code>140.82.121.6</code>. Имена нужны людям: <code>github.com</code> проще запомнить и продиктовать. Превращает имя в адрес <b>DNS</b> (Domain Name System) — распределённая иерархическая система серверов.</p>
+<p>Браузер сначала смотрит в свои кеши: собственный, операционной системы и файл <code>hosts</code>. Если ответа нет, запрос уходит к DNS-резолверу (обычно провайдера, или публичному вроде 1.1.1.1). Резолвер, если сам не знает ответа, идёт по иерархии: корневой сервер подсказывает, кто отвечает за зону <code>.com</code>, тот — кто отвечает за <code>github.com</code>, а авторитетный сервер домена возвращает адрес. Ответ кешируется на время, указанное в записи (TTL), поэтому полный путь проходится редко.</p>
+<p>В лекции это сказано так: «если сервер не знает, он идёт выше по иерархии». Это упрощение: на деле резолвер спускается сверху вниз от корня, а не поднимается. Для фронтендера важен итог — первый запрос к новому домену платит за DNS, повторные берут адрес из кеша. Если имя не существует, браузер показывает ошибку вида <code>DNS_PROBE_FINISHED_NXDOMAIN</code>.</p>
+<h3 id="cs-hosts">Файл hosts</h3>
+<p>В каждой системе есть файл <code>hosts</code> (на macOS и Linux — <code>/etc/hosts</code>, на Windows — <code>C:\Windows\System32\drivers\etc\hosts</code>), где можно вручную сопоставить имени адрес. Он проверяется раньше DNS. Лектор использует его, чтобы открывать локальный сервер под «красивым» именем вроде <code>local.myapp.com</code> вместо <code>localhost</code>: так локальная версия получает такие же куки и хранилище, как домен проекта. Вредоносные программы раньше подменяли <code>hosts</code>, чтобы отправить человека на поддельный сайт банка.</p>
+<pre><code>127.0.0.1   local.myapp.com</code></pre>
+
+<h3 id="cs-enter">Путь запроса целиком</h3>
+<figure class="dg"><div class="dg-title">Что происходит после fetch('https://api.github.com/...')</div><ol class="seqlist n6" aria-hidden="true"><li class="card lit" style="--i:0"><span class="hd">1. DNS</span><span class="ln">api.github.com → IP-адрес (из кеша или через резолвер)</span></li><li class="card lit" style="--i:1"><span class="hd">2. TCP</span><span class="ln">SYN → SYN-ACK → ACK с сервером на порту 443</span></li><li class="card lit" style="--i:2"><span class="hd">3. TLS</span><span class="ln">договориться о шифре, проверить сертификат, получить общий ключ</span></li><li class="card lit" style="--i:3"><span class="hd">4. HTTP-запрос</span><span class="ln">GET /search/users?q=... + заголовки, зашифровано</span></li><li class="card lit" style="--i:4"><span class="hd">5. Сервер</span><span class="ln">обрабатывает запрос, формирует ответ со статусом и телом</span></li><li class="card lit" style="--i:5"><span class="hd">6. Ответ</span><span class="ln">браузер расшифровывает, распаковывает, отдаёт в JS. Соединение остаётся открытым для следующих запросов</span></li></ol><figcaption>Шаги 1–3 выполняются только для нового соединения. Повторные запросы к тому же серверу переиспользуют открытое соединение и начинаются сразу с шага 4. В DevTools на вкладке Network → Timing эти этапы называются DNS Lookup, Initial connection, SSL, Waiting for server response и Content Download.</figcaption></figure>
+</section>

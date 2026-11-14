@@ -1,0 +1,65 @@
+<section id="cs-headers">
+<h2>Заголовки, сжатие, кеш и куки</h2>
+<p>Заголовки — метаданные сообщения: кто спрашивает, что он умеет принимать, в каком формате тело, можно ли его кешировать. Имена заголовков не зависят от регистра (в HTTP/2 их всегда пишут строчными).</p>
+<h3 id="cs-headers-main">Основные заголовки</h3>
+<div class="tbl"><table>
+<thead><tr><th>Заголовок</th><th>Где</th><th>Зачем</th></tr></thead>
+<tbody>
+<tr><td><code>Host</code></td><td>запрос</td><td>Какой сайт нужен: на одном IP может жить много сайтов. В HTTP/1.1 обязателен.</td></tr>
+<tr><td><code>User-Agent</code></td><td>запрос</td><td>Какая программа отправила запрос (браузер, Postman, curl).</td></tr>
+<tr><td><code>Accept</code>, <code>Accept-Language</code>, <code>Accept-Encoding</code></td><td>запрос</td><td>Какие форматы, языки и способы сжатия клиент понимает. Сервер выбирает подходящий вариант (content negotiation).</td></tr>
+<tr><td><code>Content-Type</code></td><td>оба</td><td>Формат тела: <code>application/json</code>, <code>text/html; charset=utf-8</code>, <code>multipart/form-data</code>.</td></tr>
+<tr><td><code>Content-Length</code></td><td>оба</td><td>Размер тела в байтах.</td></tr>
+<tr><td><code>Content-Encoding</code></td><td>ответ</td><td>Чем сжато тело: <code>gzip</code>, <code>br</code>.</td></tr>
+<tr><td><code>Authorization</code></td><td>запрос</td><td>Учётные данные, чаще всего <code>Bearer &lt;токен&gt;</code>.</td></tr>
+<tr><td><code>Cookie</code> / <code>Set-Cookie</code></td><td>запрос / ответ</td><td>Передать куки серверу / попросить браузер сохранить куку.</td></tr>
+<tr><td><code>Cache-Control</code>, <code>ETag</code>, <code>Last-Modified</code></td><td>ответ</td><td>Правила кеширования.</td></tr>
+<tr><td><code>Connection</code></td><td>оба</td><td><code>keep-alive</code> или <code>close</code>: держать ли TCP-соединение. В HTTP/2 запрещён.</td></tr>
+<tr><td><code>Location</code></td><td>ответ</td><td>Куда перенаправить (с кодами 3xx) или где новый ресурс (с 201).</td></tr>
+<tr><td><code>Origin</code>, <code>Access-Control-*</code></td><td>оба</td><td>CORS, отдельный раздел ниже.</td></tr>
+</tbody></table></div>
+<p>Свои заголовки можно придумывать. Раньше их называли с префиксом <code>X-</code> (<code>X-Forwarded-For</code>, <code>X-Request-Id</code>), как говорится в вебинаре. Учтите, что с 2012 года (RFC 6648) префикс <code>X-</code> для новых заголовков не рекомендуется, хотя старые так и остались. Ещё одна ловушка: браузер даёт JavaScript прочитать из ответа на кросс-доменный запрос только несколько «безопасных» заголовков, остальные сервер должен явно открыть через <code>Access-Control-Expose-Headers</code>.</p>
+
+<h3 id="cs-compression">Сжатие: encoding — не encryption</h3>
+<p>Текст (HTML, CSS, JS, JSON) хорошо сжимается, потому что в нём много повторов. Клиент сообщает, что умеет: <code>Accept-Encoding: gzip, br</code>. Сервер сжимает и помечает: <code>Content-Encoding: br</code>. Браузер распаковывает сам, и в <code>response.json()</code> приходят уже обычные данные — делать ничего не нужно.</p>
+<p>Проверка на Node.js 22: массив из 200 объектов пользователей в JSON занял 12 181 байт, после gzip — 1 082, после Brotli — 523. Это уменьшение в 11 и 23 раза; на реальных данных выигрыш обычно меньше, но всё равно кратный. Сжатие без потерь (lossless) восстанавливает данные бит в бит; в вебинаре его объясняют на примере замены повторяющихся букв числом повторов.</p>
+<p>Вебинар подчёркивает: <b>кодирование</b> (encoding) не защищает данные, его цель — удобство или экономия. Статья Auth0 «Encoding, Encryption and Hashing» разводит три понятия:</p>
+<div class="tbl"><table>
+<thead><tr><th></th><th>Кодирование</th><th>Шифрование</th><th>Хеширование</th></tr></thead>
+<tbody>
+<tr><td>Цель</td><td>Представить данные в другом формате</td><td>Скрыть данные от посторонних</td><td>Получить «отпечаток» данных</td></tr>
+<tr><td>Обратимо?</td><td>Да, любым, кто знает формат</td><td>Да, только с ключом</td><td>Нет</td></tr>
+<tr><td>Примеры</td><td>Base64, UTF-8, gzip, URL-кодирование</td><td>AES, RSA, TLS</td><td>SHA-256, bcrypt для паролей</td></tr>
+</tbody></table></div>
+<p>Частая ошибка новичков — считать Base64 защитой. Строку <code>YWRtaW46MTIz</code> любой раскодирует командой <code>atob</code> и получит <code>admin:123</code>.</p>
+
+<h3 id="cs-cache">Кеширование</h3>
+<p>Самый быстрый запрос — тот, которого не было. Сервер подсказывает браузеру, как обращаться с ответом:</p>
+<ul>
+<li><code>Cache-Control: max-age=31536000, immutable</code> — хранить год и не проверять. Так отдают файлы с хешем в имени (<code>app.3f9a1c.js</code>): при изменении меняется имя.</li>
+<li><code>Cache-Control: no-cache</code> — хранить можно, но перед использованием спросить сервер. Несмотря на название, это не запрет кеша.</li>
+<li><code>Cache-Control: no-store</code> — не хранить вообще (банковские данные).</li>
+</ul>
+<p>Проверка актуальности работает через <b>условные запросы</b>. Сервер присылает <code>ETag: "abc123"</code> (отпечаток версии) или <code>Last-Modified</code>. В следующий раз браузер спрашивает <code>If-None-Match: "abc123"</code>, и если ресурс не изменился, сервер отвечает <b>304 Not Modified</b> без тела. В лекции по HTTP это показано на картинках, которые «не загружаются заново». Принцип REST «кешируемость» (раздел о REST) опирается именно на эти заголовки.</p>
+
+<h3 id="cs-cookies">Куки</h3>
+<p>Кука — небольшая пара «имя=значение», которую браузер хранит для конкретного сайта и <b>автоматически</b> прикладывает к каждому запросу на этот сайт в заголовке <code>Cookie</code>. Так поверх протокола без состояния строится «память»: при входе сервер создаёт сессию в базе, кладёт её идентификатор в куку, и по нему узнаёт пользователя в следующих запросах.</p>
+<pre><code>HTTP/1.1 200 OK
+Set-Cookie: sessionId=a3fWa; Max-Age=604800; Path=/; Secure; HttpOnly; SameSite=Lax</code></pre>
+<dl class="gloss">
+<dt>Сеансовая (session)</dt><dd>Без <code>Expires</code> и <code>Max-Age</code>. Удаляется, когда заканчивается сеанс браузера.</dd>
+<dt>Постоянная (persistent)</dt><dd>Живёт до даты <code>Expires</code> или <code>Max-Age</code> секунд, даже после закрытия браузера.</dd>
+<dt><code>HttpOnly</code></dt><dd>Кука недоступна из JavaScript (<code>document.cookie</code> её не покажет). Защищает сессию от кражи через XSS. В DevTools её видно, но изменить её может только сервер.</dd>
+<dt><code>Secure</code></dt><dd>Отправляется только по HTTPS (исключение — <code>localhost</code>).</dd>
+<dt><code>SameSite</code></dt><dd><code>Strict</code> — только запросы со своего сайта; <code>Lax</code> — плюс переход по ссылке с чужого сайта; <code>None</code> — всегда, но обязательно вместе с <code>Secure</code>. Защищает от CSRF. Если атрибут не указан, Chrome с 2020 года считает его <code>Lax</code>.</dd>
+<dt><code>Domain</code>, <code>Path</code></dt><dd>Для каких поддоменов и путей отправлять куку.</dd>
+</dl>
+<p>Как установить куку:</p>
+<ul>
+<li>Сервер присылает <code>Set-Cookie</code> — основной способ, единственный для <code>HttpOnly</code>.</li>
+<li>JavaScript: <code>document.cookie = 'lang=ru; max-age=86400; path=/'</code>. Присваивание <i>добавляет или обновляет одну куку</i>, а не перезаписывает все. Читать неудобно: <code>document.cookie</code> возвращает одну строку вида <code>"lang=ru; theme=dark"</code>, которую надо разбирать.</li>
+<li>Вручную в DevTools → Application → Cookies.</li>
+</ul>
+<div class="warn"><b>Поправки к вебинару</b><p>1. В вебинаре упомянут способ через <code>&lt;meta http-equiv="set-cookie"&gt;</code>. Современные браузеры его игнорируют: Chrome перестал его выполнять в начале 2018 года (версия 65), использовать его нельзя.<br>2. На вебинаре видно ошибку из домашних работ: <code>document.cookie = 'ru'</code>. Кука должна быть парой <code>имя=значение</code>: <code>document.cookie = 'lang=ru'</code>.<br>3. Во второй части лектор разбирается, почему сеансовая кука не удалилась после закрытия Chrome. Причина в настройке «Продолжить работу с того же места» (восстановление вкладок): браузер считает сеанс не завершённым и сохраняет сеансовые куки. Safari с другой настройкой удаляет их, как и ожидалось. Полагаться на то, что сеансовая кука пропадёт при закрытии окна, нельзя.</p></div>
+<p>Куки уходят с <i>каждым</i> запросом к сайту, включая картинки и стили, поэтому хранить в них что-то большое невыгодно. Для данных, нужных только на клиенте, есть <code>localStorage</code> (около 5 МБ, не отправляется на сервер). Лимит одной куки около 4 КБ.</p>
+</section>

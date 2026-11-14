@@ -1,0 +1,94 @@
+<section id="cs-js">
+<h2>Запросы из JavaScript</h2>
+<h3 id="cs-ajax">AJAX</h3>
+<p>Раньше сайты были многостраничными: каждое действие (отправка формы, клик по ссылке) уходило на сервер, и он присылал целую новую страницу. Вторая часть вебинара начинается с <b>AJAX</b> (Asynchronous JavaScript and XML) — подхода, при котором JavaScript отправляет запрос в фоне и обновляет только часть страницы, без перезагрузки. На этом построены одностраничные приложения (SPA). Слово XML осталось в названии исторически: сегодня почти всегда передают JSON.</p>
+<p>Минусы, которые называет лектор: без JavaScript ничего не работает; нужно настраивать CORS для запросов на другие домены; поисковики хуже индексируют контент, который появляется только после запросов. Последняя проблема уменьшилась (Google выполняет JS), но для важных для SEO страниц всё равно выбирают рендеринг на сервере (SSR).</p>
+<h3 id="cs-xhr">XMLHttpRequest</h3>
+<p>Исторический API для AJAX. Пример со слайдов лекции:</p>
+<pre><code>const xhr = new XMLHttpRequest();
+xhr.open('GET', '/');
+xhr.send();
+xhr.onload = function () {
+  if (xhr.status !== 200) {
+    console.log(`Error: ${xhr.status}: ${xhr.statusText}`);
+  } else {
+    console.log(`Response: ${xhr.response}`);
+  }
+};
+xhr.onerror = function () {
+  console.log('Request failed');
+};</code></pre>
+<p>Колбэки, много строк, неудобная обработка ошибок. В новом коде XHR не пишут, но встретить его можно в старых проектах и в библиотеке Axios, которая в браузере работает поверх XHR. Одна из причин, по которой его ещё используют, — событие прогресса загрузки файла (<code>xhr.upload.onprogress</code>), которого у <code>fetch</code> до сих пор нет в удобном виде (из общих знаний).</p>
+
+<h3 id="cs-promise">Промисы за пять минут</h3>
+<p>Сетевой запрос долгий, а JavaScript не должен замирать в ожидании. Поэтому <code>fetch</code> сразу возвращает <b>промис</b> — объект, который сейчас в состоянии <code>pending</code> (ожидание), а потом перейдёт в <code>fulfilled</code> (выполнен, есть значение) или <code>rejected</code> (ошибка). Обработчики вешаются через <code>.then</code> и <code>.catch</code>, и выполняются позже, когда результат готов; код ниже продолжает работать, не дожидаясь.</p>
+<pre><code>console.log(1);
+fetch('/api/user').then(() =&gt; console.log(3));
+console.log(2);
+// 1, 2, 3</code></pre>
+<p>Если из <code>.then</code> вернуть значение, оно станет аргументом следующего <code>.then</code>. Если вернуть промис — следующий <code>.then</code> дождётся его. На этом стоит цепочка <code>fetch(url).then(r =&gt; r.json()).then(data =&gt; ...)</code>: <code>response.json()</code> тоже асинхронный, потому что тело ответа приходит потоком (<code>ReadableStream</code>) и его нужно дочитать.</p>
+<p><code>async/await</code> — синтаксис поверх тех же промисов: <code>await</code> приостанавливает <i>только текущую async-функцию</i> до результата промиса, остальная программа продолжает работать. Лектор пользуется <code>async/await</code> почти всегда; технической разницы с цепочками нет. Подробнее о промисах и цикле событий — на learn.javascript.ru, его советуют в вебинаре.</p>
+
+<h3 id="cs-fetch">fetch</h3>
+<p><code>fetch(url, options)</code> — современный встроенный API. Второй аргумент необязателен; по умолчанию метод GET.</p>
+<pre><code>const response = await fetch('/api/users', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: 'Аня' }),
+});</code></pre>
+<p>Объект <code>Response</code> содержит <code>status</code>, <code>statusText</code>, <code>ok</code> (true для 200–299), <code>headers</code>, <code>url</code>, <code>redirected</code> и методы для чтения тела: <code>json()</code>, <code>text()</code>, <code>blob()</code>, <code>formData()</code>, <code>arrayBuffer()</code>. Тело можно прочитать только один раз. Если вызвать <code>json()</code> на HTML-странице, получите <code>SyntaxError: Unexpected token '&lt;'</code> — лектор показывает это на запросе к google.com.</p>
+<h3 id="cs-fetch-errors">Главная ловушка: fetch не бросает ошибку на 404 и 500</h3>
+<p>В вебинаре запрос к GitHub без параметра <code>q</code> вернул 422, а сработал <code>.then</code>, а не <code>.catch</code>. С точки зрения <code>fetch</code> ответ получен, значит, промис выполнен. Отклоняется он только при сетевой ошибке (нет соединения, DNS не нашёл адрес, CORS заблокировал ответ) или отмене. Статус нужно проверять самому:</p>
+<pre><code>async function getJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
+try {
+  const user = await getJson('http://localhost:8001/api/user');
+  console.log(user);
+} catch (error) {
+  console.log('Ошибка:', error.message);
+}</code></pre>
+<p>Запуск в Node.js 22 против локального сервера: для существующего адреса вывелось <code>{ login: 'octocat' }</code>, для несуществующего — <code>Ошибка: HTTP 404</code>. Голый <code>fetch</code> на тот же адрес вернул объект со <code>status = 404</code> и <code>ok = false</code>, без исключения. Запрос на закрытый порт отклонился с <code>TypeError: fetch failed</code> — это и есть сетевая ошибка.</p>
+
+<h3 id="cs-github">Пример из вебинара: поиск пользователей GitHub</h3>
+<p>Лектор пишет функцию поиска через GitHub Search API и выводит логины списком. Версия с <code>async/await</code> и проверкой статуса:</p>
+<pre><code>async function searchUsers(query) {
+  const url = `https://api.github.com/search/users?q=${encodeURIComponent(query)}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const { items } = await response.json();
+  return items.map((user) =&gt; user.login);
+}
+
+function renderLoginList(logins) {
+  const list = document.createElement('ul');
+  for (const login of logins) {
+    const item = document.createElement('li');
+    item.textContent = login;
+    list.append(item);
+  }
+  document.body.append(list);
+}
+
+searchUsers('rolling-scopes').then(renderLoginList).catch(console.error);</code></pre>
+<p>Функция <code>searchUsers</code> запущена в Node.js 22 и вернула <code>['rolling-scopes', 'rolling-scopes-school', 'Rolling-Scopes-School-Team']</code> первыми тремя результатами (выдача со временем меняется). Запрос без <code>q</code> вернул <code>422 Validation Failed</code>. Список добавляется в DOM одним <code>append</code>; если списков много, слушатели вебинара справедливо советуют собирать их в <code>DocumentFragment</code>. Без авторизации GitHub разрешает около 10 поисковых запросов в минуту, поэтому при активной отладке можно получить 403 с сообщением о лимите.</p>
+<p>Отменить <code>fetch</code> можно: лектор сказал, что нельзя, но <code>AbortController</code> давно поддерживается всеми браузерами. <code>fetch(url, { signal: controller.signal })</code>, затем <code>controller.abort()</code> — и промис отклонится с <code>AbortError</code>. Для тайм-аута есть <code>AbortSignal.timeout(5000)</code>.</p>
+
+<h3 id="cs-libs">Библиотеки и инструменты</h3>
+<p>Слайды лекции называют <b>Axios</b> для фронтенда, <b>got</b> и <b>node-fetch</b> для Node.js. Сегодня в Node.js 18+ <code>fetch</code> встроен, и node-fetch не нужен. Axios по-прежнему популярен за удобства: сам бросает ошибку на 4xx/5xx, сам разбирает JSON, умеет перехватчики (interceptors) для токенов. Аргумент из лекции про то, что <code>fetch</code> в разных браузерах работает по-разному, устарел: он одинаково поддерживается всеми современными браузерами.</p>
+<p><b>Postman</b> — приложение для ручных запросов: выбрать метод, URL, query-параметры, заголовки, тело (raw JSON), посмотреть ответ, статус, время, куки. Запросы сохраняются в коллекции и передаются коллегам; на вкладке Tests можно проверять ответ (например, что статус 200). Postman не браузер, поэтому CORS на него не действует — этим объясняется классическая ситуация «в Postman работает, а в браузере нет». Альтернативы: Insomnia, Bruno, расширение Thunder Client для VS Code, файлы <code>.http</code> в редакторе.</p>
+<p><b>Вкладка Network</b> в DevTools показывает все запросы страницы. Полезное:</p>
+<ul>
+<li>Фильтр <b>Fetch/XHR</b> оставляет только запросы из JavaScript.</li>
+<li><b>Preserve log</b> не очищает список при переходе или редиректе.</li>
+<li><b>Disable cache</b> отключает кеш, пока DevTools открыты: видно, как страница грузится у нового посетителя.</li>
+<li>У запроса: Headers (статус, заголовки запроса и ответа), Payload (тело и query), Preview (отформатированный JSON), Response (сырой текст, по нему удобно искать), Timing (DNS, соединение, ожидание, загрузка).</li>
+<li>Столбец Protocol (включается правым кликом по заголовку таблицы) показывает <code>http/1.1</code>, <code>h2</code> или <code>h3</code>.</li>
+<li>Throttling эмулирует медленную сеть.</li>
+</ul>
+</section>
