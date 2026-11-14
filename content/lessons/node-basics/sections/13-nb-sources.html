@@ -1,0 +1,20 @@
+<section id="nb-sources" class="sources">
+<h2>Источники</h2>
+<p>Урок написан, чтобы закрыть пробел перед уроком «JWT-авторизация», и собран по официальной документации. Все страницы открыты и сверены 14 ноября 2026 года.</p>
+<h3 id="nb-src-node">Node.js и npm</h3>
+<ul>
+<li><a href="https://nodejs.org/en/learn/getting-started/introduction-to-nodejs">Introduction to Node.js</a> — что такое Node.js и чем он отличается от браузера.</li>
+<li><a href="https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick">The Node.js Event Loop</a> — фазы цикла событий, <code>setImmediate</code> и <code>process.nextTick</code>.</li>
+<li>Документация API: <a href="https://nodejs.org/api/modules.html">CommonJS modules</a>, <a href="https://nodejs.org/api/esm.html">ECMAScript modules</a>, <a href="https://nodejs.org/api/fs.html">fs</a>, <a href="https://nodejs.org/api/path.html">path</a>, <a href="https://nodejs.org/api/events.html">events</a>, <a href="https://nodejs.org/api/http.html">http</a>, <a href="https://nodejs.org/api/cli.html">параметры командной строки</a> (<code>--watch</code>, <code>--env-file</code>).</li>
+<li><a href="https://nodejs.org/en/learn/command-line/how-to-read-environment-variables-from-nodejs">How to read environment variables</a>.</li>
+<li><a href="https://docs.npmjs.com/cli/v10/configuring-npm/package-json">npm: package.json</a>, <a href="https://semver.org/lang/ru/">Семантическое версионирование</a>, <a href="https://github.com/nvm-sh/nvm">nvm</a>.</li>
+<li><a href="https://learn.javascript.ru/modules-intro">learn.javascript.ru: Модули, введение</a>.</li>
+</ul>
+<h3 id="nb-src-express">Express и MongoDB</h3>
+<ul>
+<li>Express: <a href="https://expressjs.com/en/starter/hello-world.html">Hello world</a>, <a href="https://expressjs.com/en/guide/routing.html">Routing</a>, <a href="https://expressjs.com/en/guide/using-middleware.html">Using middleware</a>, <a href="https://expressjs.com/en/guide/error-handling.html">Error handling</a>, <a href="https://expressjs.com/en/guide/migrating-5.html">Migrating to Express 5</a>.</li>
+<li>MongoDB: <a href="https://www.mongodb.com/docs/manual/introduction/">Introduction to MongoDB</a>, <a href="https://www.mongodb.com/products/platform/atlas-database">MongoDB Atlas</a>.</li>
+<li>Mongoose: <a href="https://mongoosejs.com/docs/index.html">Getting started</a>, <a href="https://mongoosejs.com/docs/validation.html">Validation</a>.</li>
+</ul>
+<p>Из общих знаний: сравнение с браузером, рекомендации по структуре проекта, worker threads, Docker-команда для MongoDB. Проверено в Node.js 22.23: модули CommonJS и ESM, <code>fs/promises</code>, <code>path</code>, <code>--env-file</code>, <code>EventEmitter</code>, порядок <code>nextTick</code>, промисов, таймеров; HTTP-сервер и API на Express 5.3 с CRUD, middleware, 404 и обработчиком ошибок (каждый маршрут — запросом curl); схема Mongoose 8.24 и валидация без подключения к базе. Работа с настоящей MongoDB (<code>connect</code>, <code>find</code> и другие запросы) при подготовке урока не запускалась.</p>
+</section>

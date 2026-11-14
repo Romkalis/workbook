@@ -1,0 +1,40 @@
+<section id="nb-npm">
+<h2>npm и package.json</h2>
+<p><b>npm</b> (node package manager) — менеджер пакетов: он скачивает чужие библиотеки из реестра npmjs.com и следит за их версиями. Альтернативы с теми же идеями — pnpm и yarn.</p>
+<h3 id="nb-package-json">package.json</h3>
+<p>Паспорт проекта. Создаётся командой <code>npm init -y</code> (<code>-y</code> — согласиться со всеми вопросами). Основные поля (<a href="https://docs.npmjs.com/cli/v10/configuring-npm/package-json">документация</a>):</p>
+<pre><code>{
+  "name": "todo-api",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "mongoose": "^8.24.9"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}</code></pre>
+<ul>
+<li><code>dependencies</code> — то, что нужно программе для работы (Express, Mongoose). Ставятся: <code>npm install express</code>.</li>
+<li><code>devDependencies</code> — только для разработки: линтеры, тесты, сборщики. Ставятся: <code>npm install -D eslint</code>.</li>
+<li><code>scripts</code> — команды проекта. Запуск: <code>npm run dev</code>. Для <code>start</code> и <code>test</code> слово <code>run</code> можно опустить: <code>npm start</code>, <code>npm test</code>.</li>
+</ul>
+<h3 id="nb-semver">Версии: что значат ^ и ~</h3>
+<p>Версии пакетов записывают по правилам <a href="https://semver.org/lang/ru/">семантического версионирования</a>: <code>МАЖОРНАЯ.МИНОРНАЯ.ПАТЧ</code>. Патч — исправления ошибок, минорная — новые возможности без поломок, мажорная — изменения, которые могут сломать ваш код (Express 4 → 5).</p>
+<ul>
+<li><code>^5.3.0</code> — любая <code>5.x.x</code> не ниже 5.3.0. Это вариант по умолчанию.</li>
+<li><code>~5.3.0</code> — только патчи: <code>5.3.x</code>.</li>
+<li><code>5.3.0</code> — ровно эта версия.</li>
+</ul>
+<h3 id="nb-lock">node_modules и package-lock.json</h3>
+<p>Пакеты скачиваются в папку <code>node_modules</code>, вместе с их собственными зависимостями — поэтому она бывает огромной. В git её <b>не добавляют</b> (строка в <code>.gitignore</code>): её всегда можно восстановить командой <code>npm install</code>.</p>
+<p>Файл <code>package-lock.json</code> записывает точные версии всего дерева пакетов. Его в git <b>добавляют</b>: так у всех разработчиков и на сервере стоят одинаковые версии. На сервере и в CI (автоматической проверке, которая запускается на сервере при каждом пуше в репозиторий) ставят командой <code>npm ci</code> — строго по lock-файлу.</p>
+<h3 id="nb-npx">npx</h3>
+<p><code>npx</code> запускает команду из пакета: из <code>node_modules/.bin</code> проекта, а если её там нет — скачивает пакет во временную папку. <code>npx eslint .</code> вызывает локальный ESLint. С незнакомыми пакетами осторожнее: <code>npx что-то</code> скачает и выполнит чужой код с вашими правами.</p>
+</section>

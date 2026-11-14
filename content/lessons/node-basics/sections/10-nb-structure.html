@@ -1,0 +1,40 @@
+<section id="nb-structure">
+<h2>Структура проекта и путь к JWT</h2>
+<p>Пока всё в одном файле, проект легко читать. Когда маршрутов и моделей становится больше, код раскладывают по папкам по ролям. Единого стандарта нет, частый вариант:</p>
+<pre><code>todo-api/
+  .env              секреты, не в git
+  .env.example      список переменных без значений
+  .gitignore        node_modules, .env
+  package.json
+  src/
+    server.js       подключиться к базе и запустить app.listen
+    app.js          создать app, подключить middleware и роутеры
+    routes/         какие URL есть (todos.js, auth.js)
+    controllers/    что делать на каждый URL
+    models/         схемы Mongoose (Todo.js, User.js)
+    middleware/     свои middleware (requireAuth.js, errorHandler.js)</code></pre>
+<p>Разделение <code>app.js</code> и <code>server.js</code> полезно для тестов: приложение можно импортировать и проверять запросами, не запуская сервер на порту.</p>
+<pre><code>// src/server.js
+require('dotenv').config();
+const mongoose = require('mongoose');
+const app = require('./app');
+
+const PORT = Number(process.env.PORT) || 3000;
+
+async function start() {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    app.listen(PORT, () =&gt; console.log(`http://localhost:${PORT}`));
+  } catch (error) {
+    console.error('Не удалось запустить сервер', error);
+    process.exit(1);
+  }
+}
+
+start();</code></pre>
+<p>Сервер сначала подключается к базе и только потом начинает принимать запросы. Если база недоступна, процесс завершается с кодом 1, а не работает «наполовину».</p>
+<h3 id="nb-frontend">Как фронтенд обращается к своему серверу</h3>
+<p>Фронтенд на Vite (<code>localhost:5173</code>) и сервер (<code>localhost:3000</code>) — разные origin, поэтому браузер применит CORS. Два решения из урока <a href="/lessons/client-server#cs-cors-fix">о клиенте и сервере</a>: подключить на сервере пакет <code>cors</code> с вашим origin (<code>app.use(cors({ origin: 'http://localhost:5173' }))</code>) или настроить прокси в dev-сервере Vite.</p>
+<h3 id="nb-next">Что дальше</h3>
+<p>Теперь в уроке <a href="/lessons/jwt-auth">«JWT-авторизация»</a> знакомо всё, на что он опирается: <code>require</code>, npm и <code>.env</code>, Express-маршруты и middleware, модели Mongoose. К этому добавятся модель пользователя с хешем пароля, выдача токена при входе и middleware, которое проверяет токен перед защищёнными маршрутами.</p>
+</section>

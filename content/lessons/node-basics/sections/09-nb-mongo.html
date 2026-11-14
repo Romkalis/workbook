@@ -1,0 +1,62 @@
+<section id="nb-mongo">
+<h2>MongoDB и Mongoose</h2>
+<p>Данные в массиве пропадают при перезапуске. Их хранят в <b>базе данных</b> — отдельной программе, которая надёжно сохраняет данные на диск и быстро ищет их.</p>
+<h3 id="nb-mongodb">MongoDB</h3>
+<p><a href="https://www.mongodb.com/docs/manual/introduction/">MongoDB</a> — документная база данных. Данные в ней похожи на объекты JavaScript:</p>
+<ul>
+<li><b>Документ</b> — одна запись, объект вроде <code>{ "title": "Купить молоко", "done": false }</code>. У каждого есть уникальный <code>_id</code> типа <b>ObjectId</b> — 24 шестнадцатеричных символа (цифры 0–9 и буквы a–f), например <code>664f2a1b2c3d4e5f6a7b8c9d</code>.</li>
+<li><b>Коллекция</b> — набор документов одного вида (<code>todos</code>, <code>users</code>), аналог таблицы.</li>
+<li><b>База</b> — набор коллекций одного приложения.</li>
+</ul>
+<p>В отличие от реляционных баз с языком запросов SQL (PostgreSQL, MySQL), где данные лежат в таблицах со строго заданными столбцами, MongoDB не требует заранее описывать структуру таблиц. Свобода опасна: в коллекцию можно случайно записать что угодно. Поэтому структуру задают на уровне приложения через Mongoose.</p>
+<p>Где взять базу: поставить MongoDB Community локально, запустить в Docker — программе, которая запускает приложения в изолированных контейнерах (<code>docker run -p 27017:27017 mongo</code>) или создать бесплатный кластер в облаке <a href="https://www.mongodb.com/products/platform/atlas-database">MongoDB Atlas</a>. Адрес подключения кладут в переменную окружения <code>MONGO_URI</code>.</p>
+<h3 id="nb-mongoose">Mongoose: схема и модель</h3>
+<p><a href="https://mongoosejs.com/docs/index.html">Mongoose</a> — библиотека, которая добавляет к MongoDB схемы, проверку данных и удобные методы. Установка: <code>npm install mongoose</code>.</p>
+<pre><code>const mongoose = require('mongoose');
+
+const todoSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true, maxlength: 200 },
+    done: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+
+const Todo = mongoose.model('Todo', todoSchema);</code></pre>
+<ul>
+<li><b>Схема</b> описывает поля: тип, обязательность (<code>required</code>), значение по умолчанию (<code>default</code>), обработку (<code>trim</code> убирает пробелы по краям), ограничения (<code>maxlength</code>, <code>min</code>, <code>enum</code>, <code>unique</code>).</li>
+<li><code>timestamps: true</code> сам добавляет поля <code>createdAt</code> и <code>updatedAt</code>.</li>
+<li><b>Модель</b> — класс для работы с коллекцией. Из имени <code>'Todo'</code> Mongoose делает имя коллекции <code>todos</code>.</li>
+</ul>
+<p>Проверено без базы: <code>new Todo({ title: '  Купить молоко  ' })</code> дал <code>title</code> «Купить молоко» без пробелов, <code>done: false</code> и готовый <code>_id</code> типа ObjectId. Документ без <code>title</code> не прошёл проверку: <code>ValidationError</code> с видом ошибки <code>required</code> у поля <code>title</code> (<a href="https://mongoosejs.com/docs/validation.html">документация по валидации</a>).</p>
+<h3 id="nb-crud">Подключение и операции</h3>
+<pre><code>await mongoose.connect(process.env.MONGO_URI);
+
+const todo = await Todo.create({ title: 'Купить молоко' }); // создать
+const all = await Todo.find({ done: false });                // найти по условию
+const one = await Todo.findById(id);                         // по _id, или null
+const updated = await Todo.findByIdAndUpdate(
+  id,
+  { done: true },
+  { new: true, runValidators: true },                        // вернуть новую версию и проверить
+);
+await Todo.findByIdAndDelete(id);                            // удалить</code></pre>
+<p>Все методы асинхронные, поэтому <code>await</code>. Тонкости, на которых спотыкаются:</p>
+<ul>
+<li><code>findById</code> не находит документ — возвращает <code>null</code>, а не бросает ошибку. Проверяйте и отвечайте 404.</li>
+<li>Если <code>id</code> вообще не похож на ObjectId (например, <code>'123'</code>), будет <code>CastError</code>. Проверка заранее: <code>mongoose.isValidObjectId('123')</code> вернул <code>false</code>, а для 24-символьной строки — <code>true</code>.</li>
+<li>Без <code>{ new: true }</code> <code>findByIdAndUpdate</code> возвращает документ <i>до</i> изменения, а без <code>runValidators</code> не проверяет схему.</li>
+<li><code>ValidationError</code> — это ошибка данных клиента, отвечать на неё нужно 400, а не 500.</li>
+</ul>
+<p>Маршрут с базой вместо массива:</p>
+<pre><code>app.get('/api/todos/:id', async (req, res) =&gt; {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ error: 'Неверный id' });
+  }
+  const todo = await Todo.findById(req.params.id);
+  if (!todo) return res.status(404).json({ error: 'Задача не найдена' });
+  res.json(todo);
+});</code></pre>
+<p>Этот фрагмент повторяет проверенный выше маршрут, но с запросом к базе; с настоящей MongoDB при подготовке урока он не запускался.</p>
+<div class="note"><b>Пароли не хранят как есть</b><p>Если в модели есть пароль, его сохраняют только в виде хеша — необратимого отпечатка, по которому можно проверить пароль, но нельзя его восстановить (библиотека bcrypt). Как это делается в хуке модели перед сохранением — в уроке <a href="/lessons/jwt-auth#jwt-model">«JWT-авторизация»</a>.</p></div>
+</section>

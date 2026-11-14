@@ -1,0 +1,110 @@
+<section id="nb-express">
+<h2>Express</h2>
+<p><a href="https://expressjs.com/">Express</a> — минималистичный и самый популярный веб-фреймворк для Node.js. Он даёт три вещи: <b>маршрутизацию</b> (routing: какой код вызвать на <code>GET /api/todos/5</code>), удобные <code>req</code> и <code>res</code> и цепочку <b>middleware</b>. Установка: <code>npm install express</code> — сейчас ставится Express 5, ему нужен Node.js 18+.</p>
+<h3 id="nb-express-app">Первое приложение: API списка задач</h3>
+<pre><code>const express = require('express');
+
+const app = express();
+app.use(express.json()); // разбирать JSON в теле запроса
+
+let todos = [{ id: 1, title: 'Выучить Node.js', done: false }];
+let nextId = 2;
+
+app.get('/api/todos', (req, res) =&gt; {
+  const { done } = req.query;
+  const result = done === undefined
+    ? todos
+    : todos.filter((t) =&gt; String(t.done) === done);
+  res.json(result);
+});
+
+app.get('/api/todos/:id', (req, res) =&gt; {
+  const todo = todos.find((t) =&gt; t.id === Number(req.params.id));
+  if (!todo) return res.status(404).json({ error: 'Задача не найдена' });
+  res.json(todo);
+});
+
+app.post('/api/todos', (req, res) =&gt; {
+  const { title } = req.body ?? {};
+  if (typeof title !== 'string' || title.trim() === '') {
+    return res.status(400).json({ error: 'Нужно поле title' });
+  }
+  const todo = { id: nextId++, title: title.trim(), done: false };
+  todos.push(todo);
+  res.status(201).json(todo);
+});
+
+app.patch('/api/todos/:id', (req, res) =&gt; {
+  const todo = todos.find((t) =&gt; t.id === Number(req.params.id));
+  if (!todo) return res.status(404).json({ error: 'Задача не найдена' });
+  if (typeof req.body?.done === 'boolean') todo.done = req.body.done;
+  res.json(todo);
+});
+
+app.delete('/api/todos/:id', (req, res) =&gt; {
+  todos = todos.filter((t) =&gt; t.id !== Number(req.params.id));
+  res.status(204).end();
+});
+
+app.listen(3002, () =&gt; console.log('http://localhost:3002'));</code></pre>
+<p>Задачи хранятся в массиве, поэтому пропадут при перезапуске — базу данных подключим в следующем разделе. Проверено curl:</p>
+<div class="tbl"><table>
+<thead><tr><th>Запрос</th><th>Ответ</th></tr></thead>
+<tbody>
+<tr><td><code>GET /api/todos</code></td><td>200, массив с одной задачей</td></tr>
+<tr><td><code>POST /api/todos</code> с <code>{"title":"  Написать сервер "}</code></td><td>201, <code>{"id":2,"title":"Написать сервер","done":false}</code></td></tr>
+<tr><td><code>POST /api/todos</code> с <code>{}</code> или без тела</td><td>400, <code>{"error":"Нужно поле title"}</code></td></tr>
+<tr><td><code>PATCH /api/todos/2</code> с <code>{"done":true}</code></td><td>200, задача с <code>done: true</code></td></tr>
+<tr><td><code>GET /api/todos?done=true</code></td><td>200, только выполненные</td></tr>
+<tr><td><code>GET /api/todos/99</code></td><td>404</td></tr>
+<tr><td><code>DELETE /api/todos/1</code></td><td>204 без тела</td></tr>
+</tbody></table></div>
+<p>Это REST-API из урока <a href="/lessons/client-server#cs-rest">о клиенте и сервере</a>: ресурс <code>/api/todos</code>, действие выражено методом, ответ — правильным кодом состояния.</p>
+<h3 id="nb-req-res">req и res</h3>
+<p>Где брать данные из запроса (<a href="https://expressjs.com/en/guide/routing.html">гайд по маршрутизации</a>):</p>
+<ul>
+<li><code>req.params</code> — части пути из шаблона. Для маршрута <code>/api/todos/:id</code> и адреса <code>/api/todos/5</code> будет <code>{ id: '5' }</code>. Всегда строки, поэтому <code>Number(...)</code>.</li>
+<li><code>req.query</code> — параметры после <code>?</code>: <code>?done=true</code> даёт <code>{ done: 'true' }</code>, тоже строкой.</li>
+<li><code>req.body</code> — тело запроса. Появляется, только если подключён разборщик: <code>express.json()</code> для JSON. Если тела нет, в Express 5 <code>req.body</code> равен <code>undefined</code>, поэтому в примере <code>req.body ?? {}</code>.</li>
+<li><code>req.headers</code>, <code>req.get('Authorization')</code> — заголовки.</li>
+</ul>
+<p>Как ответить: <code>res.json(obj)</code> (сам ставит <code>Content-Type: application/json</code>), <code>res.send('текст')</code>, <code>res.status(201)</code> (возвращает <code>res</code>, поэтому пишут цепочкой <code>res.status(201).json(...)</code>), <code>res.status(204).end()</code>, <code>res.redirect('/login')</code>, <code>res.cookie(...)</code>.</p>
+<p>На один запрос — один ответ. Частая ошибка: забыть <code>return</code> после <code>res.status(404).json(...)</code>; код пойдёт дальше, попытается ответить второй раз, и Express упадёт с «Cannot set headers after they are sent to the client».</p>
+<h3 id="nb-middleware">Middleware</h3>
+<p><b>Middleware</b> («промежуточный обработчик») — функция <code>(req, res, next)</code>, через которую проходит запрос по пути к маршруту. Она может что-то сделать с запросом (разобрать тело, проверить токен, записать в лог) и либо ответить сама, либо вызвать <code>next()</code>, чтобы передать запрос дальше (<a href="https://expressjs.com/en/guide/using-middleware.html">гайд</a>).</p>
+<pre><code>app.use((req, res, next) =&gt; {
+  console.log(req.method, req.url);
+  next();
+});</code></pre>
+<figure class="dg"><div class="dg-title">Путь запроса через Express</div><ol class="seqlist n5" aria-hidden="true"><li class="card lit" style="--i:0"><span class="hd">express.json()</span><span class="ln">разобрал тело → req.body, next()</span></li><li class="card lit" style="--i:1"><span class="hd">логгер</span><span class="ln">записал «POST /api/todos», next()</span></li><li class="card lit" style="--i:2"><span class="hd">проверка авторизации (в уроке о JWT)</span><span class="ln">нет токена → ответ 401, цепочка закончена; есть → next()</span></li><li class="card lit" style="--i:3"><span class="hd">маршрут POST /api/todos</span><span class="ln">создал задачу, ответил 201</span></li><li class="card lit" style="--i:4"><span class="hd">404 и обработчик ошибок</span><span class="ln">срабатывают, если никто не ответил или кто-то выбросил ошибку</span></li></ol><figcaption>Middleware выполняются в том порядке, в котором подключены через app.use. Каждая либо отвечает, либо вызывает next(). Если не сделать ни того, ни другого, запрос повиснет.</figcaption></figure>
+<p>Middleware можно подключить ко всему приложению (<code>app.use(fn)</code>), к пути (<code>app.use('/api', fn)</code>) или к одному маршруту (<code>app.get('/me', requireAuth, handler)</code>) — именно так в уроке о JWT защищён профиль. Готовые middleware: <code>express.json()</code>, <code>express.static('public')</code> (раздаёт файлы из папки), <code>cors()</code> из пакета <code>cors</code> (выставляет заголовки CORS), <code>cookie-parser</code>.</p>
+<h3 id="nb-errors">404 и обработка ошибок</h3>
+<pre><code>app.get('/api/boom', async () =&gt; {
+  throw new Error('Что-то сломалось');
+});
+
+// никто не ответил — 404
+app.use((req, res) =&gt; {
+  res.status(404).json({ error: 'Маршрут не найден' });
+});
+
+// обработчик ошибок: ровно четыре параметра
+app.use((err, req, res, next) =&gt; {
+  console.error(err.message);
+  res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+});</code></pre>
+<p>Обработчик ошибок Express узнаёт по четырём параметрам, даже если <code>next</code> не используется. Подключается он последним. Проверка: <code>/api/boom</code> вернул 500 с сообщением для клиента, а текст настоящей ошибки остался в консоли сервера; <code>/nope</code> вернул 404. Наружу не отдают стек и подробности — это граница ошибок из урока <a href="/lessons/error-handling#eh-boundary">об обработке ошибок</a> (<a href="https://expressjs.com/en/guide/error-handling.html">гайд Express</a>).</p>
+<div class="warn"><b>Express 4 и Express 5</b><p>В примере ошибка выброшена в <code>async</code>-обработчике и всё равно попала в обработчик ошибок. Это работает только в Express 5: он сам ловит отклонённые промисы. В Express 4, который всё ещё встречается в туториалах, такая ошибка повесила бы запрос; там нужно оборачивать код в <code>try...catch</code> и вызывать <code>next(error)</code>. Другие отличия 5-й версии — в <a href="https://expressjs.com/en/guide/migrating-5.html">руководстве по миграции</a>.</p></div>
+<h3 id="nb-router">Router: маршруты по файлам</h3>
+<p>Когда маршрутов много, их выносят в отдельные файлы через <code>express.Router()</code>:</p>
+<pre><code>// routes/todos.js
+const { Router } = require('express');
+const router = Router();
+router.get('/', listTodos);
+router.post('/', createTodo);
+module.exports = router;
+
+// app.js
+app.use('/api/todos', require('./routes/todos'));</code></pre>
+<p>Пути внутри роутера пишутся относительно префикса: <code>router.get('/')</code> отвечает на <code>GET /api/todos</code>.</p>
+</section>

@@ -1,0 +1,15 @@
+{
+  "slug": "node-basics",
+  "title": "Основы Node.js и Express",
+  "stage": 3,
+  "order": 12.8,
+  "kicker": "Node.js · npm · Express · MongoDB",
+  "heading": "Основы Node.js и Express: от первого скрипта до REST-API с базой",
+  "lead": "Что такое Node.js и чем он отличается от браузера, модули CommonJS и ESM, npm и package.json, process, переменные окружения, файлы и события, цикл событий, HTTP-сервер на чистом Node, Express с маршрутами и middleware, MongoDB и Mongoose. Всё, что нужно знать перед уроком о JWT-авторизации.",
+  "chips": [
+    "~5 часов",
+    "12 разделов + источники",
+    "Примеры проверены в Node.js 22 и Express 5",
+    "20 вопросов с объяснениями"
+  ]
+}

@@ -1,0 +1,19 @@
+<section id="nb-start">
+<h2>Зачем фронтендеру Node.js</h2>
+<p>До сих пор JavaScript в этом учебнике жил в браузере. <b>Node.js</b> позволяет запускать его на компьютере или сервере, без браузера. На нём работают почти все инструменты фронтенда: npm, сборщики Vite и webpack (собирают ваш код и библиотеки в файлы для браузера), линтер ESLint, Prettier, Jest, Next.js. А ещё на Node.js пишут серверы — та самая «другая сторона» из урока <a href="/lessons/client-server">«Клиент-серверное взаимодействие»</a>.</p>
+<p>Даже если вы не собираетесь становиться бэкенд-разработчиком, понимать Node.js нужно: чтобы читать <code>package.json</code>, разбираться в ошибках сборки, поднять тестовый сервер для своего фронтенда и понять урок <a href="/lessons/jwt-auth">«JWT-авторизация»</a>, который опирается на всё, что описано здесь.</p>
+<h3 id="nb-goals">Что разберём</h3>
+<ul>
+<li>Как устроен Node.js и чем он отличается от браузера.</li>
+<li>Модули: <code>require</code> и <code>import</code>.</li>
+<li>npm: <code>package.json</code>, зависимости, версии, скрипты.</li>
+<li>Встроенные модули: <code>process</code>, переменные окружения и <code>.env</code>, файлы (<code>fs</code>), пути (<code>path</code>), события (<code>events</code>).</li>
+<li>Цикл событий: почему однопоточный Node справляется с тысячами запросов.</li>
+<li>HTTP-сервер на чистом Node.js.</li>
+<li>Express: маршруты, <code>req</code> и <code>res</code>, middleware, обработка ошибок.</li>
+<li>MongoDB и Mongoose: схема, модель, создание, чтение, изменение и удаление записей.</li>
+<li>Как разложить проект по папкам, чтобы перейти к JWT.</li>
+</ul>
+<div class="note"><b>Откуда материал</b><p>Отдельного модуля RS School с таким названием в учебнике пока нет. Урок собран по официальной документации <a href="https://nodejs.org/en/learn/getting-started/introduction-to-nodejs">Node.js</a>, <a href="https://expressjs.com/">Express</a> и <a href="https://mongoosejs.com/docs/index.html">Mongoose</a>; ссылки на нужные страницы стоят в разделах. Все примеры запущены в Node.js 22.23 с Express 5.3 и Mongoose 8.24, серверы проверены запросами через curl. Сервер MongoDB при проверке не запускался: схема и валидация Mongoose проверены без базы.</p></div>
+<p>Нужно знать JavaScript, промисы и <code>async/await</code>, основы HTTP (методы, коды состояния, заголовки) и <a href="/lessons/error-handling">обработку ошибок</a>. Работать придётся в терминале: команды из примеров вводятся в него.</p>
+</section>

@@ -1,0 +1,40 @@
+<section id="nb-modules">
+<h2>Модули: CommonJS и ES-модули</h2>
+<p><b>Модуль</b> — файл со своей областью видимости: переменные внутри не видны снаружи, пока их явно не экспортировали. В Node.js две системы модулей. Новый код пишут на ES-модулях, но CommonJS вы встретите в половине туториалов и старых проектов, включая урок о JWT.</p>
+<h3 id="nb-cjs">CommonJS: require и module.exports</h3>
+<p>Исторически первая система Node.js (<a href="https://nodejs.org/api/modules.html">документация</a>):</p>
+<pre><code>// math.js
+function sum(a, b) {
+  return a + b;
+}
+module.exports = { sum };
+
+// cjs.js
+const { sum } = require('./math');
+const path = require('node:path');
+console.log(sum(2, 3));            // 5
+console.log(path.basename(__filename)); // cjs.js</code></pre>
+<p><code>require</code> загружает файл синхронно, выполняет его один раз и кеширует: второй <code>require</code> того же файла вернёт тот же объект. Расширение <code>.js</code> можно не писать. Внутри модуля доступны <code>__filename</code> (полный путь к файлу) и <code>__dirname</code> (папка файла).</p>
+<h3 id="nb-esm">ES-модули: import и export</h3>
+<p>Стандарт языка, тот же, что в браузере (<a href="https://learn.javascript.ru/modules-intro">learn.javascript.ru</a>, <a href="https://nodejs.org/api/esm.html">документация Node.js</a>):</p>
+<pre><code>// math.mjs
+export function sum(a, b) {
+  return a + b;
+}
+export default function greet(name) {
+  return `Привет, ${name}`;
+}
+
+// main.mjs
+import greet, { sum } from './math.mjs';
+console.log(greet('Аня'), sum(1, 2)); // Привет, Аня 3
+console.log(import.meta.dirname);     // папка текущего файла</code></pre>
+<p>Node.js считает файл ES-модулем, если у него расширение <code>.mjs</code> или в ближайшем <code>package.json</code> написано <code>"type": "module"</code>. Иначе <code>.js</code> — это CommonJS. Отличия, о которые спотыкаются:</p>
+<ul>
+<li>В ESM путь пишут полностью, с расширением: <code>'./math.js'</code>, а не <code>'./math'</code>.</li>
+<li>В ESM нет <code>__dirname</code> и <code>__filename</code>. Вместо них <code>import.meta.dirname</code> и <code>import.meta.filename</code> (Node.js 20.11+).</li>
+<li>В ESM можно писать <code>await</code> на верхнем уровне файла, вне функции.</li>
+<li>Смешивать <code>require</code> и <code>import</code> в одном файле нельзя.</li>
+</ul>
+<p>Встроенные модули принято подключать с префиксом <code>node:</code> — <code>'node:fs'</code>, <code>'node:path'</code>. Так сразу видно, что это часть Node.js, а не пакет из npm с похожим именем.</p>
+</section>

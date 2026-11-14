@@ -1,0 +1,25 @@
+<section id="nb-http">
+<h2>HTTP-сервер на чистом Node.js</h2>
+<p>Модуль <a href="https://nodejs.org/api/http.html"><code>http</code></a> умеет принимать HTTP-запросы. Express построен поверх него, поэтому сначала посмотрим, что под капотом.</p>
+<pre><code>const http = require('node:http');
+
+const server = http.createServer((req, res) =&gt; {
+  if (req.method === 'GET' &amp;&amp; req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Привет от Node.js');
+    return;
+  }
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: 'Not Found' }));
+});
+
+server.listen(3001, () =&gt; console.log('http://localhost:3001'));</code></pre>
+<ul>
+<li><code>createServer</code> принимает функцию, которая вызывается <b>на каждый запрос</b>.</li>
+<li><code>req</code> (request) — входящий запрос: <code>req.method</code>, <code>req.url</code> (путь вместе с query string), <code>req.headers</code>.</li>
+<li><code>res</code> (response) — ответ, который мы собираем: <code>writeHead</code> задаёт статус и заголовки, <code>end</code> отправляет тело и завершает ответ. Если забыть <code>end</code>, браузер будет ждать вечно.</li>
+<li><code>listen(3001)</code> начинает слушать порт. Если порт занят другой программой, будет ошибка <code>EADDRINUSE</code>.</li>
+</ul>
+<p>Проверка curl: <code>curl localhost:3001/</code> вернул «Привет от Node.js», а <code>/x</code> — <code>HTTP/1.1 404 Not Found</code>. Это тот же текстовый HTTP, что разобран в уроке <a href="/lessons/client-server#cs-http">о клиенте и сервере</a>, только теперь мы на стороне сервера.</p>
+<p>Писать на чистом <code>http</code> настоящий API неудобно: маршруты разбираются вручную через <code>if</code>, тело запроса приходит потоком кусков и его надо собирать и парсить самому, query string — разбирать через <code>new URL(req.url, 'http://localhost')</code>. Эту рутину берёт на себя Express.</p>
+</section>
