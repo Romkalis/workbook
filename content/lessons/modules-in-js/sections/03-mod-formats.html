@@ -1,0 +1,45 @@
+<section id="mod-formats">
+<h2>Форматы модулей: CommonJS, AMD, UMD</h2>
+<p>Статья Юргена Ван де Мера <a href="https://jvandemo.com/a-10-minute-primer-to-javascript-modules-module-formats-module-loaders-and-module-bundlers/">«A 10 minute primer to JavaScript modules»</a> из теории модуля разделяет три понятия. <b>Формат модуля</b> — синтаксис, которым описан модуль (CommonJS, AMD, ES). <b>Загрузчик модулей</b> — программа, которая во время работы находит и выполняет модули нужного формата (RequireJS, SystemJS). <b>Сборщик</b> — программа, которая заранее, при сборке, склеивает модули в файлы для браузера (webpack, Vite).</p>
+<h3 id="mod-commonjs">CommonJS</h3>
+<p>Когда Райан Дал в 2009 году вынес JavaScript на сервер (Node.js), HTML и тегов <code>&lt;script&gt;</code> там не было, и для подключения файлов взяли формат CommonJS:</p>
+<pre><code>// math.js
+function sum(a, b) { return a + b; }
+module.exports = { sum };
+
+// app.js
+const { sum } = require('./math');</code></pre>
+<p><code>require</code> загружает модуль <b>синхронно</b>: программа ждёт, пока файл прочитается. На сервере файлы лежат на диске, это быстро. В браузере каждый файл пришлось бы ждать из сети, и страница замирала бы. Поэтому в браузере CommonJS напрямую не работает, его код собирают сборщиком. Подробно CommonJS разобран в уроке <a href="/lessons/node-basics#nb-cjs">«Основы Node.js»</a>.</p>
+<h3 id="mod-amd">AMD</h3>
+<p><b>AMD</b> (Asynchronous Module Definition) — формат для браузера: модули загружаются асинхронно, а функция модуля вызывается, когда загружены все зависимости. Популярный загрузчик — <a href="https://requirejs.org/">RequireJS</a>.</p>
+<pre><code>define(['jquery', './utils'], function ($, utils) {
+  function show() { /* ... */ }
+  return { show: show };
+});</code></pre>
+<p>Как и IIFE, модуль — это функция, а зависимости приходят параметрами. Лекция RS School описывает AMD как идеи CommonJS, перенесённые в браузер. Сегодня AMD почти не встречается: его вытеснили сборщики и ES-модули. Этот пример приведён для узнавания синтаксиса и при подготовке урока не запускался — для этого нужен RequireJS.</p>
+<h3 id="mod-umd">UMD</h3>
+<p><b>UMD</b> (Universal Module Definition) — «универсальная» обёртка для библиотек, которые должны работать везде: с AMD-загрузчиком, в Node.js (CommonJS) и просто через <code>&lt;script&gt;</code> (глобальная переменная). Она проверяет, что доступно, и выбирает подходящий способ (<a href="https://github.com/umdjs/umd">шаблоны UMD</a>):</p>
+<pre><code>(function (root, factory) {
+  if (typeof define === 'function' &amp;&amp; define.amd) {
+    define([], factory);                 // AMD
+  } else if (typeof module === 'object' &amp;&amp; module.exports) {
+    module.exports = factory();          // CommonJS
+  } else {
+    root.mathLib = factory();            // глобальная переменная
+  }
+})(typeof self !== 'undefined' ? self : this, function () {
+  return { sum: (a, b) =&gt; a + b };
+});</code></pre>
+<p>Проверено: в Node.js через <code>require</code> получилось <code>sum(2, 3) = 5</code>, а при выполнении без <code>module</code> библиотека появилась в глобальной переменной <code>mathLib</code>. UMD до сих пор встречается в сборках библиотек на CDN (серверах, которые раздают файлы библиотек по прямой ссылке).</p>
+<h3 id="mod-compare">Сравнение</h3>
+<div class="tbl"><table>
+<thead><tr><th>Формат</th><th>Синтаксис</th><th>Загрузка</th><th>Где</th></tr></thead>
+<tbody>
+<tr><td>IIFE / module pattern</td><td>функция + <code>return</code></td><td>теги script по порядку</td><td>старый браузерный код</td></tr>
+<tr><td>CommonJS</td><td><code>require</code>, <code>module.exports</code></td><td>синхронная</td><td>Node.js</td></tr>
+<tr><td>AMD</td><td><code>define</code>, <code>require</code></td><td>асинхронная, загрузчиком</td><td>браузер (устарел)</td></tr>
+<tr><td>UMD</td><td>обёртка с проверками</td><td>любая</td><td>библиотеки</td></tr>
+<tr><td>ES-модули</td><td><code>import</code>, <code>export</code></td><td>асинхронная, встроена в язык</td><td>везде: браузеры и Node.js</td></tr>
+</tbody></table></div>
+<p>Статья Ван де Мера упоминает ещё <b>System.register</b> — формат загрузчика SystemJS, который позволял запускать ES-модули в старых браузерах. Сейчас он нужен редко.</p>
+</section>

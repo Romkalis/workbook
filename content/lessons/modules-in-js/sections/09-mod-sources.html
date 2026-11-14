@@ -1,0 +1,23 @@
+<section id="mod-sources" class="sources">
+<h2>Источники</h2>
+<p>Программа модуля: <a href="https://github.com/rolling-scopes-school/tasks/tree/master/stage1/modules/modules-in-js">RS School, Stage 1, Modules in JavaScript</a>. Материалы открыты и разобраны 14 ноября 2026 года.</p>
+<h3 id="mod-src-video">Видео (по расшифровкам)</h3>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=XmVbnmJ2QEc">Лекция RS School о модулях</a> (англ., необязательная по программе) — проблема глобальной области, IIFE, CommonJS, AMD, ES-модули, webpack и Babel, именованный экспорт и по умолчанию, стиль импортов и экспортов, циклические зависимости, SystemJS. Найденные неточности отмечены в тексте.</li>
+<li><a href="https://www.youtube.com/watch?v=GQ96b_u7rGc">JavaScript Modules Past &amp; Present</a> (Меган (Meaghan), из дополнительных материалов) — модули как кубики LEGO, четыре эпохи истории, статья Yahoo о глобальных переменных, пространства имён, паттерн «модуль» и revealing module. Прочитана первая половина расшифровки, до перехода к CommonJS и AMD.</li>
+</ul>
+<h3 id="mod-src-read">Статьи</h3>
+<ul>
+<li>javascript.info / learn.javascript.ru: <a href="https://learn.javascript.ru/modules-intro">Модули, введение</a>, <a href="https://learn.javascript.ru/import-export">Экспорт и импорт</a>, <a href="https://learn.javascript.ru/modules-dynamic-imports">Динамические импорты</a>. Страница-оглавление javascript.info/modules отдаёт без браузера только список глав; содержание сверено по русской версии, которая открылась.</li>
+<li><a href="https://jvandemo.com/a-10-minute-primer-to-javascript-modules-module-formats-module-loaders-and-module-bundlers/">Jurgen Van de Moere: A 10 minute primer to JavaScript modules</a> — паттерны ES5, форматы, загрузчики, сборщики.</li>
+<li><a href="https://dev.to/ndesmic/an-overview-of-javascript-modules-dfg">ndesmic: An overview of JavaScript modules</a> и <a href="https://www.freecodecamp.org/news/anatomy-of-js-module-systems-and-building-libraries-fadcd8dbd0e/">freeCodeCamp: Anatomy of JS module systems</a> — открылись, но подробно не разбирались; описания форматов в уроке опираются на статью Ван де Мера и видео.</li>
+<li><a href="https://dmitripavlutin.com/javascript-modules-best-practices/">Dmitri Pavlutin: 4 Best Practices to Write Quality JavaScript Modules</a>.</li>
+<li><a href="https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Modules">MDN: Модули JavaScript</a>, <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap">MDN: import maps</a>, <a href="https://github.com/umdjs/umd">шаблоны UMD</a>, <a href="https://requirejs.org/">RequireJS</a> — из общих знаний.</li>
+</ul>
+<h3 id="mod-src-missing">Не удалось разобрать</h3>
+<ul>
+<li><a href="https://medium.com/sungthecoder/javascript-module-module-loader-module-bundler-es6-module-confused-yet-6343510e7bde">Medium: Brief history of JavaScript Modules</a> — страница не открылась без браузера. История покрыта видео Меган (Meaghan) и статьёй Ван де Мера.</li>
+<li><a href="http://exploringjs.com/es6/ch_modules.html">Exploring ES6: Modules</a> — адрес из программы возвращает 404; книга, по-видимому, перенесена.</li>
+</ul>
+<p>Проверено в Node.js 22.23: IIFE-модуль, UMD-обёртка в режимах CommonJS и глобальной переменной, именованные экспорты и экспорт по умолчанию, переименование, <code>import * as</code>, реэкспорт, однократное выполнение, живые привязки и запрет переприсваивания, копия значения в CommonJS, циклическая зависимость, <code>this</code> в модуле, динамический <code>import()</code>. Пример AMD и поведение модулей в браузере описаны по документации и не запускались.</p>
+</section>
