@@ -71,7 +71,7 @@ app.listen(3002, () =&gt; console.log('http://localhost:3002'));</code></pre>
 <p>Как ответить: <code>res.json(obj)</code> (сам ставит <code>Content-Type: application/json</code>), <code>res.send('текст')</code>, <code>res.status(201)</code> (возвращает <code>res</code>, поэтому пишут цепочкой <code>res.status(201).json(...)</code>), <code>res.status(204).end()</code>, <code>res.redirect('/login')</code>, <code>res.cookie(...)</code>.</p>
 <p>На один запрос — один ответ. Частая ошибка: забыть <code>return</code> после <code>res.status(404).json(...)</code>; код пойдёт дальше, попытается ответить второй раз, и Express упадёт с «Cannot set headers after they are sent to the client».</p>
 <h3 id="nb-middleware">Middleware</h3>
-<p><b>Middleware</b> («промежуточный обработчик») — функция <code>(req, res, next)</code>, через которую проходит запрос по пути к маршруту. Она может что-то сделать с запросом (разобрать тело, проверить токен, записать в лог) и либо ответить сама, либо вызвать <code>next()</code>, чтобы передать запрос дальше (<a href="https://expressjs.com/en/guide/using-middleware.html">гайд</a>).</p>
+<p><b>Middleware</b> («промежуточный обработчик», читается «мидлвэр») — функция <code>(req, res, next)</code>, через которую проходит запрос по пути к маршруту. Она может что-то сделать с запросом (разобрать тело, проверить токен, записать в лог) и либо ответить сама, либо вызвать <code>next()</code>, чтобы передать запрос дальше (<a href="https://expressjs.com/en/guide/using-middleware.html">гайд</a>).</p>
 <pre><code>app.use((req, res, next) =&gt; {
   console.log(req.method, req.url);
   next();

@@ -3,7 +3,7 @@
 <h3 id="lf-setup-all">Настройка с нуля: все шаги</h3>
 <pre><code>git init
 npm init -y
-npm pkg set type=module
+npm pkg set type=module      # файлы .js — ES-модули (import/export)
 npm install -D eslint @eslint/js globals prettier eslint-config-prettier husky lint-staged
 # создать eslint.config.js и .prettierrc (см. разделы выше)
 npx husky init
