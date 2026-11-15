@@ -1,0 +1,22 @@
+<section id="cs-errors">
+<h2>Различаем ошибки</h2>
+<p>Четвёртая обязательная «функция» — логика различения ошибок. Вынесите её в отдельную чистую функцию: так её легко протестировать, а <code>catch</code> в поиске остаётся коротким.</p>
+<pre><code>export type ErrorKind = 'aborted' | 'timeout' | 'http' | 'network';
+
+export function classifyError(err: unknown): ErrorKind {
+  if (err instanceof DOMException &amp;&amp; err.name === 'AbortError') return 'aborted';
+  if (err instanceof DOMException &amp;&amp; err.name === 'TimeoutError') return 'timeout';
+  if (err instanceof HttpError) return 'http';
+  return 'network';
+}</code></pre>
+<p>В <code>catch</code> TypeScript типизирует ошибку как <code>unknown</code> (при <code>strict</code>), поэтому сравнивать поля без проверки типа нельзя. <code>instanceof</code> сужает тип, и после него <code>err.name</code> доступен. Случай 404 сюда не попадает вовсе: <code>searchCountries</code> уже превратила его в пустой массив.</p>
+<pre><code>test.each([
+  [new DOMException('', 'AbortError'), 'aborted'],
+  [new DOMException('', 'TimeoutError'), 'timeout'],
+  [new HttpError(500), 'http'],
+  [new TypeError('Failed to fetch'), 'network'],
+])('%s → %s', (err, kind) =&gt; {
+  expect(classifyError(err)).toBe(kind);
+});</code></pre>
+<div class="warn"><p>Частая ошибка — проверять <code>err.name === 'AbortError'</code> и молча выходить, считая таймаут тоже «отменой». Тогда при зависшем сервере пользователь видит вечную загрузку или пустой экран. Таймаут — настоящая ошибка, за её отдельное распознавание дают баллы.</p></div>
+</section>

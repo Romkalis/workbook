@@ -1,0 +1,41 @@
+<section id="cs-submit">
+<h2>DESIGN.md, чек-лист и сдача</h2>
+<p>DESIGN.md стоит 20 баллов и проверяется по четырём пунктам. Каркас, который можно заполнить материалом этого урока:</p>
+<pre><code># Country Search — дизайн решения
+
+## Отмена устаревших запросов
+Один AbortController на активный запрос, abort() на каждый ввод...
+Почему не флаг: запрос продолжает идти, в Network не виден как canceled...
+
+## Задержка debounce: 300 мс
+Без задержки — запрос на каждую букву...; 1–2 с — интерфейс «тормозит»...
+
+## Сложность
+mapCountryResponse — O(L), L — число языков...
+Кэш — O(1) в среднем на поиск и вставку, память O(запросов × ответ)...
+
+## Чистый код
+- Единственная ответственность: src/lib/api.ts только запрос, map-country.ts только маппинг
+- Чистые функции: mapCountryResponse, classifyError
+- Без магических чисел: TIMEOUT_MS, DEBOUNCE_MS в константах
+- Логика не зависит от DOM: src/lib/search.ts сообщает состояние колбэком</code></pre>
+<p>В последнем пункте важно указать <b>конкретные файлы и функции</b>: общие слова вроде «код чистый» баллов не принесут. Сами принципы — в уроке <a href="/lessons/clean-code">Clean Code</a>.</p>
+<h3 id="cs-checklist">Ручной чек-лист на деплое</h3>
+<ul><li>Пустой ввод: в Network нет запросов, список пуст.</li><li>Во время запроса виден индикатор (включите Slow 3G, чтобы успеть заметить).</li><li>Быстрый набор не показывает устаревших результатов, а в Network старые запросы помечены <code>(canceled)</code>.</li><li>Отмена своего запроса не показывается как ошибка.</li><li>Запрос без совпадений показывает «ничего не найдено».</li><li>Offline на секунду → ошибка с кнопкой «Повторить», повтор уходит с последним введённым текстом.</li><li>Клик по карточке открывает детали.</li></ul>
+<h3 id="cs-pr">Pull Request</h3>
+<p>Приватный репозиторий, ветка <code>country-search</code> от <code>main</code>, в <code>main</code> только README и .gitignore. Деплой — например, GitHub Pages: соберите <code>tsc</code> и опубликуйте <code>index.html</code> вместе с <code>dist/</code>. PR из <code>country-search</code> в <code>main</code> не сливайте. В описании, кроме полей из <a href="https://rs.school/docs/short-track/pull-request-requirements">требований RS School к PR</a>: ссылка на деплой, подтверждение порядка коммитов (с номерами или хэшами пар «тест → реализация» и коммита с тестом гонки), ссылка на DESIGN.md и отмеченный чек-лист. Ссылку на PR отправьте в <a href="https://app.rs.school/">RS App</a> → Cross-Check: Submit.</p>
+<div class="warn"><p>Штрафы по −50: PR не по схеме или без деплоя, коммиты не по конвенции, нарушен порядок тесты→реализация, приложение не работает. Любой один из них съедает треть базового балла. Проверьте эти четыре пункта последними.</p></div>
+<h3 id="cs-criteria">Карта баллов</h3>
+<div class="tbl"><table><thead><tr><th>Блок</th><th>Баллы</th><th>Раздел урока</th></tr></thead><tbody>
+<tr><td>Настройка проекта</td><td>15</td><td><a href="#cs-setup">Настройка</a></td></tr>
+<tr><td>TDD и тесты (4 × 5 + гонка 10)</td><td>30</td><td><a href="#cs-tdd">TDD</a>, <a href="#cs-race">тест гонки</a></td></tr>
+<tr><td>Асинхронная архитектура</td><td>55</td><td><a href="#cs-debounce">debounce</a>, <a href="#cs-fetch">fetch</a>, <a href="#cs-errors">ошибки</a>, <a href="#cs-cancel">отмена</a></td></tr>
+<tr><td>DESIGN.md</td><td>20</td><td>этот раздел</td></tr>
+<tr><td>Интерфейс и поведение</td><td>25</td><td><a href="#cs-ui">Интерфейс</a></td></tr>
+<tr><td>Бонус: кэш 6, история 4</td><td>до 10</td><td><a href="#cs-bonus">Бонус</a></td></tr>
+</tbody></table></div>
+<h3 id="cs-qa">Проверьте себя</h3>
+<details class="q"><summary>Почему fetch не попадает в catch при ответе 500?</summary><p>Промис fetch отклоняется только при сетевом сбое или отмене. Любой полученный ответ, даже 500, — успех на уровне сети. Статус проверяют через <code>response.ok</code>.</p></details>
+<details class="q"><summary>Чем отличается отмена от таймаута в catch?</summary><p>Оба приходят как <code>DOMException</code>, но с разным <code>name</code>: <code>AbortError</code> — наша отмена, её молча пропускаем; <code>TimeoutError</code> — сервер не ответил, это ошибка для пользователя.</p></details>
+<details class="q"><summary>Зачем мок fetch в тесте гонки слушает signal?</summary><p>Иначе тест не отличит настоящую отмену от игнорирования ответа флагом. Мок, который отклоняется при <code>abort()</code>, проверяет, что приложение действительно отменило запрос.</p></details>
+</section>

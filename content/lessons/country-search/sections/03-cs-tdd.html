@@ -1,0 +1,15 @@
+<section id="cs-tdd">
+<h2>TDD и порядок коммитов</h2>
+<p>Проверяющий открывает вкладку Commits в PR и смотрит порядок. Нарушение стоит −50 баллов, так что спланируйте коммиты заранее. Что такое TDD и принципы FIRST, разобрано в <a href="/lessons/testing">Тестировании JavaScript</a>.</p>
+<div class="tbl"><table><thead><tr><th>№</th><th>Коммит</th><th>Тесты</th></tr></thead><tbody>
+<tr><td>1</td><td><code>init: setup typescript, eslint, prettier, husky, vitest</code></td><td>нет, проходит пустой набор</td></tr>
+<tr><td>2–3</td><td><code>test: add debounce tests</code> → <code>feat: implement debounce</code></td><td>красные → зелёные</td></tr>
+<tr><td>4–5</td><td><code>test: add searchCountries tests</code> → <code>feat: implement searchCountries and HttpError</code></td><td>красные → зелёные</td></tr>
+<tr><td>6–7</td><td><code>test: add mapCountryResponse tests</code> → <code>feat: implement mapCountryResponse</code></td><td>красные → зелёные</td></tr>
+<tr><td>8–9</td><td><code>test: add error classification tests</code> → <code>feat: implement classifyError</code></td><td>красные → зелёные</td></tr>
+<tr><td>10</td><td><code>test: add request race test</code></td><td>отдельный коммит, после базовой логики</td></tr>
+<tr><td>11+</td><td><code>feat: render ...</code>, <code>docs: add DESIGN.md</code></td><td>зелёные</td></tr>
+</tbody></table></div>
+<p>Типы сообщений взяты из <a href="https://rs.school/docs/git-convention">конвенции RS School</a>. Красный коммит должен компилироваться: создайте файл функции с заглушкой (<code>throw new Error('not implemented')</code>), иначе тест упадёт на импорте, а не на проверке.</p>
+<div class="note"><p>Чтобы закоммитить красный тест, хук <code>pre-commit</code> не должен запускать тесты. Если вы всё-таки получили отказ, проверьте <code>.husky/pre-commit</code>, а не обходите его флагом <code>--no-verify</code>.</p></div>
+</section>

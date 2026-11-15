@@ -1,0 +1,33 @@
+<section id="cs-map">
+<h2>mapCountryResponse</h2>
+<p>Ответ API большой и «сырой», а карточке нужны шесть полей. <b>Чистая функция</b> (результат зависит только от аргумента, побочных эффектов нет) превращает одно в другое. Интерфейс тогда не зависит от формы ответа: если API поменяется, правится одна функция.</p>
+<pre><code>export interface RawCountry {
+  name: string;
+  flags?: { svg?: string; png?: string };
+  capital?: string;
+  region?: string;
+  population?: number;
+  languages?: { name: string }[];
+  // area, borders, currencies, subregion — для детального вида
+}
+
+export interface CountryCard {
+  name: string; flagUrl: string; capital: string;
+  region: string; population: number; languages: string[];
+}
+
+export function mapCountryResponse(raw: RawCountry): CountryCard {
+  return {
+    name: raw.name,
+    flagUrl: raw.flags?.svg ?? raw.flags?.png ?? '',
+    capital: raw.capital ?? '—',
+    region: raw.region ?? '—',
+    population: raw.population ?? 0,
+    languages: (raw.languages ?? []).map((l) =&gt; l.name),
+  };
+}</code></pre>
+<p><code>?.</code> и <code>??</code> спасают от стран без столицы или языков. Тестируйте на заготовленных JSON: сохраните реальный ответ <code>/name/spain</code> в <code>tests/fixtures/spain.json</code> и сделайте второй, урезанный, без <code>capital</code> и <code>languages</code>.</p>
+<div class="warn"><p>В старых материалах про restcountries.com v3.1 <code>name</code> был объектом (<code>name.common</code>), а <code>languages</code> — словарём. У countries.dev <code>name</code> — строка, <code>capital</code> — строка, <code>languages</code> и <code>currencies</code> — массивы объектов. Код из старых решений без правок работать не будет.</p></div>
+<h3 id="cs-bigo">Сложность для DESIGN.md</h3>
+<p>Обозначим L — число языков страны. Копирование полей — O(1), <code>map</code> по языкам — O(L). Итого O(L) по времени и памяти на одну страну. Для всего ответа из N стран — O(N·L). L на практике единицы, так что фактически линейно по числу стран. Если вы форматируете население через <code>toLocaleString</code>, это O(число цифр), то есть тоже константа.</p>
+</section>

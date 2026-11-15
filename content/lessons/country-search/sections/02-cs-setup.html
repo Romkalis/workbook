@@ -1,0 +1,30 @@
+<section id="cs-setup">
+<h2>Настройка проекта</h2>
+<p>Бандлер не нужен: TypeScript компилируется через <code>tsc</code> в ES-модули, а <code>index.html</code> подключает результат через <code>&lt;script type="module"&gt;</code>. В <code>tsconfig.json</code> достаточно <code>"module": "ES2022"</code>, <code>"target": "ES2022"</code>, <code>"strict": true</code>, <code>"lib": ["ES2022", "DOM"]</code> и <code>"outDir": "dist"</code>. Подробнее про опции — в <a href="/lessons/typescript-basic">TypeScript Basic</a>.</p>
+<div class="warn"><p>Без бандлера браузер сам грузит модули по путям из <code>import</code>. Поэтому в исходниках пишите импорт с расширением <code>.js</code>: <code>import { debounce } from './debounce.js'</code>. TypeScript поймёт, что речь о <code>debounce.ts</code>, а в браузере путь будет верным.</p></div>
+<h3 id="cs-scripts">Скрипты и хуки</h3>
+<pre><code>"scripts": {
+  "build": "tsc",
+  "lint": "eslint .",
+  "format": "prettier --write .",
+  "test": "vitest run --passWithNoTests"
+}</code></pre>
+<p>Флаг <code>--passWithNoTests</code> закрывает требование про самый первый коммит: тестов ещё нет, а <code>npm test</code> должен пройти. В Jest аналогичный флаг называется так же.</p>
+<div class="tbl"><table><thead><tr><th>Хук Husky</th><th>Что запускает</th><th>Почему именно так</th></tr></thead><tbody>
+<tr><td><code>pre-commit</code></td><td><code>npx lint-staged</code></td><td>Тесты здесь запускать нельзя: первый шаг TDD — коммит с <b>падающими</b> тестами, и хук бы его заблокировал.</td></tr>
+<tr><td><code>pre-push</code></td><td><code>npm test</code></td><td>Красный коммит нельзя отправить один, только вместе с зелёным. Так пара «тесты → реализация» уходит одним push.</td></tr>
+</tbody></table></div>
+<p>Как устроены ESLint, Prettier, lint-staged и Husky, разобрано в уроке <a href="/lessons/linters-formatters">Линтеры, форматтеры и Husky</a>.</p>
+<h3 id="cs-files">Структура файлов</h3>
+<p>Логика не должна знать о DOM: её тестируют без браузера. Удобно разложить так (из общих знаний, условие структуру не задаёт):</p>
+<pre><code>src/
+  lib/debounce.ts      debounce
+  lib/http-error.ts    HttpError
+  lib/api.ts           searchCountries
+  lib/map-country.ts   mapCountryResponse, типы
+  lib/errors.ts        classifyError
+  lib/search.ts        createSearch: отмена, состояния
+  ui/render.ts         DOM: карточки, состояния, детальный вид
+  main.ts              точка входа
+tests/                 *.test.ts</code></pre>
+</section>

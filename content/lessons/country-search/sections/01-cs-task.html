@@ -1,0 +1,15 @@
+<section id="cs-task">
+<h2>О чём задание</h2>
+<p><a href="https://github.com/rolling-scopes-school/tasks/blob/master/fullstack-engineering/tasks/country-search/README.md">Country Search</a> — живой поиск стран через публичный API <a href="https://countries.dev">countries.dev</a>: пользователь печатает, приложение само отправляет запросы и показывает карточки. Вёрстка здесь вторична. Задание проверяет, умеете ли вы справиться с <b>гонкой устаревших ответов</b>.</p>
+<p>Представьте: вы набрали <code>sp</code>, запрос ушёл. Потом дописали до <code>spain</code>, ушёл второй запрос. Сеть не обещает, что ответы придут в том же порядке. Если ответ на <code>sp</code> задержался, он придёт последним и перерисует экран: в поле написано «spain», а в списке все страны, где встречается «sp». Пользователь видит неверный результат, хотя каждый запрос по отдельности отработал правильно.</p>
+<p>Лечение, которого требует задание, — <b>настоящая отмена</b> старого запроса через <a href="https://developer.mozilla.org/en-US/docs/Web/API/AbortController">AbortController</a>, а не флаг «этот ответ уже неактуален». Об этом подробно в разделе про отмену.</p>
+<h3 id="cs-api">Что отвечает API</h3>
+<p><code>GET https://countries.dev/name/{query}</code> не требует ключа и отдаёт заголовок <code>access-control-allow-origin: *</code>, поэтому к нему можно обращаться прямо из браузера (<a href="/lessons/client-server">что такое CORS</a>). Проверено запросами 15.11.2026:</p>
+<div class="tbl"><table><thead><tr><th>Запрос</th><th>Статус</th><th>Тело</th></tr></thead><tbody>
+<tr><td><code>/name/spain</code></td><td>200</td><td>массив объектов: <code>name</code>, <code>flags.svg</code>, <code>capital</code>, <code>region</code>, <code>population</code>, <code>area</code>, <code>borders</code>, <code>languages[]</code>, <code>currencies[]</code></td></tr>
+<tr><td><code>/name/zzzz</code></td><td>404</td><td>текст <code>Country not found</code>, не JSON</td></tr>
+</tbody></table></div>
+<div class="warn"><p>Поля бывают не у всех стран: например, у «United States Minor Outlying Islands» нет <code>capital</code>. Типизируйте такие поля как необязательные. И ещё: условие просит в детальном виде показать «описание», но поля с описанием в ответе нет. Честно покажите то, что есть (субрегион, самоназвание, часовые пояса), и упомяните это в DESIGN.md.</p></div>
+<h3 id="cs-plan">План работы</h3>
+<ol><li>Настроить TypeScript, ESLint, Prettier, Husky и тестовый раннер.</li><li>Для каждой обязательной функции: коммит с падающими тестами, затем коммит с реализацией.</li><li>Отдельным коммитом — тест на гонку.</li><li>Интерфейс: состояния, карточки, детальный вид, «Повторить».</li><li>DESIGN.md, деплой, PR, чек-лист.</li></ol>
+</section>

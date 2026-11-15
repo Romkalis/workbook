@@ -1,0 +1,37 @@
+<section id="cs-debounce">
+<h2>debounce</h2>
+<p><b>Debounce</b> («подавление дребезга») откладывает вызов функции, пока события не затихнут. Каждое новое нажатие клавиши сбрасывает таймер, и запрос уходит только когда пользователь сделал паузу. Это <a href="/lessons/fp-basics">функция высшего порядка</a>: принимает функцию и возвращает новую.</p>
+<pre><code>export function debounce&lt;A extends unknown[]&gt;(fn: (...args: A) =&gt; void, delay: number) {
+  let timer: ReturnType&lt;typeof setTimeout&gt; | undefined;
+
+  const debounced = (...args: A): void =&gt; {
+    clearTimeout(timer);                          // сбрасываем прошлый отсчёт
+    timer = setTimeout(() =&gt; fn(...args), delay); // и начинаем новый
+  };
+  debounced.cancel = (): void =&gt; clearTimeout(timer);
+  return debounced;
+}</code></pre>
+<p>Таймер живёт в <a href="/lessons/basic-js">замыкании</a>: каждая копия <code>debounce</code> хранит свой. Метод <code>cancel</code> пригодится, когда поле очистили: отложенный запрос по старому тексту уже не нужен. <code>clearTimeout(undefined)</code> ничего не делает и не бросает ошибку, поэтому первый вызов не требует проверки.</p>
+<h3 id="cs-debounce-test">Тест с фейковыми таймерами</h3>
+<p>Ждать 300 мс в каждом тесте — нарушение FIRST (Fast). Фейковые таймеры позволяют «перемотать» время вручную:</p>
+<pre><code>import { vi, test, expect } from 'vitest';
+
+test('вызывает fn один раз с последними аргументами', () =&gt; {
+  vi.useFakeTimers();
+  const fn = vi.fn();
+  const d = debounce(fn, 300);
+
+  d('s');  vi.advanceTimersByTime(200);
+  d('sp'); vi.advanceTimersByTime(200);   // таймер сброшен, прошло только 200
+  expect(fn).not.toHaveBeenCalled();
+
+  vi.advanceTimersByTime(100);
+  expect(fn).toHaveBeenCalledOnce();
+  expect(fn).toHaveBeenCalledWith('sp');
+  vi.useRealTimers();
+});</code></pre>
+<p>Тот же сценарий проверен в node:test с <code>mock.timers</code>. В Jest это <code>jest.useFakeTimers()</code> и <code>jest.advanceTimersByTime()</code>.</p>
+<h3 id="cs-debounce-delay">Какую задержку выбрать</h3>
+<p>Обычно берут 250–400 мс (из общих знаний): это чуть больше паузы между нажатиями при уверенном наборе. Для DESIGN.md опишите крайние случаи:</p>
+<ul><li><b>Без задержки</b> запрос уходит на каждую букву. «spain» — пять запросов, четыре из которых тут же отменяются. Нагрузка на API растёт, мерцает индикатор загрузки.</li><li><b>Большая задержка</b> (1–2 с) — интерфейс кажется «тормозным»: человек допечатал и ждёт, ничего не происходит.</li></ul>
+</section>
