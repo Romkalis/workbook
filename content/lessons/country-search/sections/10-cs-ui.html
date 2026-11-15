@@ -1,0 +1,37 @@
+<section id="cs-ui">
+<h2>Интерфейс и состояния</h2>
+<p>Ограничения условия: <code>body</code> в <code>index.html</code> пустой, кроме скрипта, и никакого <code>innerHTML</code> для динамики. Элементы создаются через <code>document.createElement</code>, текст — через <code>textContent</code>. Это заодно защищает от XSS: строка из API никогда не станет разметкой.</p>
+<pre><code>function el&lt;K extends keyof HTMLElementTagNameMap&gt;(
+  tag: K, text?: string, className?: string,
+): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  if (text) node.textContent = text;
+  if (className) node.className = className;
+  return node;
+}
+
+function render(state: State): void {
+  list.replaceChildren();                // очистить без innerHTML
+  switch (state.kind) {
+    case 'idle': return;
+    case 'loading': list.append(el('p', 'Ищем…', 'loading')); return;
+    case 'empty': list.append(el('p', `По «${state.query}» ничего не найдено`, 'empty')); return;
+    case 'error': list.append(el('p', errorText(state.reason), 'error'), retryButton); return;
+    case 'results': list.append(...state.items.map(renderCard)); return;
+  }
+}</code></pre>
+<p>Благодаря размеченному объединению <code>State</code> TypeScript внутри каждой ветки знает, какие поля есть: <code>state.items</code> доступен только в <code>results</code>. Добавьте ветку <code>default: { const never: never = state; return never; }</code>: если появится новое состояние, а отрисовать его забудут, компилятор выдаст ошибку.</p>
+<div class="tbl"><table><thead><tr><th>Состояние</th><th>Как выглядит</th></tr></thead><tbody>
+<tr><td><code>idle</code></td><td>пусто, запросов нет</td></tr>
+<tr><td><code>loading</code></td><td>индикатор загрузки</td></tr>
+<tr><td><code>results</code></td><td>карточки: флаг, название, столица, регион, население</td></tr>
+<tr><td><code>empty</code></td><td>спокойное «ничего не найдено», нейтральный цвет</td></tr>
+<tr><td><code>error</code></td><td>сообщение (разное для таймаута, сети и HTTP) и кнопка «Повторить»</td></tr>
+</tbody></table></div>
+<p>«Ничего не найдено» не должно быть похоже на ошибку: другой цвет, без иконки предупреждения. Индикатор загрузки и сообщения стоит обернуть в контейнер с <code>aria-live="polite"</code>, чтобы скринридер озвучивал смену состояния (из общих знаний).</p>
+<h3 id="cs-retry">Кнопка «Повторить»</h3>
+<p><code>retry()</code> вызывает <code>run(lastQuery)</code>, где <code>lastQuery</code> — последний <b>введённый</b> текст, а не текст упавшего запроса. Обычно они совпадают, но если пользователь успел что-то дописать, повторять устаревший запрос нет смысла. Повтор идёт без debounce: пользователь уже явно попросил.</p>
+<h3 id="cs-details">Детальный вид</h3>
+<p>Карточку делайте кнопкой (<code>&lt;button&gt;</code>) или ссылкой: так она работает с клавиатуры. Детали удобно показать в <code>&lt;dialog&gt;</code> через <code>showModal()</code> — браузер сам ловит Esc и держит фокус внутри. Данные — из того же сырого объекта: площадь, границы (<code>borders</code> — коды стран вроде <code>FRA</code>), языки, валюты. Отдельный запрос не нужен. Для деталей пригодится вторая чистая функция <code>mapCountryDetails</code>, её тоже легко покрыть тестом.</p>
+<p>Проверить поведение руками помогут <a href="/lessons/devtools-basics">DevTools</a>: вкладка Network, режим Slow 3G для гонки и Offline для ошибки.</p>
+</section>

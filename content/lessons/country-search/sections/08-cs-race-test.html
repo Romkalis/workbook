@@ -1,0 +1,36 @@
+<section id="cs-race">
+<h2>Тест на гонку запросов</h2>
+<p>Это отдельный коммит за 10 баллов. Тест должен воспроизвести плохой сценарий: ранний запрос отвечает <b>позже</b> позднего. И главное требование: мок <code>fetch</code> слушает переданный <code>signal</code> и отклоняет промис при <code>abort()</code>. Без этого тест пройдёт и у решения с флагом, то есть ничего не докажет.</p>
+<pre><code>const tick = () =&gt; new Promise((r) =&gt; setTimeout(r, 5));
+
+test('поздний ответ на "sp" не перезаписывает "spain"', async () =&gt; {
+  const pending: Record&lt;string, () =&gt; void&gt; = {};
+  const aborted: string[] = [];
+
+  vi.stubGlobal('fetch', (url: string, init: RequestInit) =&gt;
+    new Promise((resolve, reject) =&gt; {
+      const q = decodeURIComponent(url.split('/').pop()!);
+      init.signal!.addEventListener('abort', () =&gt; {
+        aborted.push(q);
+        reject(init.signal!.reason);               // ведём себя как настоящий fetch
+      });
+      pending[q] = () =&gt; resolve(Response.json([{ name: q }]));
+    }));
+
+  const states: State[] = [];
+  const search = createSearch((s) =&gt; states.push(s), 0);
+
+  search.input('sp');    await tick();           // запрос "sp" в полёте
+  search.input('spain'); await tick();           // "sp" отменён, "spain" в полёте
+
+  pending['spain']();                            // поздний отвечает первым
+  pending['sp']();                               // ранний — после
+  await tick();
+
+  expect(aborted).toEqual(['sp']);
+  expect(states.at(-1)).toMatchObject({ kind: 'results', items: [{ name: 'spain' }] });
+  expect(states.some((s) =&gt; s.kind === 'error')).toBe(false);
+});</code></pre>
+<p>Задержка debounce здесь 0, чтобы не возиться с таймерами. Три проверки закрывают три требования: старый запрос действительно отменён, итоговое состояние — от последнего запроса, отмена не показана как ошибка. Эквивалентный тест на node:test запущен и проходит.</p>
+<div class="note"><p>Убедитесь, что тест умеет падать: временно уберите <code>controller?.abort()</code> из <code>input</code> и <code>run</code>. Тест должен покраснеть. Тест, который не падает на сломанном коде, бесполезен.</p></div>
+</section>

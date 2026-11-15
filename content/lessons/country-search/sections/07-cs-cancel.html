@@ -1,0 +1,61 @@
+<section id="cs-cancel">
+<h2>Отмена устаревших запросов</h2>
+<p>Свяжем всё вместе в модуле поиска. Он не знает про DOM: получает текст из поля и сообщает новое состояние через колбэк <code>onState</code>. Рисовать по этому состоянию будет слой интерфейса.</p>
+<pre><code>export type State =
+  | { kind: 'idle' }
+  | { kind: 'loading'; query: string }
+  | { kind: 'results'; query: string; items: CountryCard[] }
+  | { kind: 'empty'; query: string }
+  | { kind: 'error'; query: string; reason: ErrorKind };
+
+export function createSearch(onState: (s: State) =&gt; void, delay = 300) {
+  let controller: AbortController | null = null;
+  let lastQuery = '';
+
+  async function run(query: string): Promise&lt;void&gt; {
+    controller?.abort();
+    const own = new AbortController();
+    controller = own;
+    onState({ kind: 'loading', query });
+    try {
+      const items = (await searchCountries(query, own.signal)).map(mapCountryResponse);
+      onState(items.length ? { kind: 'results', query, items } : { kind: 'empty', query });
+    } catch (err) {
+      const reason = classifyError(err);
+      if (reason === 'aborted') return;           // свою отмену не показываем
+      onState({ kind: 'error', query, reason });
+    }
+  }
+  const debouncedRun = debounce(run, delay);
+
+  return {
+    input(value: string): void {
+      controller?.abort();                         // на КАЖДЫЙ ввод
+      controller = null;
+      lastQuery = value.trim();
+      if (!lastQuery) {
+        debouncedRun.cancel();
+        onState({ kind: 'idle' });
+        return;
+      }
+      debouncedRun(lastQuery);
+    },
+    retry: (): Promise&lt;void&gt; =&gt; run(lastQuery),
+  };
+}</code></pre>
+<h3 id="cs-cancel-why-input">Почему abort стоит в input, а не только в run</h3>
+<p>Условие отдельно оценивает это в 15 баллов. Разберём по времени, задержка debounce 300 мс:</p>
+<div class="tbl"><table><thead><tr><th>Время</th><th>Событие</th><th>Abort только в run</th><th>Abort в input</th></tr></thead><tbody>
+<tr><td>0</td><td>набрали «sp», через 300 мс ушёл запрос A</td><td colspan="2">запрос A в полёте</td></tr>
+<tr><td>500</td><td>дописали «spain»</td><td>A живёт, debounce ждёт</td><td>A отменён сразу</td></tr>
+<tr><td>600</td><td>пришёл ответ A</td><td>на экране страны по «sp» под текстом «spain»</td><td>ничего не происходит</td></tr>
+<tr><td>800</td><td>ушёл запрос B по «spain»</td><td>A уже отрисован</td><td>B в полёте</td></tr>
+</tbody></table></div>
+<p>Пока debounce ждёт паузу, старый запрос успевает ответить. Поэтому гасим его в момент ввода. Вызов <code>abort()</code> в <code>run</code> тоже оставлен: он нужен для «Повторить», которую можно нажать, пока предыдущая попытка ещё летит.</p>
+<h3 id="cs-cancel-own">Зачем локальная переменная own</h3>
+<p>Каждый запуск получает свой контроллер и передаёт в fetch именно его сигнал. Отменённый запрос попадает в <code>catch</code> с <code>AbortError</code> и выходит, не трогая состояние. Значит, после <code>await</code> не нужно проверять «а мой ли это ещё запрос»: устаревший запрос просто не дойдёт до <code>onState</code>.</p>
+<h3 id="cs-cancel-flag">Чем плох флаг «актуальный ли ответ»</h3>
+<p>Можно хранить номер последнего запроса и игнорировать ответы с меньшим номером. Экран будет верным, но:</p>
+<ul><li>запрос продолжает идти: тратит трафик и соединение браузера, а сервер отрабатывает его зря;</li><li>в Network старые запросы не помечаются как отменённые, а это пункт чек-листа;</li><li>проверку легко забыть в одной из веток (например, в <code>catch</code>), и устаревшая ошибка перекроет свежие результаты.</li></ul>
+<p>Условие прямо запрещает такой костыль без настоящей отмены. Этот список — готовый ответ на первый пункт DESIGN.md.</p>
+</section>

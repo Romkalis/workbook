@@ -1,0 +1,48 @@
+<section id="cs-fetch">
+<h2>searchCountries и HttpError</h2>
+<p>Главная ловушка: <code>fetch</code> <b>не бросает исключение</b> на ответах 4xx и 5xx. Промис отклоняется только при сетевом сбое или отмене. Статус нужно проверять самим через <a href="https://developer.mozilla.org/en-US/docs/Web/API/Response/ok"><code>response.ok</code></a> (он равен <code>true</code> для статусов 200–299).</p>
+<pre><code>export class HttpError extends Error {
+  readonly status: number;
+  constructor(status: number) {
+    super(`HTTP ${status}`);
+    this.name = 'HttpError';
+    this.status = status;
+  }
+}</code></pre>
+<p>Свой класс ошибки позже позволит отличить его через <code>instanceof</code>. Зачем задавать <code>name</code> и как вообще наследоваться от <code>Error</code>, рассказано в <a href="/lessons/error-handling">Обработке ошибок</a>.</p>
+<pre><code>const API = 'https://countries.dev/name/';
+export const TIMEOUT_MS = 8000;
+
+export async function searchCountries(query: string, signal: AbortSignal): Promise&lt;RawCountry[]&gt; {
+  const combined = AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]);
+  const response = await fetch(API + encodeURIComponent(query), { signal: combined });
+
+  if (response.status === 404) return [];          // совпадений нет — это не ошибка
+  if (!response.ok) throw new HttpError(response.status);
+  return (await response.json()) as RawCountry[];
+}</code></pre>
+<p>Порядок проверок важен: сначала 404, потом <code>ok</code>. Иначе 404 превратится в <code>HttpError</code>. Тело ответа 404 — простой текст, поэтому <code>response.json()</code> на нём упал бы; мы его и не вызываем. <code>encodeURIComponent</code> защищает адрес от пробелов и символов вроде <code>/</code> или <code>?</code> в запросе.</p>
+<h3 id="cs-timeout">Таймаут и объединение сигналов</h3>
+<p><code>searchCountries</code> получает один сигнал, а отменять запрос нужно по двум причинам: новый ввод и слишком долгое ожидание. <a href="https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static"><code>AbortSignal.timeout(ms)</code></a> создаёт сигнал, который сработает сам через <code>ms</code> миллисекунд. <a href="https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/any_static"><code>AbortSignal.any([...])</code></a> собирает несколько сигналов в один: он срабатывает от первого из них и берёт его причину (<code>reason</code>).</p>
+<div class="tbl"><table><thead><tr><th>Что сработало</th><th>С чем отклоняется fetch</th><th>Что делать</th></tr></thead><tbody>
+<tr><td>Наш <code>controller.abort()</code></td><td><code>DOMException</code>, <code>name === 'AbortError'</code></td><td>ничего, это не ошибка</td></tr>
+<tr><td><code>AbortSignal.timeout</code></td><td><code>DOMException</code>, <code>name === 'TimeoutError'</code></td><td>показать ошибку и «Повторить»</td></tr>
+<tr><td>Нет сети, CORS</td><td><code>TypeError</code></td><td>показать ошибку и «Повторить»</td></tr>
+<tr><td>Статус 500 и т. п.</td><td>fetch не отклоняется, мы бросаем <code>HttpError</code></td><td>показать ошибку и «Повторить»</td></tr>
+<tr><td>Статус 404</td><td>fetch не отклоняется, возвращаем <code>[]</code></td><td>«ничего не найдено»</td></tr>
+</tbody></table></div>
+<p>Все строки, кроме CORS, проверены в Node 22 на живом API (TypeError при CORS — по спецификации fetch). <code>AbortSignal.any</code> есть во всех актуальных браузерах с 2024 года и в Node с версии 20.3 (из общих знаний, сверьте с <a href="https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/any_static#browser_compatibility">таблицей совместимости</a>).</p>
+<h3 id="cs-fetch-test">Как тестировать без сети</h3>
+<p>Подменяем глобальный <code>fetch</code> функцией, которая возвращает готовый <code>Response</code>:</p>
+<pre><code>test('404 — пустой массив', async () =&gt; {
+  vi.stubGlobal('fetch', async () =&gt; new Response('Country not found', { status: 404 }));
+  await expect(searchCountries('zz', new AbortController().signal)).resolves.toEqual([]);
+});
+
+test('500 — HttpError со статусом', async () =&gt; {
+  vi.stubGlobal('fetch', async () =&gt; new Response('', { status: 500 }));
+  await expect(searchCountries('zz', new AbortController().signal))
+    .rejects.toMatchObject({ name: 'HttpError', status: 500 });
+});</code></pre>
+<p>Ещё один полезный тест: мок <code>fetch</code> запоминает URL, и вы проверяете, что запрос <code>"south africa"</code> превратился в <code>south%20africa</code>.</p>
+</section>

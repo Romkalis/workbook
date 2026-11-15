@@ -1,0 +1,46 @@
+<section id="cs-bonus">
+<h2>Бонус: кэш и дедупликация</h2>
+<p>Бонус за 6 баллов: одинаковый запрос берётся из кэша, а если такой же уже летит, второй не создаётся. Ловушка в последней фразе условия: если двое ждут один и тот же промис, отмена у одного не должна ломать его второму. Значит, сетевой запрос получает свой, внутренний контроллер, а каждый вызывающий — собственную обёртку над общим промисом.</p>
+<pre><code>function withSignal&lt;T&gt;(shared: Promise&lt;T&gt;, signal: AbortSignal): Promise&lt;T&gt; {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise&lt;T&gt;((resolve, reject) =&gt; {
+    const onAbort = () =&gt; reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    shared.then(resolve, reject).finally(() =&gt; signal.removeEventListener('abort', onAbort));
+  });
+}
+
+export function createCachedSearch&lt;T&gt;(fetcher: (q: string, s: AbortSignal) =&gt; Promise&lt;T&gt;) {
+  const done = new Map&lt;string, T&gt;();
+  const inFlight = new Map&lt;string, { promise: Promise&lt;T&gt;; controller: AbortController; users: number }&gt;();
+
+  return (query: string, signal: AbortSignal): Promise&lt;T&gt; =&gt; {
+    const key = query.trim().toLowerCase();
+    if (done.has(key)) return Promise.resolve(done.get(key)!);
+
+    let entry = inFlight.get(key);
+    if (!entry) {
+      const controller = new AbortController();
+      const promise = fetcher(key, controller.signal)
+        .then((data) =&gt; { done.set(key, data); return data; })
+        .finally(() =&gt; inFlight.delete(key));
+      promise.catch(() =&gt; {});                    // не даём «необработанному» отказу шуметь
+      entry = { promise, controller, users: 0 };
+      inFlight.set(key, entry);
+    }
+    const e = entry;
+    e.users++;
+    signal.addEventListener('abort', () =&gt; {
+      if (--e.users === 0) e.controller.abort();   // гасим сеть, только когда запрос не нужен никому
+    }, { once: true });
+    return withSignal(e.promise, signal);
+  };
+}</code></pre>
+<p>Проверено тестом: два вызова <code>'Spain'</code> и <code>'spain'</code> дают один сетевой запрос; отмена первого отклоняет только его промис с <code>AbortError</code>, внутренний сигнал при этом не срабатывает; второй получает данные; третий вызов берёт их из кэша без сети.</p>
+<p>В кэш попадают только успешные ответы: ошибка не должна «залипать». Пустой результат 404 кэшировать можно, это тоже ответ. Подключается обёртка так: <code>const search = createCachedSearch(searchCountries)</code>, и в <code>createSearch</code> вызывается <code>search</code> вместо <code>searchCountries</code>.</p>
+<div class="note"><p>Когда все отказались от запроса, он отменяется, и записи в <code>done</code> не появится. Отменённый запрос не портит кэш, и следующий такой же ввод пойдёт в сеть заново.</p></div>
+<h3 id="cs-cache-bigo">Сложность кэша</h3>
+<p><code>Map</code> даёт поиск и вставку в среднем за O(1). Нормализация ключа — O(k), где k — длина строки. Память растёт как O(число разных запросов × размер ответа). Без ограничения кэш растёт всю сессию: можно хранить последние, скажем, 50 ключей. <code>Map</code> помнит порядок вставки, поэтому самый старый ключ — <code>map.keys().next().value</code>.</p>
+<h3 id="cs-history">История поиска</h3>
+<p>Ещё 4 балла: последние запросы в <code>localStorage</code>, клик по пункту — сразу поиск (из кэша, если ответ есть). Храните массив строк через <code>JSON.stringify</code>, убирайте дубли и ограничьте длину, например десятью. Чтение оберните в <code>try/catch</code>: в приватном режиме или при битом JSON оно может упасть.</p>
+</section>
