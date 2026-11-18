@@ -1,0 +1,8 @@
+<section id="fu-start">
+<h2>Где мы и что строим</h2>
+<p>В уроке <a href="/lessons/express-typescript">Express на TypeScript</a> вы собрали API магазина: список товаров с фильтрами и расчёт корзины. В прошлых уроках этого раздела — карточки из данных, события, стор. Теперь соединим: страница загружает товары с сервера, показывает загрузку и ошибки, ищет без гонки ответов и считает корзину на сервере.</p>
+<p>Запуск двух частей рядом: API на <code>http://localhost:3000</code> (папка <code>starters/shop-api/06-done</code>), фронтенд на Vite — <code>http://localhost:5173</code>. Это разные <b>origin</b>, поэтому сервер разрешает запросы фронтенда через CORS (<a href="/lessons/express-typescript#et-cors">как это устроено</a>). Если в консоли браузера ошибка про <code>Access-Control-Allow-Origin</code>, проверьте <code>CLIENT_ORIGIN</code> на сервере.</p>
+<h3 id="fu-plan">Что разберём</h3>
+<ul><li>Слой API-клиента: адрес, <code>fetch</code>, статус, проверка формы ответа.</li><li>Четыре состояния данных: ещё не грузили, грузим, есть данные, ошибка.</li><li>Гонка запросов: отмена устаревших через <code>AbortController</code>.</li><li>Отправка данных: POST с JSON, блокировка кнопки, кто прав — клиент или сервер.</li><li>Переменные окружения Vite и прокси.</li></ul>
+<p>Основы <code>fetch</code> (статусы, <code>response.ok</code>, <code>AbortController</code>, таймаут) подробно разобраны в <a href="/lessons/country-search">Country Search</a> и уроке <a href="/lessons/client-server">Клиент-серверное взаимодействие</a>. Здесь мы собираем их в архитектуру приложения.</p>
+</section>

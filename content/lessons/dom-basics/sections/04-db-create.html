@@ -1,0 +1,304 @@
+<section id="db-create">
+<h2>Создать и вставить</h2>
+<h3 id="db-create-el">createElement и append</h3>
+<pre><code>export interface Product {
+  id: string;
+  title: string;
+  price: number;
+}
+
+export function formatPrice(kopecks: number): string {
+  return `${(kopecks / 100).toFixed(2)} ₽`;
+}
+
+export function createCard(product: Product): HTMLElement {
+  const card = document.createElement('article');
+  card.className = 'card';
+  card.dataset.id = product.id;
+
+  const title = document.createElement('h3');
+  title.textContent = product.title;
+
+  const price = document.createElement('p');
+  price.className = 'card__price';
+  price.textContent = formatPrice(product.price);
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'В корзину';
+
+  card.append(title, price, button);
+  return card;
+}</code></pre>
+<p>Функция «данные → элемент» — основной кирпич ванильного фронтенда. Она ничего не знает о том, куда карточку вставят, поэтому её легко тестировать и переиспользовать. Все данные идут через <code>textContent</code>, поэтому название <code>&lt;script&gt;</code> станет просто текстом.</p>
+<p>Вставка: <code>parent.append(...nodes)</code> — в конец, <code>prepend</code> — в начало, <code>el.before(x)</code> / <code>el.after(x)</code> — рядом, <code>el.remove()</code> — удалить. <code>parent.replaceChildren(...nodes)</code> заменяет всё содержимое за один вызов: удобно, когда список перерисовывается целиком.</p>
+<article class="task" id="db-t-card" data-task="dom-basics/db-t-card">
+<h4>Задача 11. Карточка из данных <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>createProductCard(product)</code> для товара <code>{ id, title, price, category, stock }</code>. Карточка — <code>article.card</code> с <code>data-id</code> и <code>data-category</code>, заголовок <code>h3</code>, цена в рублях, подпись категории по-русски из словаря и кнопка «В корзину» (заблокирована при нулевом остатке).</p>
+<p class="why"><b>Зачем:</b> это основная функция всего раздела: в следующих уроках к ней добавятся события и данные с сервера. Чем лучше она отделена от остального кода, тем проще будут следующие шаги.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// product-card.ts
+export interface Product {
+  id: string;
+  title: string;
+  price: number;
+  category: 'books' | 'games' | 'home';
+  stock: number;
+}
+
+const CATEGORY_LABELS: Record&lt;Product['category'], string&gt; = {
+  books: 'Книги',
+  games: 'Игры',
+  home: 'Для дома',
+};
+
+function el&lt;K extends keyof HTMLElementTagNameMap&gt;(tag: K, text?: string, className?: string): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  if (className) node.className = className;
+  return node;
+}
+
+export function createProductCard(product: Product): HTMLElement {
+  const card = el('article', undefined, 'card');
+  card.dataset.id = product.id;
+  card.dataset.category = product.category;
+
+  const button = el('button', 'В корзину');
+  button.type = 'button';
+  button.disabled = product.stock === 0;
+
+  card.append(
+    el('h3', product.title),
+    el('p', CATEGORY_LABELS[product.category], 'card__category'),
+    el('p', `${(product.price / 100).toFixed(2)} ₽`, 'card__price'),
+    button,
+  );
+  return card;
+}</code></pre>
+<p>Помощник <code>el</code> убирает повторение «создать, заполнить текст, задать класс». Его тип <code>HTMLElementTagNameMap[K]</code> даёт точный результат: <code>el('button')</code> имеет тип <code>HTMLButtonElement</code>, и <code>button.disabled</code> доступен без приведения типов. Словарь подписей типизирован через <code>Record</code> по union категорий: новая категория без подписи — ошибка компиляции.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="db-t-update-one" data-task="dom-basics/db-t-update-one">
+<h4>Задача 12. Заменить одну карточку <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>replaceCard(container, product, createCard)</code>: находит в контейнере карточку с <code>data-id</code> товара и заменяет её новой, созданной из данных. Если карточки нет — ничего не делает и возвращает <code>false</code>.</p>
+<p class="why"><b>Зачем:</b> перерисовать весь список проще, но иногда дорого или неудобно: собьётся фокус в поле количества, прокрутка, анимация. Точечная замена — второй инструмент, и важно знать оба.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// replace.ts
+export function replaceCard&lt;T extends { id: string }&gt;(
+  container: HTMLElement,
+  product: T,
+  createCard: (p: T) =&gt; HTMLElement,
+): boolean {
+  const old = [...container.querySelectorAll&lt;HTMLElement&gt;('[data-id]')].find((el) =&gt; el.dataset.id === product.id);
+  if (!old) return false;
+  old.replaceWith(createCard(product));
+  return true;
+}</code></pre>
+<p><code>replaceWith</code> ставит новый элемент ровно на место старого, порядок списка не меняется. Карточка создаётся той же функцией, что и при полной отрисовке, поэтому «точечная» карточка не будет отличаться от остальных. Это главное условие, чтобы два способа обновления не разошлись.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="db-t-remove" data-task="dom-basics/db-t-remove">
+<h4>Задача 13. Удалить карточку и показать пустое состояние <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>removeCard(container, id)</code>: удаляет карточку с этим <code>data-id</code>. Если после удаления карточек не осталось, вставляет сообщение «Корзина пуста». Возвращает число оставшихся карточек.</p>
+<p class="why"><b>Зачем:</b> переход «последний элемент удалён → пустое состояние» — классическое место бага: список исчез, а сообщение не появилось, и пользователь видит белую пустоту.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// remove.ts
+export function removeCard(container: HTMLElement, id: string): number {
+  [...container.querySelectorAll&lt;HTMLElement&gt;('[data-id]')].find((el) =&gt; el.dataset.id === id)?.remove();
+  const left = container.querySelectorAll('[data-id]').length;
+  if (left === 0) {
+    const empty = document.createElement('p');
+    empty.textContent = 'Корзина пуста';
+    container.replaceChildren(empty);
+  }
+  return left;
+}</code></pre>
+<p>Карточка ищется сравнением <code>dataset.id</code>, а не селектором с подставленным id, по той же причине, что в задаче про подсчёт. <code>?.remove()</code> спокойно ничего не делает, если карточки нет. Число оставшихся считается по документу после удаления, а не вычитанием «было минус один»: так функция не врёт, если карточки и не было. В уроке о состоянии эту логику перевернём: данные изменятся, а список перерисуется из них, и такого рода баги исчезнут сами.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="db-t-table" data-task="dom-basics/db-t-table">
+<h4>Задача 14. Таблица заказов <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>createOrdersTable(orders)</code>: возвращает <code>&lt;table&gt;</code> с заголовком (<code>thead</code>: «№», «Дата», «Сумма») и строками заказов. Дата <code>2026-11-18</code> показывается как <code>18.11.2026</code>, сумма — в рублях. Последняя строка в <code>tfoot</code> — итог по всем заказам.</p>
+<p class="why"><b>Зачем:</b> таблица — данные с двумя измерениями, и семантическая разметка (<code>th</code>, <code>thead</code>, <code>tfoot</code>) делает её понятной программе чтения с экрана. Итог считается из данных, а не из ячеек таблицы.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// table.ts
+export interface Order {
+  id: number;
+  date: string;
+  total: number;
+}
+
+const rub = (k: number) =&gt; `${(k / 100).toFixed(2)} ₽`;
+const ruDate = (iso: string) =&gt; iso.split('-').reverse().join('.');
+
+function row(cells: string[], tag: 'td' | 'th'): HTMLTableRowElement {
+  const tr = document.createElement('tr');
+  tr.append(...cells.map((text) =&gt; Object.assign(document.createElement(tag), { textContent: text })));
+  return tr;
+}
+
+export function createOrdersTable(orders: readonly Order[]): HTMLTableElement {
+  const table = document.createElement('table');
+  const thead = table.createTHead();
+  thead.append(row(['№', 'Дата', 'Сумма'], 'th'));
+  const tbody = table.createTBody();
+  tbody.append(...orders.map((o) =&gt; row([String(o.id), ruDate(o.date), rub(o.total)], 'td')));
+  const tfoot = table.createTFoot();
+  tfoot.append(row(['Итого', '', rub(orders.reduce((s, o) =&gt; s + o.total, 0))], 'td'));
+  return table;
+}</code></pre>
+<p><code>createTHead</code>, <code>createTBody</code>, <code>createTFoot</code> — специальные методы таблицы, создающие нужные части. <code>Object.assign(element, { textContent })</code> — короткий способ создать элемент с текстом в одну строку. Дата переформатирована строкой, без <code>new Date</code>: <code>new Date('2026-11-18')</code> трактуется как полночь UTC, и в часовом поясе западнее Гринвича превратилась бы в 17 ноября (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="db-fragment">Много элементов за раз</h3>
+<p>Каждая вставка в документ — повод для браузера пересчитать раскладку. Сто вставок по одной — сто поводов. Удобнее собрать элементы и вставить один раз:</p>
+<pre><code>import { createCard, type Product } from './card.js';
+
+export function renderProducts(container: HTMLElement, products: readonly Product[]): void {
+  if (products.length === 0) {
+    const empty = document.createElement('p');
+    empty.textContent = 'Ничего не найдено';
+    container.replaceChildren(empty);
+    return;
+  }
+  container.replaceChildren(...products.map(createCard));
+}</code></pre>
+<p><code>replaceChildren</code> с массивом карточек — одна операция с документом. На сотне элементов разница почти незаметна, но привычка «собрать, потом вставить» спасает на тысячах (из общих знаний). Ещё есть <code>DocumentFragment</code> — контейнер, который можно наполнять и вставить целиком; <code>replaceChildren</code> и <code>append(...nodes)</code> чаще его заменяют.</p>
+<article class="task" id="db-t-list" data-task="dom-basics/db-t-list">
+<h4>Задача 15. Список с пустым состоянием <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>renderList(container, products, createCard)</code>: заменяет содержимое контейнера карточками за одну операцию; для пустого массива показывает <code>&lt;p class="empty"&gt;Ничего не найдено&lt;/p&gt;</code>. Функцию создания карточки принимайте параметром.</p>
+<p class="why"><b>Зачем:</b> пустое состояние — тоже состояние, его дизайн и текст нужно продумать заранее. Функция-параметр делает список универсальным: тот же код нарисует товары, отзывы или заказы.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// render-list.ts
+export function renderList&lt;T&gt;(container: HTMLElement, items: readonly T[], createCard: (item: T) =&gt; HTMLElement): void {
+  if (items.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = 'Ничего не найдено';
+    container.replaceChildren(empty);
+    return;
+  }
+  container.replaceChildren(...items.map(createCard));
+}</code></pre>
+<p>Generic <code>T</code> связывает тип элементов массива и параметр <code>createCard</code>: передать список товаров и функцию для отзывов не получится. <code>items.map(createCard)</code> безопасен: <code>map</code> передаёт ещё индекс и массив, но <code>createCard</code> объявлена с одним параметром, и лишние аргументы она игнорирует.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="db-t-skeleton" data-task="dom-basics/db-t-skeleton">
+<h4>Задача 16. Заглушки на время загрузки <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>renderSkeletons(container, count)</code>: показывает <code>count</code> пустых карточек-заглушек <code>div.card.card--skeleton</code> с атрибутом <code>aria-hidden="true"</code>, а у контейнера ставит <code>aria-busy="true"</code>. И <code>clearBusy(container)</code>, которая снимает <code>aria-busy</code>.</p>
+<p class="why"><b>Зачем:</b> заглушки той же формы, что и карточки, не дают странице «прыгать», когда данные придут. <code>aria-busy</code> сообщает вспомогательным технологиям, что содержимое ещё меняется, а <code>aria-hidden</code> прячет от них пустые серые блоки.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// skeleton.ts
+export function renderSkeletons(container: HTMLElement, count: number): void {
+  const items = Array.from({ length: count }, () =&gt; {
+    const card = document.createElement('div');
+    card.className = 'card card--skeleton';
+    card.setAttribute('aria-hidden', 'true');
+    return card;
+  });
+  container.replaceChildren(...items);
+  container.setAttribute('aria-busy', 'true');
+}
+
+export function clearBusy(container: HTMLElement): void {
+  container.removeAttribute('aria-busy');
+}</code></pre>
+<p><code>Array.from({ length: count }, фабрика)</code> создаёт массив новых элементов. С <code>fill(card)</code> получился бы массив из одного и того же элемента, и в документ попала бы одна заглушка. <code>clearBusy</code> вызывают после отрисовки настоящих карточек, в том числе когда пришла ошибка: иначе область навсегда останется «занятой».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="db-t-diff" data-task="dom-basics/db-t-diff">
+<h4>Задача 17. Обновить список, сохранив существующие карточки <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>syncList(container, products, createCard)</code>: приводит список к массиву <code>products</code>, но <b>переиспользует</b> существующие карточки с тем же <code>data-id</code> (не пересоздаёт их), создаёт новые для новых товаров, удаляет лишние и выстраивает порядок как в массиве.</p>
+<p class="why"><b>Зачем:</b> так в упрощённом виде работают фреймворки с ключами (<code>key</code> в React): элементы, которые остались, не пересоздаются, поэтому сохраняются фокус, введённый текст и анимации. Написав это сами, вы поймёте, зачем фреймворку ключи.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// sync.ts
+export function syncList&lt;T extends { id: string }&gt;(
+  container: HTMLElement,
+  products: readonly T[],
+  createCard: (p: T) =&gt; HTMLElement,
+): void {
+  const existing = new Map&lt;string, HTMLElement&gt;();
+  for (const child of container.querySelectorAll&lt;HTMLElement&gt;(':scope &gt; [data-id]')) {
+    existing.set(child.dataset.id ?? '', child);
+  }
+  const next = products.map((p) =&gt; existing.get(p.id) ?? createCard(p));
+  container.replaceChildren(...next);
+}</code></pre>
+<p>Карточки собираются в <code>Map</code> по id, это даёт поиск за O(1) вместо перебора. <code>replaceChildren</code> с массивом, где часть элементов уже в документе, переставляет их, а не копирует: узел DOM может быть только в одном месте. Карточки, которых нет в новом массиве, просто не попадут в результат и исчезнут. Ограничение: переиспользованная карточка не обновляет свои данные. Если товар изменился (новая цена), её нужно пересоздать или обновить. Ключ говорит «это тот же товар», а не «это та же цена». Селектор <code>:scope &gt;</code> берёт только прямых детей контейнера.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="db-template">Шаблон template</h3>
+<p>Когда разметка карточки большая, собирать её из <code>createElement</code> утомительно. Тег <code>&lt;template&gt;</code> хранит разметку, которую браузер не показывает и не выполняет. Её клонируют и заполняют:</p>
+<pre><code>&lt;template id="card-template"&gt;
+  &lt;article class="card"&gt;
+    &lt;h3 class="card__title"&gt;&lt;/h3&gt;
+    &lt;p class="card__price"&gt;&lt;/p&gt;
+    &lt;button type="button"&gt;В корзину&lt;/button&gt;
+  &lt;/article&gt;
+&lt;/template&gt;</code></pre>
+<pre><code>import { formatPrice, type Product } from './card.js';
+
+export function createCardFromTemplate(template: HTMLTemplateElement, product: Product): HTMLElement {
+  const fragment = template.content.cloneNode(true) as DocumentFragment;
+  const card = fragment.querySelector&lt;HTMLElement&gt;('.card');
+  const title = fragment.querySelector('.card__title');
+  const price = fragment.querySelector('.card__price');
+  if (!card || !title || !price) throw new Error('Шаблон карточки повреждён');
+  card.dataset.id = product.id;
+  title.textContent = product.title;
+  price.textContent = formatPrice(product.price);
+  return card;
+}</code></pre>
+<p>Разметка живёт в HTML, где её видят верстальщик и редактор, а данные по-прежнему вставляются через <code>textContent</code>. <code>cloneNode(true)</code> копирует шаблон глубоко, со всеми потомками; без <code>true</code> скопировался бы пустой тег. <code>as DocumentFragment</code> здесь безопасно: <code>cloneNode</code> объявлен как возвращающий <code>Node</code>, хотя для <code>content</code> это всегда фрагмент.</p>
+<article class="task" id="db-t-template" data-task="dom-basics/db-t-template">
+<h4>Задача 18. Карточка из шаблона <span class="lvl">★★☆ практика</span></h4>
+<p>В HTML есть <code>&lt;template id="review-template"&gt;</code> с разметкой отзыва: <code>.review__author</code>, <code>.review__stars</code>, <code>.review__text</code>. Напишите <code>createReview(template, review)</code>: клонирует шаблон и заполняет поля, а оценку показывает звёздочками: 4 из 5 — «★★★★☆».</p>
+<pre><code>// review.html
+&lt;template id="review-template"&gt;
+  &lt;article class="review"&gt;
+    &lt;b class="review__author"&gt;&lt;/b&gt;
+    &lt;span class="review__stars" aria-label=""&gt;&lt;/span&gt;
+    &lt;p class="review__text"&gt;&lt;/p&gt;
+  &lt;/article&gt;
+&lt;/template&gt;</code></pre>
+<p class="why"><b>Зачем:</b> шаблон отделяет разметку (её правит верстальщик в HTML) от логики заполнения (в TypeScript). А звёзды — хороший повод вспомнить про доступность: символы ★ программа чтения с экрана прочтёт неразборчиво, поэтому смысл дублируется в <code>aria-label</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// review.ts
+export interface Review {
+  author: string;
+  rating: number;
+  text: string;
+}
+
+export function stars(rating: number): string {
+  const full = Math.max(0, Math.min(5, Math.round(rating)));
+  return '★'.repeat(full) + '☆'.repeat(5 - full);
+}
+
+export function createReview(template: HTMLTemplateElement, review: Review): HTMLElement {
+  const fragment = template.content.cloneNode(true) as DocumentFragment;
+  const root = fragment.querySelector&lt;HTMLElement&gt;('.review');
+  const author = fragment.querySelector('.review__author');
+  const starsEl = fragment.querySelector('.review__stars');
+  const text = fragment.querySelector('.review__text');
+  if (!root || !author || !starsEl || !text) throw new Error('Шаблон отзыва повреждён');
+
+  author.textContent = review.author;
+  starsEl.textContent = stars(review.rating);
+  starsEl.setAttribute('aria-label', `Оценка ${review.rating} из 5`);
+  text.textContent = review.text;
+  return root;
+}</code></pre>
+<p>Функция <code>stars</code> вынесена отдельно и ограничивает оценку диапазоном 0–5. Без этого оценка 7 из кривых данных дала бы ошибку <code>repeat</code> с отрицательным числом. Шаблон проверяется целиком при каждом вызове. Если верстальщик переименует класс, ошибка назовёт причину. Возвращается сам <code>article</code>, а не фрагмент: так функцию можно использовать в <code>replaceWith</code> и в тестах.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

@@ -1,0 +1,78 @@
+<section id="fu-race">
+<h2>Устаревшие ответы</h2>
+<p>Пользователь печатает «к», «ко», «код». Если запрос уходит на каждую букву, ответы могут прийти в другом порядке, и на экране окажутся результаты для «к» при тексте «код» в поле. Лечение из двух частей:</p>
+<ul><li><b>Задержка</b> (debounce): запрос уходит, когда пользователь перестал печатать (<a href="/lessons/dom-events#ev-t-live-search">как сделать</a>).</li><li><b>Отмена</b>: перед новым запросом старый отменяется через <code>AbortController</code>, а отменённый запрос не показывается как ошибка.</li></ul>
+<pre><code>export function latestOnly&lt;A, R&gt;(fn: (args: A, signal: AbortSignal) =&gt; Promise&lt;R&gt;) {
+  let controller: AbortController | undefined;
+  return async (args: A): Promise&lt;{ ok: true; value: R } | { ok: false; aborted: boolean; error?: unknown }&gt; =&gt; {
+    controller?.abort();
+    controller = new AbortController();
+    const { signal } = controller;
+    try {
+      const value = await fn(args, signal);
+      return signal.aborted ? { ok: false, aborted: true } : { ok: true, value };
+    } catch (error) {
+      return { ok: false, aborted: signal.aborted, error };
+    }
+  };
+}</code></pre>
+<p>Проверка <code>signal.aborted</code> после <code>await</code> закрывает тонкую дыру: ответ мог успеть прийти ровно в момент отмены. Подробный разбор гонки с тестом, который её воспроизводит, — в <a href="/lessons/country-search#cs-race">Country Search</a>.</p>
+<article class="task" id="fu-t-latest" data-task="fetch-ui/fu-t-latest">
+<h4>Задача 10. Только последний ответ <span class="lvl">★★☆ практика</span></h4>
+<p>Используя <code>latestOnly</code> из раздела, сделайте функцию <code>createLoader(fetchProducts, onState)</code> с методом <code>load(query)</code>: каждый вызов отменяет предыдущий запрос; отменённые результаты не попадают в <code>onState</code>; ошибки (кроме отмены) дают состояние <code>error</code>.</p>
+<pre><code>// latest.ts
+export function latestOnly&lt;A, R&gt;(fn: (args: A, signal: AbortSignal) =&gt; Promise&lt;R&gt;) {
+  let controller: AbortController | undefined;
+  return async (args: A): Promise&lt;{ ok: true; value: R } | { ok: false; aborted: boolean; error?: unknown }&gt; =&gt; {
+    controller?.abort();
+    controller = new AbortController();
+    const { signal } = controller;
+    try {
+      const value = await fn(args, signal);
+      return signal.aborted ? { ok: false, aborted: true } : { ok: true, value };
+    } catch (error) {
+      return { ok: false, aborted: signal.aborted, error };
+    }
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> обёртка решает гонку один раз для любого запроса, а загрузчик только переводит результат в состояния. Две маленькие функции с ясными ролями проще проверить, чем одна большая с флагами.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// loader.ts
+import { latestOnly } from './latest.js';
+
+type State&lt;T&gt; = { status: 'loading' } | { status: 'success'; data: T } | { status: 'error'; message: string };
+
+export function createLoader&lt;T&gt;(fetchProducts: (q: string, signal: AbortSignal) =&gt; Promise&lt;T&gt;, onState: (s: State&lt;T&gt;) =&gt; void) {
+  const run = latestOnly(fetchProducts);
+  return {
+    async load(query: string): Promise&lt;void&gt; {
+      onState({ status: 'loading' });
+      const result = await run(query);
+      if (result.ok) onState({ status: 'success', data: result.value });
+      else if (!result.aborted) {
+        onState({ status: 'error', message: result.error instanceof Error ? result.error.message : 'Ошибка' });
+      }
+    },
+  };
+}</code></pre>
+<p>Отменённый вызов просто ничего не сообщает: на экране уже «загрузка» для нового запроса. Тест проверяет главный сценарий гонки: первый запрос отвечает <b>последним</b>, но его результат не показывается.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="fu-t-step3" data-task="fetch-ui/fu-t-step3">
+<h4>Задача 11. Проект, шаг 3: поиск без гонки <span class="lvl">★★★ с подвохом</span></h4>
+<p>Шаг 3: <code>createSearch(api, onState, delay)</code> в <code>src/search.ts</code>. Тесты используют <code>fetch</code>, который отвечает только по команде и честно реагирует на отмену. Так они проверяют и задержку, и то, что старый запрос действительно отменён, а не просто проигнорирован.</p>
+<p class="starter"><code>npx degit Romkalis/workbook/starters/shop-web/03-start shop-web-03-start</code> <a href="/starters/shop-web-03-start.zip" download>Скачать ZIP</a></p>
+<p class="why"><b>Зачем:</b> это главный шаг проекта: задержка, отмена и состояния вместе. Тест с управляемым <code>fetch</code> отличает настоящую отмену от «флага, что ответ устарел»: при флаге запрос продолжает идти и тратить сеть.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// src/search.ts
+search(filters: ProductFilters): void {
+  clearTimeout(timer);
+  controller?.abort(); // ответ на старые фильтры уже не нужен
+  timer = setTimeout(() =&gt; void run(filters), delay);
+},</code></pre>
+<p>Старый запрос отменяется сразу при новом вводе, а не когда закончится пауза: пока пользователь печатает, ответ на устаревшие фильтры не нужен. Внутри <code>run</code> проверяется <code>signal.aborted</code> после <code>await</code>, как в <code>latestOnly</code>. Полный файл — в папке <code>04-start</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

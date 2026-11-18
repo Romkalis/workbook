@@ -1,0 +1,7 @@
+<section id="zd-practice">
+<h2>Вопросы</h2>
+<details class="q"><summary>Чем схема Zod лучше type guard?</summary><div class="a"><p>Тип выводится из схемы, поэтому проверка и тип не могут разойтись. И ошибка говорит, какое поле не прошло и почему.</p></div></details>
+<details class="q"><summary>Когда parse, а когда safeParse?</summary><div class="a"><p>parse — когда неверные данные это авария (конфигурация). safeParse — когда это обычная ситуация (ввод пользователя, запрос клиента).</p></div></details>
+<details class="q"><summary>Почему после проверки работают с result.data, а не с исходным объектом?</summary><div class="a"><p>В result.data уже применены trim, default и transform, а лишние поля удалены.</p></div></details>
+<details class="q"><summary>Что не так с z.coerce.number() для параметра ?maxPrice=?</summary><div class="a"><p>Пустая строка превращается в 0 и проходит проверку. Пустые значения нужно сначала превратить в undefined.</p></div></details>
+</section>

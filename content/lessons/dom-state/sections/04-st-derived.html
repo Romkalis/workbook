@@ -1,0 +1,84 @@
+<section id="st-derived">
+<h2>Производные данные не храним</h2>
+<p>Сумма корзины, число товаров в бейдже, отфильтрованный каталог — всё это <b>вычисляется</b> из состояния. Если хранить их отдельно (<code>state.total</code>), их придётся обновлять при каждом изменении, и однажды забудут. Храните минимум, остальное считайте функциями-<b>селекторами</b>: <code>cartTotal(state)</code>, <code>visibleProducts(state)</code>. Пересчёт суммы на сотне строк занимает микросекунды; оптимизировать стоит, только когда профилировщик покажет проблему.</p>
+<p>Хорошая проверка: можно ли получить это значение из других полей состояния? Если да — это не состояние, а селектор.</p>
+<article class="task" id="st-t-selectors" data-task="dom-state/st-t-selectors">
+<h4>Задача 9. Селекторы корзины <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите селекторы <code>cartCount(state)</code> (сумма количеств) и <code>cartTotal(state)</code> (сумма цена × количество) и уберите из состояния корзины поля <code>count</code> и <code>total</code>, которые сейчас обновляются вручную в каждом действии.</p>
+<pre><code>interface Cart {
+  lines: Line[];
+  count: number; // обновляется в addLine, removeLine, setQuantity...
+  total: number; // ...и иногда забывается
+}</code></pre>
+<p class="why"><b>Зачем:</b> каждое хранимое производное значение — обязанность всех действий его обновлять. Селектор не может «забыть», потому что всегда считает заново из правды.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// selectors.ts
+export interface Line {
+  id: string;
+  price: number;
+  quantity: number;
+}
+export interface Cart {
+  lines: Line[];
+}
+
+export const cartCount = (s: Cart): number =&gt; s.lines.reduce((n, l) =&gt; n + l.quantity, 0);
+export const cartTotal = (s: Cart): number =&gt; s.lines.reduce((sum, l) =&gt; sum + l.price * l.quantity, 0);</code></pre>
+<p>После правки действия стали короче (меньше полей обновлять), а тип <code>Cart</code> — честнее: в нём только то, что нельзя вычислить. Селекторы используют и render, и бейдж в шапке, и кнопка «Оформить» (неактивна при <code>cartCount === 0</code>), и все они согласованы по построению.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="st-t-visible" data-task="dom-state/st-t-visible">
+<h4>Задача 10. Видимый каталог из состояния <span class="lvl">★★☆ практика</span></h4>
+<p>Состояние каталога: <code>{ products, filters: { q, category }, sort: 'default' | 'price-asc' | 'price-desc' }</code>. Напишите селектор <code>visibleProducts(state)</code>, который применяет поиск (без учёта регистра), категорию и сортировку, не меняя исходный массив.</p>
+<p class="why"><b>Зачем:</b> список на экране — функция от трёх частей состояния. Если хранить «отфильтрованный список» отдельно, придётся пересчитывать его при изменении любой из них, и где-то это забудут. Один селектор — одно место правды.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// visible.ts
+export interface Product {
+  id: string;
+  title: string;
+  category: string;
+  price: number;
+}
+export interface CatalogState {
+  products: Product[];
+  filters: { q: string; category: string | null };
+  sort: 'default' | 'price-asc' | 'price-desc';
+}
+
+export function visibleProducts(s: CatalogState): Product[] {
+  const q = s.filters.q.trim().toLowerCase();
+  const filtered = s.products.filter(
+    (p) =&gt; (q === '' || p.title.toLowerCase().includes(q)) &amp;&amp; (s.filters.category === null || p.category === s.filters.category),
+  );
+  if (s.sort === 'default') return filtered;
+  const sign = s.sort === 'price-asc' ? 1 : -1;
+  return [...filtered].sort((a, b) =&gt; sign * (a.price - b.price));
+}</code></pre>
+<p>Сначала фильтр, потом сортировка: сортировать меньший массив дешевле. <code>filter</code> уже вернул новый массив, но копия перед <code>sort</code> всё равно сделана: при пустых фильтрах <code>filter</code> мог бы быть оптимизирован до возврата исходного массива, и <code>sort</code> испортил бы данные состояния. Защитное копирование стоит дёшево.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="st-t-memo" data-task="dom-state/st-t-memo">
+<h4>Задача 11. Запомнить результат селектора <span class="lvl">★★★ с подвохом</span></h4>
+<p>Селектор <code>visibleProducts</code> вызывается при каждой перерисовке, даже если товары и фильтры не менялись. Напишите <code>memoizeOne(fn)</code>: обёртка запоминает последние аргументы и результат и, если все аргументы равны предыдущим по <code>Object.is</code>, возвращает сохранённый результат без вызова <code>fn</code>.</p>
+<p class="why"><b>Зачем:</b> это прямое следствие иммутабельности: раз неизменённые части состояния — те же объекты, сравнение ссылкой дешёвое и надёжное. По тому же принципу работают <code>useMemo</code> в React и <code>createSelector</code> в Redux (из общих знаний). При мутациях на месте такое запоминание выдавало бы устаревший результат.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// memo.ts
+export function memoizeOne&lt;A extends unknown[], R&gt;(fn: (...args: A) =&gt; R): (...args: A) =&gt; R {
+  let lastArgs: A | null = null;
+  let lastResult: R;
+  return (...args: A): R =&gt; {
+    if (lastArgs &amp;&amp; args.length === lastArgs.length &amp;&amp; args.every((a, i) =&gt; Object.is(a, lastArgs![i]))) {
+      return lastResult;
+    }
+    lastArgs = args;
+    lastResult = fn(...args);
+    return lastResult;
+  };
+}</code></pre>
+<p>Запоминается только последний вызов, а не все: селектору на экране нужен именно последний набор данных, а кеш всех вызовов рос бы без конца. Важный побочный эффект: при тех же аргументах возвращается <b>тот же</b> массив, и следующий слой (например, <code>syncList</code>) может тоже сравнить ссылкой и ничего не делать. Аргументы селектора стоит передавать частями (<code>products</code>, <code>filters</code>, <code>sort</code>), а не целым состоянием: иначе изменение корзины, которое к каталогу не относится, сбросит кеш.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

@@ -1,0 +1,116 @@
+<section id="fu-mutations">
+<h2>Отправка данных</h2>
+<p>POST-запрос с JSON требует трёх вещей: метода, заголовка <code>Content-Type: application/json</code> и тела <code>JSON.stringify(...)</code>. Без заголовка Express не разберёт тело, и сервер ответит 400 (<a href="/lessons/express-typescript#et-cors">почему</a>).</p>
+<pre><code>const res = await fetch(new URL('/api/cart/quote', baseUrl), {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ items, promo }),
+});</code></pre>
+<h3 id="fu-truth">Кто прав: клиент или сервер</h3>
+<p>Сумму корзины можно посчитать и в браузере, но цены и скидки решает сервер: клиентский код меняется в DevTools за секунду. Поэтому итог для оплаты всегда берётся из ответа сервера, а клиентский расчёт — разве что предварительная подсказка.</p>
+<p>Два стиля обновления интерфейса (из общих знаний). <b>Пессимистичный</b>: показываем «Считаем…», ждём сервер, рисуем результат. Честно и просто. <b>Оптимистичный</b>: сразу рисуем ожидаемый результат, а при ошибке откатываем. Быстрее на вид, но сложнее: нужно хранить прежнее состояние и показать откат так, чтобы пользователь понял, что случилось. Для денег начинайте с пессимистичного.</p>
+<article class="task" id="fu-t-optimistic" data-task="fetch-ui/fu-t-optimistic">
+<h4>Задача 13. Оптимистичное «В избранное» с откатом <span class="lvl">★★★ с подвохом</span></h4>
+<p>Кнопка «В избранное» должна реагировать мгновенно. Напишите <code>toggleFavorite(state, id, save, onState)</code>: сразу сообщает новое состояние (id добавлен или убран из множества избранного), затем вызывает асинхронный <code>save(id, isFavorite)</code>. При ошибке возвращает прежнее состояние и сообщает текст ошибки.</p>
+<p class="why"><b>Зачем:</b> избранное — хороший кандидат для оптимистичного обновления: ошибка редка и безобидна, а задержка клика заметна. Задача показывает, сколько стоит «быстро на вид»: нужно хранить прежнее состояние и честно откатить его при ошибке.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// favorite.ts
+export interface FavState {
+  favorites: ReadonlySet&lt;string&gt;;
+  error: string | null;
+}
+
+export async function toggleFavorite(
+  state: FavState,
+  id: string,
+  save: (id: string, isFavorite: boolean) =&gt; Promise&lt;void&gt;,
+  onState: (s: FavState) =&gt; void,
+): Promise&lt;void&gt; {
+  const isFavorite = !state.favorites.has(id);
+  const next = new Set(state.favorites);
+  if (isFavorite) next.add(id);
+  else next.delete(id);
+  onState({ favorites: next, error: null });
+  try {
+    await save(id, isFavorite);
+  } catch {
+    onState({ favorites: state.favorites, error: 'Не удалось сохранить избранное, попробуйте ещё раз' });
+  }
+}</code></pre>
+<p>Откат возвращает именно <code>state.favorites</code>, прежнее множество. Его не меняли, потому что новое создано копией (<code>new Set(...)</code>), и иммутабельность здесь работает как бесплатная «точка отката». Ограничение: если за время запроса пользователь нажал ещё что-то, откат затрёт и это. Для таких случаев откатывают только своё изменение (убрать/вернуть один id) или ставят действия в очередь.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="fu-stale-quote">Последний расчёт побеждает</h3>
+<p>Нажали «+» три раза быстро — ушло три запроса расчёта. Если ответ на второй придёт последним, на экране останется неверная сумма. Если отменять запрос нельзя или не хочется, помогает номер запроса: каждый новый получает следующий номер, а ответ рисуется, только если его номер последний. Так сделано в <code>main.ts</code> проекта.</p>
+<article class="task" id="fu-t-post" data-task="fetch-ui/fu-t-post">
+<h4>Задача 12. POST с JSON <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>postJson(url, body, fetchFn = fetch)</code>: отправляет POST с заголовком <code>Content-Type: application/json</code> и телом-JSON, при статусе не 2xx бросает <code>Error</code> с текстом из поля <code>error</code> ответа (используйте <code>readErrorMessage</code>), иначе возвращает разобранный JSON как <code>unknown</code>.</p>
+<pre><code>// error-text.ts
+export async function readErrorMessage(res: Response): Promise&lt;string&gt; {
+  try {
+    const body: unknown = await res.json();
+    if (typeof body === 'object' &amp;&amp; body !== null &amp;&amp; 'error' in body &amp;&amp; typeof body.error === 'string') return body.error;
+  } catch {
+    // тело не JSON
+  }
+  return `Сервер ответил ${res.status}`;
+}</code></pre>
+<p class="why"><b>Зачем:</b> три обязательные части JSON-запроса (метод, заголовок, тело) легко забыть по одной. Функция, которая собирает их правильно, избавляет от самой частой ошибки «сервер не видит моих данных».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// post.ts
+import { readErrorMessage } from './error-text.js';
+
+export async function postJson(url: string | URL, body: unknown, fetchFn: typeof fetch = fetch): Promise&lt;unknown&gt; {
+  const res = await fetchFn(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  return res.json();
+}</code></pre>
+<p>Результат — <code>unknown</code>: проверять форму будет вызывающий код, потому что только он знает, что ожидает. Так же устроен <code>getJson</code> с предикатом. Можно объединить две функции в одну <code>request&lt;T&gt;(method, url, body, isT)</code>, и в больших клиентах так и делают.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="fu-t-sequence" data-task="fetch-ui/fu-t-sequence">
+<h4>Задача 14. Номер запроса против устаревших ответов <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>createLatest()</code> — счётчик запросов: <code>begin()</code> возвращает функцию <code>isLatest()</code>, которая истинна, только пока после этого <code>begin</code> не было нового. Используйте его, чтобы из трёх быстрых расчётов корзины на экран попал только последний, даже если ответы пришли в обратном порядке.</p>
+<p class="why"><b>Зачем:</b> не каждый запрос можно отменить: старые API, сторонние библиотеки, запросы, которые уже изменили данные на сервере. Номер запроса — универсальная защита отображения, независимая от транспорта.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// latest-id.ts
+export function createLatest() {
+  let current = 0;
+  return {
+    begin(): () =&gt; boolean {
+      const id = ++current;
+      return () =&gt; id === current;
+    },
+  };
+}</code></pre>
+<p>Каждый <code>begin</code> захватывает свой номер в замыкании, а сравнивается он с общим счётчиком. Разница с <code>AbortController</code>: запрос не отменяется, сеть и сервер работают зря, зато код не зависит от того, умеет ли запрос отменяться. Для POST, который меняет данные, отмена и вовсе опасна: сервер мог уже выполнить действие. Здесь честнее дождаться ответа и просто его не показать.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="fu-t-step4" data-task="fetch-ui/fu-t-step4">
+<h4>Задача 15. Проект, шаг 4: корзина и расчёт на сервере <span class="lvl">★★☆ практика</span></h4>
+<p>Шаг 4: <code>createCart(storage)</code> (добавление, удаление, подписка, сохранение с проверкой при чтении) и <code>api.quote(items, promo)</code>. В <code>main.ts</code> готового решения корзина подписана на изменения и после каждого просит сервер посчитать итог, показывая только последний расчёт.</p>
+<p class="starter"><code>npx degit Romkalis/workbook/starters/shop-web/04-start shop-web-04-start</code> <a href="/starters/shop-web-04-start.zip" download>Скачать ZIP</a></p>
+<p class="why"><b>Зачем:</b> шаг собирает весь раздел: стор с подпиской и сохранением из урока о состоянии, POST и номер запроса из этого урока. После него проект полностью работает с настоящим сервером.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// src/cart.ts
+function set(next: CartItem[]) {
+  items = next;
+  try {
+    storage.setItem(KEY, JSON.stringify(items));
+  } catch {
+    // хранилище недоступно — работаем без сохранения
+  }
+  listeners.forEach((l) =&gt; l(items));
+}</code></pre>
+<p>Корзина хранит только <code>productId</code> и количество, но не цену. Цена приходит с сервера в ответе расчёта, поэтому устаревшая цена из <code>localStorage</code> не попадёт в итог. Тесты шага проверяют корзину и <code>quote</code> отдельно, а связку в <code>main.ts</code> проверьте вручную, запустив оба проекта. Полный код — в папке <code>05-done</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

@@ -1,0 +1,53 @@
+<section id="db-a11y">
+<h2>Доступность: семантика и сообщения</h2>
+<h3 id="db-semantic">Кнопка — это button</h3>
+<p>Кликабельный <code>div</code> не получает фокус с клавиатуры, не нажимается Enter и пробелом и не объявляется программой чтения с экрана как кнопка. <code>&lt;button type="button"&gt;</code> даёт всё это бесплатно. Ссылка <code>&lt;a href&gt;</code> — для перехода по адресу, кнопка — для действия на странице. <code>type="button"</code> важен внутри формы: без него кнопка по умолчанию отправляет форму.</p>
+<article class="task" id="db-t-button" data-task="dom-basics/db-t-button">
+<h4>Задача 19. Из div в button <span class="lvl">★☆☆ разминка</span></h4>
+<p>Разметка ниже сделана на <code>div</code>. Перепишите функцию, создающую кнопку «Удалить», так, чтобы она работала с клавиатуры и называлась для программы чтения с экрана «Удалить Каркассон», хотя на экране виден только значок ✕.</p>
+<pre><code>export function createRemoveButton(title: string) {
+  const div = document.createElement('div');
+  div.className = 'remove';
+  div.textContent = '✕';
+  return div;
+}</code></pre>
+<p class="why"><b>Зачем:</b> значок без подписи для незрячего пользователя — просто «крестик» или вообще ничего. А <code>div</code> не попадает в порядок перехода по Tab. Две строки разметки решают обе проблемы.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// remove-button.ts
+export function createRemoveButton(title: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'remove';
+  button.textContent = '✕';
+  button.setAttribute('aria-label', `Удалить ${title}`);
+  return button;
+}</code></pre>
+<p><code>button</code> сам получает фокус и нажимается Enter и пробелом. <code>aria-label</code> заменяет доступное имя кнопки, поэтому программа чтения скажет «Удалить Каркассон, кнопка», а не «крестик». Название товара в подписи важно: в корзине десять одинаковых крестиков, и без него непонятно, что удалит каждый.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="db-live">Сообщить о переменах</h3>
+<p>Когда JavaScript меняет часть страницы («Товар добавлен», «Найдено 3 товара»), зрячий пользователь это видит, а незрячий — нет. Элемент с атрибутом <code>aria-live="polite"</code> объявляется программой чтения с экрана при каждом изменении текста (из общих знаний о WAI-ARIA). Его создают заранее, пустым, и потом меняют <code>textContent</code>:</p>
+<pre><code>&lt;p class="status" aria-live="polite"&gt;&lt;/p&gt;</code></pre>
+<article class="task" id="db-t-live" data-task="dom-basics/db-t-live">
+<h4>Задача 20. Объявить результат поиска <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>announce(status, count)</code>, которая пишет в элемент со <code>aria-live="polite"</code> «Найдено N товаров» с правильным окончанием (1 товар, 2 товара, 5 товаров, 11 товаров), а для нуля — «Ничего не найдено».</p>
+<p class="why"><b>Зачем:</b> текст объявления — тоже интерфейс, и «Найдено 1 товаров» режет слух так же, как опечатка на кнопке. Функция склонения пригодится в десятке мест: корзина, отзывы, поиск.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// announce.ts
+export function plural(n: number, [one, few, many]: [string, string, string]): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 &amp;&amp; mod100 !== 11) return one;
+  if (mod10 &gt;= 2 &amp;&amp; mod10 &lt;= 4 &amp;&amp; (mod100 &lt; 12 || mod100 &gt; 14)) return few;
+  return many;
+}
+
+export function announce(status: HTMLElement, count: number): void {
+  status.textContent = count === 0 ? 'Ничего не найдено' : `Найдено ${count} ${plural(count, ['товар', 'товара', 'товаров'])}`;
+}</code></pre>
+<p>Склонение вынесено в чистую функцию с кортежем форм: её легко покрыть таблицей тестов, как в задаче про <code>test.each</code> из урока о тестировании. Элемент <code>aria-live</code> создаётся в HTML заранее, а функция только меняет его текст. Если вставить live-элемент одновременно с текстом, часть программ чтения его не объявит (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

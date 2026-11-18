@@ -1,0 +1,85 @@
+<section id="ev-flow">
+<h2>Всплытие и делегирование</h2>
+<h3 id="ev-bubbling">Событие идёт вверх</h3>
+<p>Клик по кнопке внутри карточки внутри списка — это клик и по кнопке, и по карточке, и по списку, и по документу. Событие сначала проходит сверху вниз до цели (<b>погружение</b>, capture), затем поднимается обратно (<b>всплытие</b>, bubbling). Обычные обработчики срабатывают на всплытии: сначала на кнопке, потом на карточке, потом на списке. Большинство событий всплывают; исключения — например, <code>focus</code> и <code>blur</code> (у них есть всплывающие пары <code>focusin</code>/<code>focusout</code>).</p>
+<article class="task" id="ev-t-order" data-task="dom-events/ev-t-order">
+<h4>Задача 4. Порядок всплытия <span class="lvl">★☆☆ разминка</span></h4>
+<p>Повесьте обработчики <code>click</code> на кнопку, карточку и список, каждый пишет своё имя в массив <code>log</code>. Кликните по кнопке и убедитесь, что порядок — <code>['button', 'card', 'list']</code>. Затем добавьте списку обработчик с опцией <code>capture: true</code> и посмотрите, куда он встанет.</p>
+<p class="why"><b>Зачем:</b> понимание порядка срабатывания объясняет большинство «странных» багов с событиями: почему меню закрылось раньше, чем сработала кнопка внутри него, почему делегирование вообще работает.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// order.ts
+export function wire(button: HTMLElement, card: HTMLElement, list: HTMLElement): string[] {
+  const log: string[] = [];
+  button.addEventListener('click', () =&gt; log.push('button'));
+  card.addEventListener('click', () =&gt; log.push('card'));
+  list.addEventListener('click', () =&gt; log.push('list'));
+  list.addEventListener('click', () =&gt; log.push('list-capture'), { capture: true });
+  return log;
+}</code></pre>
+<p>Обработчик с <code>capture: true</code> срабатывает на пути вниз, раньше всех: <code>['list-capture', 'button', 'card', 'list']</code>. В обычном коде capture нужен редко. Пример полезного применения — перехватить событие раньше дочернего кода, например закрыть всплывающее меню при клике в любом месте страницы.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ev-delegation">Делегирование: один обработчик на список</h3>
+<p>Вешать обработчик на каждую из ста кнопок «В корзину» неудобно: новые карточки после загрузки придётся подписывать отдельно, а при перерисовке — следить за отпиской. Вместо этого один обработчик ставят на общий контейнер и по <code>target</code> выясняют, что нажали:</p>
+<pre><code>export type CartAction = { type: 'add' | 'remove'; productId: string };
+
+export function listenCartActions(list: HTMLElement, onAction: (action: CartAction) =&gt; void): void {
+  list.addEventListener('click', (event) =&gt; {
+    if (!(event.target instanceof Element)) return;
+    const button = event.target.closest&lt;HTMLElement&gt;('[data-action]');
+    if (!button || !list.contains(button)) return;
+    const card = button.closest&lt;HTMLElement&gt;('[data-id]');
+    const action = button.dataset.action;
+    if (!card?.dataset.id || (action !== 'add' &amp;&amp; action !== 'remove')) return;
+    onAction({ type: action, productId: card.dataset.id });
+  });
+}</code></pre>
+<p>Кнопки размечены атрибутом <code>data-action="add"</code>, карточка — <code>data-id</code>. Обработчику всё равно, сколько карточек и когда они появились: он работает и для карточек, нарисованных позже. Проверка <code>list.contains(button)</code> отсекает случай, когда <code>closest</code> нашёл подходящего предка выше самого списка.</p>
+<p>Обратите внимание на форму функции: она не меняет корзину сама, а сообщает о действии через <code>onAction</code>. DOM-событие переводится в событие предметной области («добавить товар g1»), а что с ним делать — решает другой код. Так обработчик можно проверить, просто собрав переданные действия.</p>
+<article class="task" id="ev-t-delegate-qty" data-task="dom-events/ev-t-delegate-qty">
+<h4>Задача 5. Количество в корзине через делегирование <span class="lvl">★★☆ практика</span></h4>
+<p>В корзине строки <code>&lt;li data-id&gt;</code> с кнопками <code>data-action="inc"</code>, <code>"dec"</code>, <code>"remove"</code>. Напишите <code>listenCart(list, handlers)</code> с одним обработчиком на список, который вызывает <code>handlers.inc(id)</code>, <code>dec(id)</code> или <code>remove(id)</code>. Неизвестное действие игнорируется. Строки, добавленные после подписки, тоже должны работать.</p>
+<p class="why"><b>Зачем:</b> строки корзины постоянно появляются и исчезают. Обработчик на каждой кнопке пришлось бы вешать заново после каждой перерисовки, а делегирование работает «навсегда». Словарь обработчиков вместо <code>if/else</code> — новое действие добавляется одной строкой.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// cart-events.ts
+type Handlers = Record&lt;'inc' | 'dec' | 'remove', (id: string) =&gt; void&gt;;
+
+function isAction(value: string | undefined): value is keyof Handlers {
+  return value === 'inc' || value === 'dec' || value === 'remove';
+}
+
+export function listenCart(list: HTMLElement, handlers: Handlers): void {
+  list.addEventListener('click', (event) =&gt; {
+    if (!(event.target instanceof Element)) return;
+    const button = event.target.closest&lt;HTMLElement&gt;('[data-action]');
+    const row = button?.closest&lt;HTMLElement&gt;('[data-id]');
+    if (!button || !row || !list.contains(row)) return;
+    const action = button.dataset.action;
+    if (isAction(action) &amp;&amp; row.dataset.id) handlers[action](row.dataset.id);
+  });
+}</code></pre>
+<p>Предикат <code>isAction</code> превращает строку из разметки в ключ словаря. Без него <code>handlers[action]</code> не скомпилировался бы, и это правильно: в <code>data-action</code> может оказаться что угодно. Функция только переводит клик в вызов, а что такое «увеличить количество», решает код корзины.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ev-stop">stopPropagation — крайняя мера</h3>
+<p><code>event.stopPropagation()</code> останавливает всплытие. Выглядит удобно («клик по кнопке не должен закрывать карточку»), но ломает чужой код выше по дереву: аналитику, закрытие меню по клику снаружи, делегирование. Обычно задачу решает проверка цели: в обработчике родителя спросите, откуда пришёл клик (<code>event.target.closest(...)</code>), вместо того чтобы глушить событие у ребёнка.</p>
+<article class="task" id="ev-t-backdrop" data-task="dom-events/ev-t-backdrop">
+<h4>Задача 6. Закрыть окно по клику на фон <span class="lvl">★★☆ практика</span></h4>
+<p>Модальное окно — <code>div.backdrop</code> с вложенным <code>div.modal</code>. Клик по фону закрывает окно, клик внутри окна — нет. Решите задачу без <code>stopPropagation</code>.</p>
+<pre><code>backdrop.addEventListener('click', close);
+modal.addEventListener('click', (e) =&gt; e.stopPropagation()); // «чтобы не закрывалось»</code></pre>
+<p class="why"><b>Зачем:</b> <code>stopPropagation</code> внутри окна ломает делегирование на <code>document</code>: аналитику, закрытие выпадающих меню, ваши же обработчики. Проверка «клик был именно по фону» решает задачу локально и ничего не ломает вокруг.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// backdrop.ts
+export function closeOnBackdrop(backdrop: HTMLElement, close: () =&gt; void): void {
+  backdrop.addEventListener('click', (event) =&gt; {
+    if (event.target === event.currentTarget) close();
+  });
+}</code></pre>
+<p>Клик по фону: <code>target</code> и <code>currentTarget</code> — один и тот же элемент. Клик внутри окна: <code>target</code> — что-то внутри <code>.modal</code>, проверка не проходит. Событие при этом спокойно всплывает дальше, и все остальные слушатели его получат. Если вы используете <code>&lt;dialog&gt;</code>, приём тот же: клик по его фону приходит с <code>target === dialog</code> (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

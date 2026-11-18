@@ -1,0 +1,67 @@
+<section id="zd-front">
+<h2>Zod во фронтенде</h2>
+<p>Две точки применения. <b>Ответы API</b>: <code>z.array(Product).parse(await res.json())</code> заменяет ручной <code>isProduct</code> из <a href="/lessons/fetch-ui#fu-client">клиента shop-web</a> — короче, и при ошибке в сообщении видно, какое поле какого товара не подошло. <b>Формы</b>: схема плюс <code>z.flattenError</code> дают объект «поле → сообщение», который прямо подходит для функции показа ошибок из <a href="/lessons/dom-events#ev-t-errors">урока о формах</a>.</p>
+<p>Цена — размер: Zod добавляет в бандл десятки килобайт (из общих знаний; точная цифра зависит от версии и того, что импортировано). Для маленькой страницы это заметно; для приложения с десятком форм и API обычно окупается. У Zod 4 есть облегчённый вариант <code>zod/mini</code> с функциональным синтаксисом (из документации Zod, в этой работе не проверялся).</p>
+<article class="task" id="zd-t-api-response" data-task="zod/zd-t-api-response">
+<h4>Задача 18. Проверка ответа API схемой <span class="lvl">★★☆ практика</span></h4>
+<p>Перепишите <code>getProducts</code> из клиента <a href="/lessons/fetch-ui#fu-client">shop-web</a> на Zod: ответ проверяется <code>z.array(Product)</code>, а при несоответствии бросается <code>TypeError</code>, в сообщении которого есть <code>prettifyError</code>, то есть видно, какое поле какого товара не подошло.</p>
+<p class="why"><b>Зачем:</b> когда сервер меняет формат, фронтенд должен падать с понятной ошибкой у входа, а не с <code>undefined</code> где-то в отрисовке. Сообщение с путём («at [3].price») экономит полчаса поиска в devtools.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// client.ts
+import { z } from 'zod';
+
+export const Product = z.object({
+  id: z.string(),
+  title: z.string(),
+  category: z.enum(['books', 'games', 'home']),
+  price: z.number().int(),
+});
+export type Product = z.infer&lt;typeof Product&gt;;
+
+const ProductList = z.array(Product);
+
+export async function getProducts(baseUrl: string, fetchFn: typeof fetch = fetch): Promise&lt;Product[]&gt; {
+  const res = await fetchFn(new URL('/api/products', baseUrl));
+  if (!res.ok) throw new Error(`Сервер ответил ${res.status}`);
+  const result = ProductList.safeParse(await res.json());
+  if (!result.success) throw new TypeError(`Неожиданный ответ сервера:\n${z.prettifyError(result.error)}`);
+  return result.data;
+}</code></pre>
+<p>Ручная функция <code>isProduct</code> исчезла, а тип <code>Product</code> теперь выводится из схемы. Если сервер начнёт отдавать новое поле <code>rating</code>, проверка не сломается: <code>z.object</code> его отбросит. Если поле нужно, его добавляют в схему, и тип появится сам. Это мягкая совместимость: сервер может добавлять поля, не ломая клиентов.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="zd-t-form" data-task="zod/zd-t-form">
+<h4>Задача 19. Форма отзыва на схеме <span class="lvl">★★☆ практика</span></h4>
+<p>Соедините схему отзыва, <code>FormData</code> и показ ошибок: <code>handleReviewSubmit(form, onValid)</code> на <code>submit</code> собирает поля, приводит оценку к числу (<code>z.coerce</code>), проверяет схемой и либо вызывает <code>onValid(данные)</code>, либо ставит у полей <code>aria-invalid</code> и текст ошибки в <code>#&lt;поле&gt;-error</code>.</p>
+<p class="why"><b>Зачем:</b> это та же форма из урока о событиях, но правила теперь описаны декларативно, а не десятком <code>if</code>. И ту же схему можно импортировать на сервер, чтобы проверка была единой.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// review-form.ts
+import { z } from 'zod';
+
+export const ReviewForm = z.object({
+  author: z.string().trim().min(1, 'Укажите имя'),
+  rating: z.coerce.number().int().min(1, 'Оценка от 1 до 5').max(5, 'Оценка от 1 до 5'),
+  text: z.string().trim().min(10, 'Отзыв — хотя бы 10 символов'),
+});
+export type ReviewForm = z.infer&lt;typeof ReviewForm&gt;;
+
+export function handleReviewSubmit(form: HTMLFormElement, onValid: (r: ReviewForm) =&gt; void): void {
+  form.addEventListener('submit', (event) =&gt; {
+    event.preventDefault();
+    const result = ReviewForm.safeParse(Object.fromEntries(new FormData(form)));
+    const errors: Partial&lt;Record&lt;string, string[]&gt;&gt; = result.success ? {} : z.flattenError(result.error).fieldErrors;
+    for (const field of form.querySelectorAll&lt;HTMLInputElement | HTMLTextAreaElement&gt;('[name]')) {
+      const message = errors[field.name]?.[0];
+      field.toggleAttribute('aria-invalid', Boolean(message));
+      const box = form.querySelector(`#${field.name}-error`);
+      if (box) box.textContent = message ?? '';
+    }
+    if (result.success) onValid(result.data);
+  });
+}</code></pre>
+<p><code>Object.fromEntries(new FormData(form))</code> превращает форму в объект строк, это ровно вход для схемы. <code>z.coerce.number()</code> здесь безопасен: поле оценки в форме — <code>select</code> или <code>number</code> с <code>required</code>, а пустая строка всё равно не пройдёт <code>min(1)</code>, превратившись в 0. В отличие от фильтров, тут 0 — не «нет значения», а ошибка, и это правильное поведение.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

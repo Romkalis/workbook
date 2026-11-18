@@ -1,0 +1,23 @@
+<section id="fu-env">
+<h2>Адрес API: переменные окружения Vite</h2>
+<p>Адрес API на вашем компьютере и на хостинге разный. Vite подставляет в код переменные с префиксом <code>VITE_</code> из файлов <code>.env</code>, <code>.env.local</code> и других: <code>import.meta.env.VITE_API_URL</code>. Префикс защищает от случайной утечки: переменные без него в браузерный код не попадают (из документации Vite).</p>
+<div class="warn"><p>Всё, что попало в браузерный код, видит любой пользователь. Ключи и секреты в <code>VITE_*</code> не кладут — ни в какие. Секрет живёт только на сервере.</p></div>
+<p>Альтернатива CORS при разработке — прокси dev-сервера Vite: в <code>vite.config.ts</code> указывают <code>server.proxy: { '/api': 'http://localhost:3000' }</code>, и фронтенд обращается к <code>/api/...</code> на своём же origin, а Vite пересылает запрос серверу (из документации Vite, в этой работе не запускалось). На хостинге тогда нужна та же схема: общий домен или настройка прокси на сервере.</p>
+<article class="task" id="fu-t-env" data-task="fetch-ui/fu-t-env">
+<h4>Задача 16. Адрес API из окружения <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>apiUrl(env)</code>: берёт <code>env.VITE_API_URL</code>, по умолчанию — <code>http://localhost:3000</code>; убирает слэш в конце; если значение не начинается с <code>http://</code> или <code>https://</code>, бросает ошибку с названием переменной. В приложении вызывается как <code>apiUrl(import.meta.env)</code>.</p>
+<p class="why"><b>Зачем:</b> опечатка в переменной окружения на хостинге («localhost:3000» без схемы) даёт загадочные ошибки запросов. Проверка при старте с понятным текстом экономит час отладки. Параметр <code>env</code> делает функцию тестируемой без настоящего Vite.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// env.ts
+export function apiUrl(env: Record&lt;string, string | undefined&gt;): string {
+  const value = env.VITE_API_URL ?? 'http://localhost:3000';
+  if (!/^https?:\/\//.test(value)) {
+    throw new Error(`VITE_API_URL должен начинаться с http:// или https://, получено "${value}"`);
+  }
+  return value.replace(/\/+$/, '');
+}</code></pre>
+<p>Это та же идея, что <code>loadConfig</code> на сервере: настройки проверяются в одном месте при старте. Помните, что значение <code>VITE_API_URL</code> попадёт в собранный код и будет видно любому пользователю. Для адреса API это нормально, для ключей — нет.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

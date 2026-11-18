@@ -1,0 +1,126 @@
+<section id="zd-compose">
+<h2>Составные схемы</h2>
+<p>Схемы собираются из схем — так же, как типы через утилиты (<a href="/lessons/typescript-basic#ts-utility-types">Partial, Pick, Omit</a>):</p>
+<ul><li><code>Product.pick({ id: true, title: true })</code>, <code>Product.omit({ id: true })</code> — выбрать или убрать поля;</li><li><code>Product.partial()</code> — все поля необязательны (патч);</li><li><code>Product.extend({ stock: z.number() })</code> — добавить поля;</li><li><code>z.discriminatedUnion('status', [...])</code> — размеченное объединение, как <code>RemoteData</code>.</li></ul>
+<p>Схема создания товара — это схема товара без <code>id</code>; схема патча — она же, но частичная. Меняется товар — меняется всё, что из него выведено.</p>
+<h3 id="zd-shared">Одна схема для сервера и фронтенда</h3>
+<p>Схему тела запроса можно положить в общий модуль и импортировать и на сервере (проверка запроса), и во фронтенде (проверка формы до отправки и разбор ответа). Тогда договор «что принимает API» описан один раз. В монорепозитории это отдельный пакет; в учебных проектах — общий файл. Проверка на фронтенде при этом остаётся удобством для пользователя: сервер проверяет всегда.</p>
+<article class="task" id="zd-t-compose" data-task="zod/zd-t-compose">
+<h4>Задача 13. Схемы создания и патча из одной <span class="lvl">★★☆ практика</span></h4>
+<p>Из схемы товара <code>{ id, title, price, category, stock }</code> выведите: <code>CreateProduct</code> (без <code>id</code>, <code>stock</code> по умолчанию 0), <code>PatchProduct</code> (всё, кроме <code>id</code>, необязательно, хотя бы одно поле обязательно) и <code>ProductCard</code> (только <code>id</code>, <code>title</code>, <code>price</code>).</p>
+<p class="why"><b>Зачем:</b> четыре схемы одной сущности, написанные вручную, разъедутся при первом же изменении. Выведенные из одной, они меняются вместе: добавили поле в товар — оно появилось в создании и патче.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// compose.ts
+import { z } from 'zod';
+
+export const Product = z.object({
+  id: z.string(),
+  title: z.string().trim().min(1),
+  price: z.number().int().nonnegative(),
+  category: z.enum(['books', 'games', 'home']),
+  stock: z.number().int().nonnegative(),
+});
+
+export const CreateProduct = Product.omit({ id: true }).extend({
+  stock: z.number().int().nonnegative().default(0),
+});
+
+export const PatchProduct = Product.omit({ id: true })
+  .partial()
+  .refine((p) =&gt; Object.keys(p).length &gt; 0, { message: 'Нужно хотя бы одно поле' });
+
+export const ProductCard = Product.pick({ id: true, title: true, price: true });</code></pre>
+<p><code>extend</code> с уже существующим полем заменяет его схему, так задаётся значение по умолчанию только для создания. Пустой патч отклонён через <code>refine</code>: запрос «ничего не менять» почти всегда ошибка клиента. <code>ProductCard</code> пригодится на фронтенде, где для карточки не нужны остаток и категория.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="zd-t-union" data-task="zod/zd-t-union">
+<h4>Задача 14. Доставка: размеченное объединение <span class="lvl">★★☆ практика</span></h4>
+<p>Опишите способ получения через <code>z.discriminatedUnion('type', ...)</code>: курьер — с адресом и временем (<code>morning</code> или <code>evening</code>), самовывоз — с id пункта, почта — с индексом из 6 цифр. Напишите <code>deliveryLabel(d)</code> со <code>switch</code> по <code>type</code> и проверкой полноты.</p>
+<p class="why"><b>Зачем:</b> у каждого способа свои поля, и объединение делает их обязательными ровно там, где они нужны. С одним объектом и десятью необязательными полями пропущенный индекс почты обнаружится только у курьера.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// delivery.ts
+import { z } from 'zod';
+
+export const Delivery = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('courier'), address: z.string().min(5), slot: z.enum(['morning', 'evening']) }),
+  z.object({ type: z.literal('pickup'), pointId: z.string() }),
+  z.object({ type: z.literal('post'), zip: z.string().regex(/^\d{6}$/, 'Индекс — 6 цифр') }),
+]);
+export type Delivery = z.infer&lt;typeof Delivery&gt;;
+
+export function deliveryLabel(d: Delivery): string {
+  switch (d.type) {
+    case 'courier':
+      return `Курьер, ${d.slot === 'morning' ? 'утром' : 'вечером'}: ${d.address}`;
+    case 'pickup':
+      return `Самовывоз из пункта ${d.pointId}`;
+    case 'post':
+      return `Почта, индекс ${d.zip}`;
+    default: {
+      const unreachable: never = d;
+      return unreachable;
+    }
+  }
+}</code></pre>
+<p>Выведенный тип — то самое размеченное объединение из уроков TypeScript, только теперь оно ещё и проверяет данные. <code>discriminatedUnion</code> сначала смотрит на <code>type</code> и проверяет только подходящий вариант, поэтому ошибка для почты будет про индекс, а не перечисление всех трёх вариантов сразу.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="zd-t-shared" data-task="zod/zd-t-shared">
+<h4>Задача 15. Одна схема на сервере и в клиенте <span class="lvl">★★★ с подвохом</span></h4>
+<p>Сделайте модуль <code>shared/review.ts</code> со схемой создания отзыва. Сервер (<code>POST /api/reviews</code>) проверяет ею тело запроса, а клиент <code>createReviewClient(baseUrl, fetchFn)</code> проверяет ею данные <b>до</b> отправки (неверные не отправляет) и проверяет ответ схемой сохранённого отзыва (с <code>id</code>). Тест поднимает сервер и вызывает клиента с настоящим <code>fetch</code>.</p>
+<p class="why"><b>Зачем:</b> договор API описан один раз. Поменяли правило (минимальная длина отзыва) — изменилось и на сервере, и в форме, и типы обеих сторон. Ручную синхронизацию «а на фронте мы проверяем так же?» больше не нужно делать.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// shared/review.ts
+import { z } from 'zod';
+
+export const NewReview = z.object({
+  productId: z.string().min(1),
+  rating: z.number().int().min(1).max(5),
+  text: z.string().trim().min(10),
+});
+export const SavedReview = NewReview.extend({ id: z.string() });
+
+export type NewReview = z.infer&lt;typeof NewReview&gt;;
+export type SavedReview = z.infer&lt;typeof SavedReview&gt;;</code></pre>
+<pre><code>// server.ts
+import express from 'express';
+import { z } from 'zod';
+import { NewReview } from './shared/review.js';
+
+export function createApp() {
+  const app = express();
+  app.use(express.json());
+  let nextId = 1;
+  app.post('/api/reviews', (req, res) =&gt; {
+    const result = NewReview.safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: 'Неверные данные', details: z.flattenError(result.error).fieldErrors });
+    res.status(201).json({ id: String(nextId++), ...result.data });
+  });
+  return app;
+}</code></pre>
+<pre><code>// client.ts
+import { z } from 'zod';
+import { NewReview, SavedReview } from './shared/review.js';
+
+export function createReviewClient(baseUrl: string, fetchFn: typeof fetch = fetch) {
+  return {
+    async create(input: unknown): Promise&lt;{ ok: true; review: SavedReview } | { ok: false; errors: Record&lt;string, string[] | undefined&gt; }&gt; {
+      const checked = NewReview.safeParse(input);
+      if (!checked.success) return { ok: false, errors: z.flattenError(checked.error).fieldErrors };
+      const res = await fetchFn(new URL('/api/reviews', baseUrl), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(checked.data),
+      });
+      if (!res.ok) throw new Error(`Сервер ответил ${res.status}`);
+      return { ok: true, review: SavedReview.parse(await res.json()) };
+    },
+  };
+}</code></pre>
+<p>Клиент не отправляет заведомо неверные данные: пользователь сразу видит ошибку у поля, а сервер не тратит запрос. Сервер всё равно проверяет: запрос можно отправить и в обход клиента. Ответ сервера проверяется схемой <code>SavedReview</code>, выведенной из той же <code>NewReview</code>, так что клиент и сервер согласованы и в обратную сторону. В настоящем проекте <code>shared/</code> — отдельный пакет или папка, которую подключают обе сборки.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

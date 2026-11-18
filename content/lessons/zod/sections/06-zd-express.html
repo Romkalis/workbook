@@ -1,0 +1,107 @@
+<section id="zd-express">
+<h2>Zod в Express</h2>
+<p>Ручная проверка из урока <a href="/lessons/express-typescript#et-type-guard">Express на TypeScript</a> превращается в схему и одну универсальную middleware:</p>
+<pre><code>import type { NextFunction, Request, Response } from 'express';
+import { z } from 'zod';
+
+export function validateBody&lt;S extends z.ZodType&gt;(schema: S) {
+  return (req: Request, res: Response, next: NextFunction) =&gt; {
+    const result = schema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: 'Неверные данные', details: z.flattenError(result.error).fieldErrors });
+    }
+    req.body = result.data; // дальше — проверенные и очищенные данные
+    next();
+  };
+}</code></pre>
+<p>Маршрут подключает её перед обработчиком: <code>router.post('/quote', validateBody(QuoteBody), handler)</code>. Обработчик получает уже проверенное тело, а формат ошибки 400 одинаков во всём API. Запись <code>req.body = result.data</code> важна: так обработчик видит данные после <code>trim</code>, <code>default</code> и без лишних полей.</p>
+<p>Тип <code>req.body</code> внутри обработчика Express сам не узнает. Его указывают явно: <code>Request&lt;{}, unknown, z.infer&lt;typeof QuoteBody&gt;&gt;</code>. Это честно, потому что middleware перед ним уже проверила данные.</p>
+<article class="task" id="zd-t-middleware" data-task="zod/zd-t-middleware">
+<h4>Задача 16. validateBody для расчёта корзины <span class="lvl">★★☆ практика</span></h4>
+<p>Замените ручной <code>isQuoteBody</code> из урока <a href="/lessons/express-typescript#et-type-guard">Express на TypeScript</a> схемой и middleware <code>validateBody</code> из раздела. Маршрут <code>POST /api/cart/quote</code> получает уже проверенное тело и типизирован через <code>z.infer</code>. Ответ 400 содержит <code>details</code> по полям.</p>
+<pre><code>// validate.ts
+import type { NextFunction, Request, Response } from 'express';
+import { z } from 'zod';
+export function validateBody&lt;S extends z.ZodType&gt;(schema: S) {
+  return (req: Request, res: Response, next: NextFunction) =&gt; {
+    const result = schema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: 'Неверные данные', details: z.flattenError(result.error).fieldErrors });
+    }
+    req.body = result.data;
+    next();
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> двенадцать строк ручной проверки превращаются в объявление формы данных, а ответ 400 становится одинаковым для всего API. Обработчик маршрута снова занимается только своим делом — расчётом.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { type Request, type Response } from 'express';
+import { z } from 'zod';
+import { validateBody } from './validate.js';
+
+const PRICES: Record&lt;string, number&gt; = { b1: 150000, b2: 99000 };
+
+export const QuoteBody = z.object({
+  items: z.array(z.object({ productId: z.string(), quantity: z.number().int().min(1) })).min(1),
+  promo: z.string().trim().toUpperCase().optional(),
+});
+type QuoteBody = z.infer&lt;typeof QuoteBody&gt;;
+
+export function createApp() {
+  const app = express();
+  app.use(express.json());
+  app.post('/api/cart/quote', validateBody(QuoteBody), (req: Request&lt;{}, unknown, QuoteBody&gt;, res: Response) =&gt; {
+    let subtotal = 0;
+    for (const { productId, quantity } of req.body.items) {
+      const price = PRICES[productId];
+      if (price === undefined) return res.status(400).json({ error: `Нет товара ${productId}` });
+      subtotal += price * quantity;
+    }
+    const discount = req.body.promo === 'SALE10' ? Math.round(subtotal / 10) : 0;
+    res.json({ subtotal, discount, total: subtotal - discount });
+  });
+  return app;
+}</code></pre>
+<p>Проверка «товар существует» осталась в обработчике: это не форма данных, а знание о каталоге, и схеме его брать неоткуда. Граница проходит так: схема проверяет форму, логика — смысл. <code>Request&lt;{}, unknown, QuoteBody&gt;</code> честно описывает тело, потому что middleware перед обработчиком уже его проверила и заменила.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="zd-t-query-mw" data-task="zod/zd-t-query-mw">
+<h4>Задача 17. Проверка query в Express 5 <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>validateQuery(schema)</code>: проверяет <code>req.query</code> схемой и при успехе кладёт результат в <code>res.locals.query</code>, при ошибке отвечает 400. Подключите к <code>GET /api/products</code> со схемой <code>CatalogQuery</code> из задачи про параметры адреса. Почему результат не записывают обратно в <code>req.query</code>?</p>
+<p class="why"><b>Зачем:</b> в Express 5 <code>req.query</code> — свойство только для чтения (геттер), и присваивание ему выбрасывает ошибку. Это отличие от Express 4, на котором написаны многие статьи с <code>req.query = parsed</code>. <code>res.locals</code> — официальное место для данных, которые middleware передаёт дальше по цепочке.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// query-mw.ts
+import express, { type NextFunction, type Request, type Response } from 'express';
+import { z } from 'zod';
+
+export function validateQuery&lt;S extends z.ZodType&gt;(schema: S) {
+  return (req: Request, res: Response, next: NextFunction) =&gt; {
+    const result = schema.safeParse(req.query);
+    if (!result.success) {
+      return res.status(400).json({ error: 'Неверные параметры', details: z.flattenError(result.error).fieldErrors });
+    }
+    res.locals.query = result.data;
+    next();
+  };
+}
+
+const emptyToUndefined = (v: unknown) =&gt; (v === '' ? undefined : v);
+export const CatalogQuery = z.object({
+  page: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).default(1)),
+  maxPrice: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+});
+
+export function createApp() {
+  const app = express();
+  app.get('/api/products', validateQuery(CatalogQuery), (_req, res) =&gt; {
+    const query = res.locals.query as z.infer&lt;typeof CatalogQuery&gt;;
+    res.json({ query });
+  });
+  return app;
+}</code></pre>
+<p>Мы проверили запуском: в Express 5.3 <code>req.query = {}</code> внутри middleware бросает <code>TypeError</code> («Cannot set property query … which has only a getter»). <code>res.locals</code> живёт столько же, сколько запрос, и доступен всем следующим обработчикам. Тип там <code>any</code>, поэтому в обработчике нужно утверждение. Оно оправдано: middleware перед ним гарантирует форму.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

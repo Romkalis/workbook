@@ -1,0 +1,168 @@
+<section id="st-url">
+<h2>Состояние в адресе страницы</h2>
+<p>Часть состояния принадлежит адресу: фильтры каталога, номер страницы, открытый товар. Тогда ссылкой можно поделиться, кнопка «назад» работает, а перезагрузка не сбрасывает выбор.</p>
+<pre><code>export interface Filters {
+  q: string;
+  category: string | null;
+}
+
+export function filtersFromSearch(search: string): Filters {
+  const params = new URLSearchParams(search);
+  return { q: params.get('q') ?? '', category: params.get('category') };
+}
+
+export function filtersToSearch(f: Filters): string {
+  const params = new URLSearchParams();
+  if (f.q) params.set('q', f.q);
+  if (f.category) params.set('category', f.category);
+  const s = params.toString();
+  return s ? `?${s}` : '';
+}</code></pre>
+<p><code>URLSearchParams</code> сам кодирует пробелы и русские буквы. Пустые значения не пишем, чтобы адрес оставался чистым. Обновление адреса: <code>history.pushState(null, '', url)</code> добавляет запись в историю (кнопка «назад» вернёт прошлые фильтры), <code>history.replaceState</code> заменяет текущую — для живого поиска, чтобы каждая буква не становилась шагом назад. При нажатии «назад» браузер генерирует событие <code>popstate</code>: в обработчике читаем фильтры из <code>location.search</code> и кладём в стор.</p>
+<p>Маршрутизация по хешу (<code>#/cart</code>) — тот же принцип для «страниц» одностраничного приложения: она разобрана в уроке <a href="/lessons/team-project-interview#tp-about">Team Project</a> и работает на любом статическом хостинге.</p>
+<article class="task" id="st-t-url" data-task="dom-state/st-t-url">
+<h4>Задача 15. Фильтры туда и обратно <span class="lvl">★☆☆ разминка</span></h4>
+<p>Расширьте <code>filtersToSearch</code>/<code>filtersFromSearch</code> из раздела полями <code>sort</code> (по умолчанию <code>'default'</code>, неизвестное значение тоже даёт <code>'default'</code>) и <code>page</code> (целое от 1, по умолчанию 1). Значения по умолчанию в адрес не пишутся. Проверьте свойство «туда и обратно»: <code>fromSearch(toSearch(f))</code> равно <code>f</code>.</p>
+<p class="why"><b>Зачем:</b> адрес — внешние данные: его правят руками, присылают в мессенджере с опечатками. Разбор с безопасными значениями по умолчанию не даст странице упасть на <code>?page=abc</code>. Свойство «туда и обратно» — удобная и сильная проверка для любой пары «записать/прочитать».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// url.ts
+const SORTS = ['default', 'price-asc', 'price-desc'] as const;
+type Sort = (typeof SORTS)[number];
+
+export interface Filters {
+  q: string;
+  category: string | null;
+  sort: Sort;
+  page: number;
+}
+
+export function filtersFromSearch(search: string): Filters {
+  const p = new URLSearchParams(search);
+  const sort = p.get('sort');
+  const page = Number(p.get('page'));
+  return {
+    q: p.get('q') ?? '',
+    category: p.get('category'),
+    sort: (SORTS as readonly string[]).includes(sort ?? '') ? (sort as Sort) : 'default',
+    page: Number.isInteger(page) &amp;&amp; page &gt;= 1 ? page : 1,
+  };
+}
+
+export function filtersToSearch(f: Filters): string {
+  const p = new URLSearchParams();
+  if (f.q) p.set('q', f.q);
+  if (f.category) p.set('category', f.category);
+  if (f.sort !== 'default') p.set('sort', f.sort);
+  if (f.page !== 1) p.set('page', String(f.page));
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}</code></pre>
+<p><code>Number(null)</code> равно 0, поэтому отсутствующая страница отсекается той же проверкой «целое от 1». Значения по умолчанию не попадают в адрес: ссылка на первую страницу каталога остаётся просто <code>/catalog</code>. Утверждение <code>sort as Sort</code> безопасно сразу после проверки по массиву.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="st-t-popstate" data-task="dom-state/st-t-popstate">
+<h4>Задача 16. Синхронизация стора и адреса <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>syncWithUrl(store)</code> для стора с состоянием <code>{ filters }</code>: при изменении фильтров записывает их в адрес через <code>pushState</code> (если строка адреса действительно изменилась), а на <code>popstate</code> читает фильтры из <code>location.search</code> и кладёт в стор. Используйте функции из прошлой задачи в упрощённом виде (<code>q</code> и <code>category</code>).</p>
+<pre><code>// store.ts
+export function createStore&lt;S&gt;(initial: S) {
+  let state = initial;
+  const listeners = new Set&lt;(s: S, p: S) =&gt; void&gt;();
+  return {
+    getState: (): S =&gt; state,
+    setState(update: (prev: S) =&gt; S): void {
+      const prev = state;
+      const next = update(prev);
+      if (Object.is(next, prev)) return;
+      state = next;
+      listeners.forEach((l) =&gt; l(state, prev));
+    },
+    subscribe(l: (s: S, p: S) =&gt; void) {
+      listeners.add(l);
+      return () =&gt; listeners.delete(l);
+    },
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> двусторонняя связь «стор ↔ адрес» легко зацикливается: стор меняет адрес, адрес меняет стор, стор снова пишет адрес. Проверка «не изменилось — не пишем» разрывает цикл, а кнопка «назад» начинает вести себя так, как ожидает пользователь.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// sync.ts
+import type { createStore } from './store.js';
+
+export interface Filters {
+  q: string;
+  category: string | null;
+}
+type Store = ReturnType&lt;typeof createStore&lt;{ filters: Filters }&gt;&gt;;
+
+const fromSearch = (s: string): Filters =&gt; {
+  const p = new URLSearchParams(s);
+  return { q: p.get('q') ?? '', category: p.get('category') };
+};
+const toSearch = (f: Filters): string =&gt; {
+  const p = new URLSearchParams();
+  if (f.q) p.set('q', f.q);
+  if (f.category) p.set('category', f.category);
+  const s = p.toString();
+  return s ? `?${s}` : '';
+};
+
+export function syncWithUrl(store: Store): () =&gt; void {
+  const offStore = store.subscribe((state, prev) =&gt; {
+    if (state.filters === prev.filters) return;
+    const search = toSearch(state.filters);
+    if (search !== location.search) history.pushState(null, '', search || location.pathname);
+  });
+  const onPop = () =&gt; store.setState((s) =&gt; ({ ...s, filters: fromSearch(location.search) }));
+  window.addEventListener('popstate', onPop);
+  return () =&gt; {
+    offStore();
+    window.removeEventListener('popstate', onPop);
+  };
+}</code></pre>
+<p>Два «предохранителя» от цикла. Подписчик пропускает изменения, не затронувшие фильтры: сравнение ссылкой работает благодаря иммутабельности. И не пишет адрес, если строка уже такая: после <code>popstate</code> стор обновился из адреса, и запись обратно была бы лишним шагом в истории. Пустые фильтры дают <code>location.pathname</code>, чтобы в адресе не остался одинокий <code>?</code>. Тип стора выведен из <code>createStore</code> через <code>ReturnType</code>, без ручного дублирования.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="st-t-router" data-task="dom-state/st-t-router">
+<h4>Задача 17. Маршрутизатор на хеше с параметром <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>parseRoute(hash)</code> для маршрутов <code>#/</code> (каталог), <code>#/cart</code> (корзина) и <code>#/product/&lt;id&gt;</code> (страница товара). Результат — размеченное объединение <code>{ name: 'catalog' } | { name: 'cart' } | { name: 'product'; id }</code>, неизвестный адрес даёт <code>{ name: 'notFound' }</code>. И <code>renderRoute(root, route)</code> с <code>switch</code> и проверкой полноты.</p>
+<p class="why"><b>Зачем:</b> маршрут — тоже состояние, и размеченное объединение описывает его точно: у страницы товара есть id, у корзины нет. Новый маршрут без отрисовки компилятор не пропустит.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// router.ts
+export type Route = { name: 'catalog' } | { name: 'cart' } | { name: 'product'; id: string } | { name: 'notFound' };
+
+export function parseRoute(hash: string): Route {
+  const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  if (parts.length === 0) return { name: 'catalog' };
+  if (parts.length === 1 &amp;&amp; parts[0] === 'cart') return { name: 'cart' };
+  if (parts.length === 2 &amp;&amp; parts[0] === 'product' &amp;&amp; parts[1]) return { name: 'product', id: decodeURIComponent(parts[1]) };
+  return { name: 'notFound' };
+}
+
+export function renderRoute(root: HTMLElement, route: Route): void {
+  const h1 = document.createElement('h1');
+  switch (route.name) {
+    case 'catalog':
+      h1.textContent = 'Каталог';
+      break;
+    case 'cart':
+      h1.textContent = 'Корзина';
+      break;
+    case 'product':
+      h1.textContent = `Товар ${route.id}`;
+      break;
+    case 'notFound':
+      h1.textContent = 'Страница не найдена';
+      break;
+    default: {
+      const unreachable: never = route;
+      throw new Error(`Неизвестный маршрут: ${JSON.stringify(unreachable)}`);
+    }
+  }
+  root.replaceChildren(h1);
+}</code></pre>
+<p>Разбор — чистая функция без <code>location</code>, её проверяет таблица случаев. id декодируется (<code>decodeURIComponent</code>), потому что в адресе пробелы и русские буквы закодированы. id показывается через <code>textContent</code>: адрес — тоже пользовательский ввод, его присылают ссылкой. Подключение к браузеру — две строки: <code>addEventListener('hashchange', ...)</code> и первый вызов при загрузке.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

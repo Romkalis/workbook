@@ -1,0 +1,98 @@
+<section id="st-layers">
+<h2>Как разложить код</h2>
+<p>Всё вместе даёт четыре слоя с зависимостями в одну сторону:</p>
+<div class="tbl"><table><thead><tr><th>Слой</th><th>Что делает</th><th>Знает о DOM?</th><th>Как тестировать</th></tr></thead><tbody><tr><td>Модель</td><td>типы и чистые функции: addLine, cartTotal, filterProducts</td><td>нет</td><td>обычные unit-тесты</td></tr><tr><td>Стор</td><td>хранит состояние, применяет изменения, оповещает</td><td>нет</td><td>unit-тесты с подпиской</td></tr><tr><td>Отрисовка</td><td>render: состояние → DOM</td><td>да, только пишет</td><td>jsdom: подать состояние, проверить разметку</td></tr><tr><td>Обработчики</td><td>события → вызовы стора</td><td>да, только читает</td><td>jsdom: кликнуть, проверить состояние</td></tr></tbody></table></div>
+<p>Цикл замкнут: событие → изменение стора → подписка → render → новый экран → новое событие. Данные идут по кругу в одном направлении, поэтому любую ошибку можно найти по шагам: правильно ли обработчик понял клик, правильно ли модель посчитала, правильно ли render нарисовал. Этот поток называют <b>однонаправленным потоком данных</b>, на нём построены Redux и архитектура Elm (из общих знаний).</p>
+<pre><code>import { createStore } from './store.js';
+import { renderCart, type CartState } from './render.js';
+import { addLine, removeLine } from './cart-actions.js';
+
+export function mountCart(root: HTMLElement, initial: CartState) {
+  const store = createStore(initial);
+  store.subscribe((state) =&gt; renderCart(root, state)); // стор → экран
+  renderCart(root, store.getState());
+  return {
+    add: (item: { id: string; title: string; price: number }) =&gt; store.setState((s) =&gt; addLine(s, item)),
+    remove: (id: string) =&gt; store.setState((s) =&gt; removeLine(s, id)),
+    getState: store.getState,
+  };
+}</code></pre>
+<article class="task" id="st-t-two-views" data-task="dom-state/st-t-two-views">
+<h4>Задача 18. Два вида одного состояния <span class="lvl">★★☆ практика</span></h4>
+<p>Соберите из стора, render-функций и делегирования маленькое приложение: каталог из трёх товаров с кнопками «В корзину» и бейдж в шапке с числом товаров в корзине. Каталог и бейдж подписаны на один стор и ничего не знают друг о друге. Нажатие кнопки меняет только стор.</p>
+<pre><code>// store.ts
+export function createStore&lt;S&gt;(initial: S) {
+  let state = initial;
+  const listeners = new Set&lt;(s: S, p: S) =&gt; void&gt;();
+  return {
+    getState: (): S =&gt; state,
+    setState(update: (prev: S) =&gt; S): void {
+      const prev = state;
+      const next = update(prev);
+      if (Object.is(next, prev)) return;
+      state = next;
+      listeners.forEach((l) =&gt; l(state, prev));
+    },
+    subscribe(l: (s: S, p: S) =&gt; void) {
+      listeners.add(l);
+      return () =&gt; listeners.delete(l);
+    },
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> это весь урок на одной странице: событие → стор → подписчики → экран. Два независимых вида одного состояния не могут разойтись, потому что рисуются из одних данных.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import { createStore } from './store.js';
+
+interface Product {
+  id: string;
+  title: string;
+}
+interface State {
+  products: Product[];
+  cart: Record&lt;string, number&gt;;
+}
+
+const cartCount = (s: State) =&gt; Object.values(s.cart).reduce((a, b) =&gt; a + b, 0);
+
+function renderCatalog(root: HTMLElement, s: State) {
+  root.replaceChildren(
+    ...s.products.map((p) =&gt; {
+      const card = document.createElement('article');
+      card.dataset.id = p.id;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.action = 'add';
+      button.textContent = s.cart[p.id] ? `В корзине: ${s.cart[p.id]}` : 'В корзину';
+      card.append(Object.assign(document.createElement('h3'), { textContent: p.title }), button);
+      return card;
+    }),
+  );
+}
+
+function renderBadge(badge: HTMLElement, s: State) {
+  const n = cartCount(s);
+  badge.textContent = String(n);
+  badge.hidden = n === 0;
+}
+
+export function mountShop(catalog: HTMLElement, badge: HTMLElement, products: Product[]) {
+  const store = createStore&lt;State&gt;({ products, cart: {} });
+  store.subscribe((s) =&gt; renderCatalog(catalog, s));
+  store.subscribe((s) =&gt; renderBadge(badge, s));
+  renderCatalog(catalog, store.getState());
+  renderBadge(badge, store.getState());
+
+  catalog.addEventListener('click', (event) =&gt; {
+    if (!(event.target instanceof Element)) return;
+    const id = event.target.closest('[data-action="add"]')?.closest&lt;HTMLElement&gt;('[data-id]')?.dataset.id;
+    if (!id) return;
+    store.setState((s) =&gt; ({ ...s, cart: { ...s.cart, [id]: (s.cart[id] ?? 0) + 1 } }));
+  });
+  return store;
+}</code></pre>
+<p>Обработчик висит на контейнере каталога и переживает его перерисовку: после каждого клика <code>renderCatalog</code> заменяет карточки, но делегированный слушатель на <code>catalog</code> остаётся. Обработчики на самих кнопках пришлось бы вешать заново. Бейдж и каталог узнают об изменении одновременно, из одного состояния. Посмотрите, как мало изменится, если добавить третий вид, например мини-корзину: одна функция render и одна подписка.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>
