@@ -79,9 +79,9 @@ export function Sidebar({ nav }: { nav: NavStage[] }) {
           <Link href="/" className={styles.home} onClick={close} aria-current={pathname === '/' ? 'page' : undefined}>
             Все уроки
           </Link>
-          {nav.map(({ stage, lessons }) => (
-            <div key={stage} className={styles.stage}>
-              <h2 className={styles.stageTitle}>Stage {stage}</h2>
+          {nav.map(({ key, title, lessons }) => (
+            <div key={key} className={styles.stage}>
+              <h2 className={styles.stageTitle}>{title}</h2>
               <ul className={styles.list}>
                 {lessons.map((lesson) => {
                   const isCurrent = lesson.slug === currentSlug;

@@ -22,7 +22,7 @@
 
 ```
 content/lessons/<slug>/
-  lesson.json          метаданные: title, stage, order, kicker, heading, lead, chips
+  lesson.json          метаданные: title, stage, order, kicker, heading, lead, chips; необязательный track
   sections/NN-<id>.html  по одному <section id="..."> на файл, порядок по номеру
   quiz.json            [{ q, o: [..], a: индекс верного, why }]
 src/app/               страницы: главная, lessons/[slug], design-system, search-index.json
@@ -37,7 +37,7 @@ public/img/<lesson>/   картинки уроков
 
 ## Как добавить урок
 
-1. Создать `content/lessons/<slug>/` с `lesson.json`, `sections/` и `quiz.json` (формат выше). Новый `order` не должен повторять существующие.
+1. Создать `content/lessons/<slug>/` с `lesson.json`, `sections/` и `quiz.json` (формат выше). Новый `order` не должен повторять существующие. Уроки по серверной части получают `"track": "backend"` и попадают в отдельный раздел «Backend» после всех этапов (названия разделов — `TRACK_TITLES` в `src/lib/content.ts`), их `order` начинается со 100.
 2. Раздел «Источники» оформляется как `<section id="..." class="sources">`: он автоматически ставится после теста.
 3. Теста в `sections/` быть не должно: его рисует компонент `Quiz` из `quiz.json`.
 4. Проверить `npm run build`, мобильную ширину (ниже) и поиск по новым терминам.

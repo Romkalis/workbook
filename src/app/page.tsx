@@ -16,10 +16,10 @@ export default function HomePage() {
         </p>
       </header>
 
-      {stages.map(({ stage, lessons }) => (
-        <section key={stage} className={styles.stage} aria-labelledby={`stage-${stage}`}>
-          <h2 id={`stage-${stage}`} className={styles.stageTitle}>
-            Stage {stage}
+      {stages.map(({ key, title, lessons }) => (
+        <section key={key} className={styles.stage} aria-labelledby={key}>
+          <h2 id={key} className={styles.stageTitle}>
+            {title}
           </h2>
           <div className={styles.grid}>
             {lessons.map((lesson) => (

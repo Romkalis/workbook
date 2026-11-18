@@ -4,6 +4,8 @@ export interface LessonMeta {
   /** Короткое название для оглавления и карточек */
   title: string;
   stage: number;
+  /** Отдельный раздел вне этапов, например "backend". Без него урок попадает в свой Stage. */
+  track?: string;
   /** Сквозной порядок в курсе */
   order: number;
   kicker: string;
@@ -45,8 +47,10 @@ export interface NavLesson {
   items: NavItem[];
 }
 
+/** Группа уроков в оглавлении: этап курса или отдельный раздел (track). */
 export interface NavStage {
-  stage: number;
+  key: string;
+  title: string;
   lessons: NavLesson[];
 }
 
