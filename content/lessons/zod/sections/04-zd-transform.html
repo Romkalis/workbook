@@ -1,0 +1,107 @@
+<section id="zd-transform">
+<h2>Преобразования и свои правила</h2>
+<h3 id="zd-coerce">Строки из адреса и форм</h3>
+<p>Всё, что приходит из query string и <code>FormData</code>, — строки. <code>z.coerce.number()</code> сначала превращает значение в число (через <code>Number(x)</code>), потом проверяет:</p>
+<pre><code>import { z } from 'zod';
+
+export const Query = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  maxPrice: z.coerce.number().int().nonnegative().optional(),
+});
+// Query.parse({ page: '3' }) → { page: 3 }
+// Query.parse({}) → { page: 1 }</code></pre>
+<div class="warn"><p>Ловушка: <code>Number('')</code> равно 0, поэтому <code>z.coerce.number()</code> пропустит пустую строку как ноль. <code>?maxPrice=</code> превратится в «цена до 0 рублей». Пустые значения сначала превращают в <code>undefined</code> (задача ниже показывает как), и только потом приводят к числу.</p></div>
+<article class="task" id="zd-t-coerce" data-task="zod/zd-t-coerce">
+<h4>Задача 9. Параметры адреса без ловушки пустой строки <span class="lvl">★★☆ практика</span></h4>
+<p>Схема параметров каталога: <code>page</code> — целое от 1, по умолчанию 1; <code>minPrice</code>, <code>maxPrice</code> — необязательные целые от 0; <code>sort</code> — <code>price-asc</code> или <code>price-desc</code>, необязательный. Пустая строка в любом параметре должна значить «не задано», а не 0 или ошибку. Используйте <code>z.preprocess</code>.</p>
+<p class="why"><b>Зачем:</b> форма фильтров отправляет пустые поля как <code>?maxPrice=</code>. С голым <code>z.coerce.number()</code> это «цена до 0 рублей», и каталог внезапно пуст. Предварительная обработка превращает «пусто» в «нет значения», и дальше работают обычные правила.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p><code>z.preprocess(fn, schema)</code> вызывает <code>fn</code> с исходным значением, а результат передаёт в схему.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// query.ts
+import { z } from 'zod';
+
+const emptyToUndefined = (v: unknown) =&gt; (v === '' ? undefined : v);
+const optionalInt = (min: number) =&gt; z.preprocess(emptyToUndefined, z.coerce.number().int().min(min).optional());
+
+export const CatalogQuery = z.object({
+  page: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).default(1)),
+  minPrice: optionalInt(0),
+  maxPrice: optionalInt(0),
+  sort: z.preprocess(emptyToUndefined, z.enum(['price-asc', 'price-desc']).optional()),
+});
+
+export type CatalogQuery = z.infer&lt;typeof CatalogQuery&gt;;</code></pre>
+<p>Помощники <code>emptyToUndefined</code> и <code>optionalInt</code> — обычные функции, которые собирают схемы, и это нормальный способ убрать повторение. С <code>?page=&amp;maxPrice=&amp;sort=</code> получится <code>{ page: 1 }</code>, а <code>?maxPrice=abc</code> по-прежнему ошибка: <code>Number('abc')</code> — <code>NaN</code>, и проверка числа её отклонит.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="zd-refine">refine: правило для нескольких полей</h3>
+<p>Встроенных проверок не хватает, когда правило связывает поля: «пароли совпадают», «адрес обязателен для курьера». <code>.refine(функция, { message, path })</code> добавляет своё правило; <code>path</code> говорит, у какого поля показать ошибку:</p>
+<pre><code>import { z } from 'zod';
+
+export const SignUp = z
+  .object({ password: z.string().min(8, 'Минимум 8 символов'), confirm: z.string() })
+  .refine((d) =&gt; d.password === d.confirm, { message: 'Пароли не совпадают', path: ['confirm'] });</code></pre>
+<article class="task" id="zd-t-refine" data-task="zod/zd-t-refine">
+<h4>Задача 10. Адрес обязателен для курьера <span class="lvl">★★☆ практика</span></h4>
+<p>Схема оформления: <code>delivery</code> — <code>courier</code> или <code>pickup</code>; <code>address</code> — необязательная строка. Через <code>refine</code> сделайте адрес обязательным для курьера и покажите ошибку у поля <code>address</code>. Сравните с ручной версией из задачи <a href="/lessons/dom-events#ev-t-parse">«Проверка формы заказа»</a>.</p>
+<p class="why"><b>Зачем:</b> правила «если A, то нужно B» встроенными проверками не выразить. <code>refine</code> с <code>path</code> добавляет такое правило и сообщает об ошибке у нужного поля, так что форма покажет её в правильном месте.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// checkout.ts
+import { z } from 'zod';
+
+export const Checkout = z
+  .object({
+    delivery: z.enum(['courier', 'pickup'], { error: 'Выберите способ получения' }),
+    address: z.string().trim().optional(),
+  })
+  .refine((d) =&gt; d.delivery !== 'courier' || (d.address !== undefined &amp;&amp; d.address !== ''), {
+    message: 'Для курьера нужен адрес',
+    path: ['address'],
+  });</code></pre>
+<p><code>refine</code> выполняется после проверки полей, поэтому внутри <code>d.delivery</code> уже точно один из двух вариантов. Если поля не прошли, <code>refine</code> не запускается, и пользователь сначала увидит базовые ошибки. Альтернатива — размеченное объединение двух схем (следующая задача про <code>discriminatedUnion</code>), тогда адрес будет в типе только у курьера.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="zd-transform-fn">transform: превратить после проверки</h3>
+<p><code>.transform(fn)</code> меняет проверенное значение: строку <code>"1500.50"</code> в копейки, <code>"a, b"</code> в массив тегов. Тип результата меняется вместе с ним: <code>z.infer</code> покажет тип <b>после</b> преобразования, а <code>z.input</code> — до. Это полезно, когда формат передачи (строка в форме) отличается от формата в программе (число).</p>
+<article class="task" id="zd-t-money" data-task="zod/zd-t-money">
+<h4>Задача 11. Цена из поля ввода в копейки <span class="lvl">★★☆ практика</span></h4>
+<p>Схема <code>RubleInput</code>: принимает строку вида <code>"1500"</code>, <code>"1500,5"</code>, <code>"1 500.50"</code> (пробелы и запятая допустимы), проверяет формат «рубли и до двух знаков копеек» и превращает в целое число копеек. Выведите входной и выходной типы.</p>
+<p class="why"><b>Зачем:</b> формат передачи (строка в поле) и формат хранения (целые копейки) разные, и преобразование между ними — частый источник ошибок округления. Схема проверяет формат и преобразует в одном месте, а <code>z.input</code>/<code>z.output</code> показывают обе стороны.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// money.ts
+import { z } from 'zod';
+
+export const RubleInput = z
+  .string()
+  .transform((s) =&gt; s.replace(/\s/g, '').replace(',', '.'))
+  .pipe(z.string().regex(/^\d+(\.\d{1,2})?$/, 'Цена: рубли и до двух знаков копеек'))
+  .transform((s) =&gt; {
+    const [rub, kop = ''] = s.split('.');
+    return Number(rub) * 100 + Number(kop.padEnd(2, '0'));
+  });
+
+export type RubleIn = z.input&lt;typeof RubleInput&gt;; // string
+export type RubleOut = z.output&lt;typeof RubleInput&gt;; // number</code></pre>
+<p><code>pipe</code> передаёт результат первого преобразования в следующую схему: сначала нормализуем строку, потом проверяем формат, потом считаем копейки. Копейки собираются из строковых частей, без умножения дробного числа: <code>4.35 * 100</code> дал бы <code>434.99999999999994</code> (это разбиралось в <a href="/lessons/team-project-interview#tp-review">ревью командного проекта</a>). <code>padEnd(2, '0')</code> превращает «,5» в 50 копеек, а не в 5.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="zd-t-tags" data-task="zod/zd-t-tags">
+<h4>Задача 12. Теги из строки <span class="lvl">★☆☆ разминка</span></h4>
+<p>Схема <code>TagsInput</code>: строка из поля «теги через запятую» превращается в массив тегов — обрезанных, в нижнем регистре, без пустых и без повторов; тегов не больше 10 (проверка после преобразования).</p>
+<p class="why"><b>Зачем:</b> пользователь вводит теги как удобно ему, а программа хранит как удобно ей. Ограничение «не больше 10» имеет смысл только для готового массива, поэтому проверка стоит после преобразования.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// tags.ts
+import { z } from 'zod';
+
+export const TagsInput = z
+  .string()
+  .transform((s) =&gt; [...new Set(s.split(',').map((t) =&gt; t.trim().toLowerCase()).filter(Boolean))])
+  .pipe(z.array(z.string()).max(10, 'Не больше 10 тегов'));</code></pre>
+<p><code>new Set</code> убирает повторы, а spread превращает его обратно в массив. <code>filter(Boolean)</code> отбрасывает пустые строки после <code>trim</code>. <code>pipe</code> передаёт уже готовый массив в схему массива с ограничением. Ограничение до преобразования (длина строки) было бы неточным: «a,a,a,…» — длинная строка, но один тег.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

@@ -1,0 +1,72 @@
+<section id="zd-basics">
+<h2>Схемы: из чего собирать</h2>
+<div class="tbl"><table><thead><tr><th>Схема</th><th>Что принимает</th></tr></thead><tbody><tr><td><code>z.string()</code>, <code>z.number()</code>, <code>z.boolean()</code></td><td>значение этого типа</td></tr><tr><td><code>z.literal('ok')</code></td><td>ровно это значение</td></tr><tr><td><code>z.enum(['a', 'b'])</code></td><td>одно из перечисленного</td></tr><tr><td><code>z.array(схема)</code></td><td>массив, каждый элемент по схеме</td></tr><tr><td><code>z.object({ ... })</code></td><td>объект с полями по схемам</td></tr><tr><td><code>.optional()</code></td><td>поле может отсутствовать (`T \</td><td>undefined`)</td></tr><tr><td><code>.nullable()</code></td><td>значение может быть <code>null</code></td></tr><tr><td><code>.default(значение)</code></td><td>при отсутствии подставит значение</td></tr></tbody></table></div>
+<p>Уточнения цепочкой: <code>z.string().min(3).max(200)</code>, <code>z.number().int().positive()</code>, <code>z.string().trim()</code> (обрежет пробелы до остальных проверок). Форматы строк в Zod 4 — отдельные функции: <code>z.email()</code>, <code>z.url()</code>, <code>z.uuid()</code>. Запись <code>z.string().email()</code> из Zod 3 ещё работает, но помечена устаревшей.</p>
+<h3 id="zd-unknown-keys">Лишние поля</h3>
+<p><code>z.object</code> по умолчанию <b>молча отбрасывает</b> поля, которых нет в схеме: из <code>{ id: 'a', isAdmin: true }</code> получится <code>{ id: 'a' }</code>. Это защита: клиент не протащит в базу поле, о котором вы не думали. Если лишнее поле — признак ошибки клиента и о нём надо сказать, есть <code>z.strictObject(...)</code>: он отклонит такие данные.</p>
+<article class="task" id="zd-t-optional" data-task="zod/zd-t-optional">
+<h4>Задача 2. optional, nullable и default <span class="lvl">★☆☆ разминка</span></h4>
+<p>Опишите схему профиля: <code>name</code> обязательное; <code>phone</code> может отсутствовать; <code>avatarUrl</code> обязателен, но может быть <code>null</code> (аватар удалён); <code>newsletter</code> — boolean, по умолчанию <code>false</code>. Проверьте, какой тип выведет <code>z.infer</code> и что вернёт <code>parse({ name: 'Аня', avatarUrl: null })</code>.</p>
+<p class="why"><b>Зачем:</b> «поле не передали», «поле передали пустым» и «подставь значение по умолчанию» — три разных смысла. Схема выражает их явно, и интерфейс не перепутает «аватара нет» с «аватар не загрузили».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// profile.ts
+import { z } from 'zod';
+
+export const Profile = z.object({
+  name: z.string().min(1),
+  phone: z.string().optional(),
+  avatarUrl: z.url().nullable(),
+  newsletter: z.boolean().default(false),
+});
+
+export type Profile = z.infer&lt;typeof Profile&gt;;
+// { name: string; phone?: string | undefined; avatarUrl: string | null; newsletter: boolean }</code></pre>
+<p><code>parse({ name: 'Аня', avatarUrl: null })</code> вернёт <code>{ name: 'Аня', avatarUrl: null, newsletter: false }</code>. Значение по умолчанию подставлено, и в выходном типе <code>newsletter</code> обязателен. Входной тип (<code>z.input&lt;typeof Profile&gt;</code>) при этом разрешает его не передавать. Для URL используется формат Zod 4 <code>z.url()</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="zd-t-array" data-task="zod/zd-t-array">
+<h4>Задача 3. Заказ: непустой массив строк <span class="lvl">★☆☆ разминка</span></h4>
+<p>Схема заказа: <code>items</code> — массив от 1 до 50 строк <code>{ productId: строка, quantity: целое от 1 до 99 }</code>; <code>promo</code> — необязательная строка, которая приводится к верхнему регистру после обрезки пробелов.</p>
+<p class="why"><b>Зачем:</b> пустой заказ и заказ на тысячу строк — оба ошибки, которые проще отсечь схемой на входе, чем ловить в логике. Верхний регистр промокода тоже правило формата, и его место в схеме, а не в обработчике.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// order.ts
+import { z } from 'zod';
+
+export const OrderItem = z.object({
+  productId: z.string().min(1),
+  quantity: z.number().int().min(1).max(99),
+});
+
+export const Order = z.object({
+  items: z.array(OrderItem).min(1).max(50),
+  promo: z.string().trim().toUpperCase().optional(),
+});
+
+export type Order = z.infer&lt;typeof Order&gt;;</code></pre>
+<p><code>min</code>/<code>max</code> у массива ограничивают число элементов, а у элемента — его собственные поля. Ограничение сверху — защита от злоупотребления: заказ на 100 000 строк сервер посчитает, но зачем позволять. <code>toUpperCase()</code> — встроенное преобразование строки в Zod. После проверки <code>promo</code> уже готов к сравнению с <code>'SALE10'</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="zd-t-strict" data-task="zod/zd-t-strict">
+<h4>Задача 4. Лишние поля: отбросить или отклонить <span class="lvl">★★☆ практика</span></h4>
+<p>Для PATCH товара сделайте схему, которая <b>отклоняет</b> лишние поля (клиент прислал <code>id</code> или <code>isAdmin</code> — это ошибка, о ней надо сказать), а для приёма товара от партнёра — схему, которая <b>молча отбрасывает</b> лишние поля (у партнёра в ответе много своего). Покажите разницу на одном и том же объекте.</p>
+<p class="why"><b>Зачем:</b> это решение о поведении API, а не о синтаксисе. Строгая схема сообщает клиенту об опечатке в имени поля (<code>prise</code> вместо <code>price</code>): иначе поле молча пропадёт, и клиент не поймёт, почему цена не меняется.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// strict.ts
+import { z } from 'zod';
+
+export const ProductPatch = z.strictObject({
+  title: z.string().trim().min(1).optional(),
+  price: z.number().int().nonnegative().optional(),
+});
+
+export const PartnerProduct = z.object({
+  title: z.string(),
+  price: z.number().int().nonnegative(),
+});</code></pre>
+<p>На объекте <code>{ price: 100, prise: 90 }</code> строгая схема даёт ошибку с кодом <code>unrecognized_keys</code> и названием лишнего поля, а обычная возвращает <code>{ price: 100 }</code>. Для данных извне, которые вы не контролируете, обычная схема удобнее. Для запросов к вашему API строгая помогает клиентам найти свои ошибки.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

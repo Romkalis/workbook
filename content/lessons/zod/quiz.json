@@ -1,0 +1,10 @@
+[
+  {"q":"Как получить тип TypeScript из схемы Product?","o":["typeof Product","z.infer<typeof Product>","Product.type","Product['_type']"],"a":1,"why":"z.infer выводит тип выходных данных схемы."},
+  {"q":"Что вернёт Product.safeParse(неверные данные)?","o":["Бросит ZodError","null","{ success: false, error }","undefined"],"a":2,"why":"safeParse не бросает, а возвращает размеченное объединение."},
+  {"q":"Что сделает z.object({ a: z.string() }).parse({ a: 'x', b: 1 })?","o":["Бросит ошибку из-за b","Вернёт { a: 'x' } без b","Вернёт объект с b","Вернёт null"],"a":1,"why":"z.object отбрасывает лишние поля; отклоняет их z.strictObject."},
+  {"q":"Что даст z.coerce.number().parse('')?","o":["Ошибку","NaN","undefined","0"],"a":3,"why":"Number('') равно 0. Это ловушка для пустых параметров."},
+  {"q":"Как показать ошибку «пароли не совпадают» у поля confirm?","o":["z.string().confirm()","refine с path: ['confirm']","transform","superRefine без пути"],"a":1,"why":"path указывает, к какому полю относится ошибка."},
+  {"q":"Как получить ошибки по полям для формы?","o":["z.flattenError(error).fieldErrors","error.message","error.toString()","JSON.parse(error)"],"a":0,"why":"flattenError группирует сообщения по полям верхнего уровня."},
+  {"q":"Схема создания товара без id — это:","o":["Product.partial()","Product.extend({ id })","Product.omit({ id: true })","Product.pick({ id: true })"],"a":2,"why":"omit убирает поле, остальные остаются обязательными."},
+  {"q":"Почему проверка формы на фронтенде схемой не заменяет проверку на сервере?","o":["Zod не работает в браузере","Запрос можно отправить в обход фронтенда","Схемы на сервере другие","Фронтенд не видит ошибок"],"a":1,"why":"Защищает только проверка на сервере."}
+]

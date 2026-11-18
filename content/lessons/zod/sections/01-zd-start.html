@@ -1,0 +1,44 @@
+<section id="zd-start">
+<h2>Зачем библиотека схем</h2>
+<p>В уроке <a href="/lessons/express-typescript#et-type-guard">Express на TypeScript</a> тело запроса проверялось предикатом <code>isQuoteBody</code> — двенадцать строк на два поля. В уроке <a href="/lessons/fetch-ui#fu-client">Данные с сервера</a> — такая же проверка товара на фронтенде. У ручных проверок три проблемы:</p>
+<ul><li><b>Тип и проверка живут отдельно.</b> Добавили поле в <code>interface</code>, забыли в предикате — компилятор молчит, ведь предикату он верит на слово.</li><li><b>Ошибка одна на всё.</b> Предикат говорит «нет», но не говорит, какое поле и почему. Для формы нужен текст у каждого поля.</li><li><b>Объём.</b> Проверка вложенных объектов и массивов вручную разрастается и обрастает ошибками.</li></ul>
+<p><a href="https://zod.dev/">Zod</a> решает все три: вы описываете <b>схему</b> — объект, который умеет проверять данные, — а тип TypeScript <b>выводится</b> из неё. Схема одна, расхождения невозможны.</p>
+<pre><code>import { z } from 'zod';
+
+export const Product = z.object({
+  id: z.string(),
+  title: z.string().trim().min(1),
+  price: z.number().int().nonnegative(),
+  category: z.enum(['books', 'games', 'home']),
+});
+
+export type Product = z.infer&lt;typeof Product&gt;;
+// { id: string; title: string; price: number; category: 'books' | 'games' | 'home' }</code></pre>
+<p>Одно имя <code>Product</code> живёт в двух мирах, как в задаче <a href="/lessons/typescript-basic#tsb-enum">enum → объект as const</a>: значение (схема) и тип. Установка: <code>npm i zod</code>. Урок написан по Zod 4 (проверено на 4.6); в старых статьях встречается Zod 3, отличия отмечены ниже.</p>
+<article class="task" id="zd-t-first" data-task="zod/zd-t-first">
+<h4>Задача 1. Первая схема вместо интерфейса <span class="lvl">★☆☆ разминка</span></h4>
+<p>Замените интерфейс отзыва схемой Zod и выведите из неё тип: автор — непустая строка после обрезки пробелов, оценка — целое от 1 до 5, текст — от 10 до 2000 символов, дата — строка. Проверьте схемой правильный отзыв и отзыв с оценкой 7.</p>
+<pre><code>interface Review {
+  author: string;
+  rating: number;
+  text: string;
+  createdAt: string;
+}</code></pre>
+<p class="why"><b>Зачем:</b> интерфейс описывает данные, но ничего не проверяет. Схема делает и то, и другое, а тип из неё не может разойтись с проверкой: поменяли правило — поменялся тип.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// review.ts
+import { z } from 'zod';
+
+export const Review = z.object({
+  author: z.string().trim().min(1),
+  rating: z.number().int().min(1).max(5),
+  text: z.string().trim().min(10).max(2000),
+  createdAt: z.string(),
+});
+
+export type Review = z.infer&lt;typeof Review&gt;;</code></pre>
+<p><code>trim()</code> стоит перед <code>min(1)</code>: сначала обрезка, потом проверка длины, поэтому автор из пробелов не пройдёт. Интерфейс удалён совсем. Если оставить его рядом со схемой, через месяц они разойдутся. Для дат Zod 4 умеет <code>z.iso.datetime()</code>, но здесь достаточно строки.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

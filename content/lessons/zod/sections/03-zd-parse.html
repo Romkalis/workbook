@@ -1,0 +1,129 @@
+<section id="zd-parse">
+<h2>parse и safeParse</h2>
+<pre><code>import { z } from 'zod';
+import { Product } from './intro.js';
+
+export function readProduct(input: unknown) {
+  const result = Product.safeParse(input);
+  if (!result.success) {
+    return { ok: false as const, errors: z.flattenError(result.error).fieldErrors };
+  }
+  return { ok: true as const, product: result.data }; // result.data: Product
+}</code></pre>
+<p><code>schema.parse(x)</code> возвращает проверенные данные или <b>бросает</b> <code>ZodError</code>. <code>schema.safeParse(x)</code> не бросает, а возвращает <code>{ success: true, data }</code> или <code>{ success: false, error }</code> — размеченное объединение, которое TypeScript сужает по <code>success</code>. Правило выбора: <code>parse</code> — когда неверные данные это авария (конфигурация при старте), <code>safeParse</code> — когда это нормальная ситуация (ввод пользователя, запрос клиента).</p>
+<p>Важно: возвращается <b>новый</b> объект — проверенный, с применёнными <code>trim</code>, <code>default</code> и без лишних полей. Работайте с <code>result.data</code>, а не с исходным <code>input</code>.</p>
+<h3 id="zd-errors">Ошибки: issues и формы</h3>
+<p><code>error.issues</code> — массив проблем. У каждой есть <code>path</code> (путь к полю, например <code>['items', 0, 'quantity']</code>), <code>code</code> (вид ошибки) и <code>message</code>. Для формы удобнее <code>z.flattenError(error)</code>: <code>{ formErrors: [...], fieldErrors: { title: ['...'], price: ['...'] } }</code> — ошибки по полям верхнего уровня. Для логов есть <code>z.prettifyError(error)</code> — читаемый текст. В Zod 3 вместо этих функций был метод <code>error.flatten()</code>.</p>
+<p>Свои тексты задаются прямо в схеме: <code>z.string().min(3, 'Минимум 3 символа')</code> или <code>z.string({ error: 'Нужна строка' })</code>. Стандартные сообщения Zod английские, поэтому для интерфейса на русском свои тексты нужны почти всегда.</p>
+<article class="task" id="zd-t-config" data-task="zod/zd-t-config">
+<h4>Задача 5. Конфигурация: parse при старте <span class="lvl">★★☆ практика</span></h4>
+<p>Перепишите <code>loadConfig</code> из урока о Node.js на Zod: <code>PORT</code> — целое 1–65535, по умолчанию 3000; <code>NODE_ENV</code> — <code>development</code>, <code>production</code> или <code>test</code>, по умолчанию <code>development</code>; <code>API_KEY</code> обязателен при <code>production</code>. Используйте <code>parse</code>: при неверной конфигурации сервер не должен стартовать. Сообщение ошибки — <code>z.prettifyError</code>.</p>
+<p class="why"><b>Зачем:</b> неверная конфигурация — авария, а не обычная ситуация: продолжать работу с неизвестным портом или без ключа бессмысленно. Это как раз случай для <code>parse</code>, который бросает. Читаемый текст ошибки сразу говорит, какая переменная не так.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// config.ts
+import { z } from 'zod';
+
+const Env = z
+  .object({
+    PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+    NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+    API_KEY: z.string().min(1).optional(),
+  })
+  .refine((env) =&gt; env.NODE_ENV !== 'production' || env.API_KEY !== undefined, {
+    message: 'API_KEY обязателен в production',
+    path: ['API_KEY'],
+  });
+
+export type Config = z.infer&lt;typeof Env&gt;;
+
+export function loadConfig(env: Record&lt;string, string | undefined&gt; = process.env): Config {
+  const result = Env.safeParse(env);
+  if (!result.success) throw new Error(`Неверная конфигурация:\n${z.prettifyError(result.error)}`);
+  return result.data;
+}</code></pre>
+<p>Используется <code>safeParse</code>, но ошибка всё равно бросается: так в сообщение можно добавить заголовок и читаемый текст <code>prettifyError</code> вместо сырого JSON <code>ZodError</code>. Поведение то же, что у <code>parse</code>. <code>z.object</code> отбросит все остальные переменные окружения (их сотни), и в <code>Config</code> останутся только нужные. Сравните с ручной версией из урока о Node.js: правила те же, а кода вдвое меньше.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="zd-t-safeparse" data-task="zod/zd-t-safeparse">
+<h4>Задача 6. Результат safeParse <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>parseQuantityInput(value: unknown)</code> на <code>safeParse</code>: возвращает <code>{ ok: true, quantity }</code> или <code>{ ok: false, message }</code>, где сообщение — первое из ошибок схемы. Схема: целое от 1 до 99, свои русские тексты.</p>
+<p class="why"><b>Зачем:</b> ввод пользователя ошибается постоянно, это не исключительная ситуация. <code>safeParse</code> возвращает результат, который можно разобрать без <code>try/catch</code>, а TypeScript сужает тип по полю <code>success</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// quantity.ts
+import { z } from 'zod';
+
+const Quantity = z
+  .number({ error: 'Введите число' })
+  .int('Только целое количество')
+  .min(1, 'Минимум 1 штука')
+  .max(99, 'Не больше 99 штук');
+
+export function parseQuantityInput(value: unknown): { ok: true; quantity: number } | { ok: false; message: string } {
+  const result = Quantity.safeParse(value);
+  if (result.success) return { ok: true, quantity: result.data };
+  return { ok: false, message: result.error.issues[0]?.message ?? 'Неверное количество' };
+}</code></pre>
+<p>После <code>if (result.success)</code> TypeScript знает, что <code>result.data</code> — число, а в другой ветке есть <code>result.error</code>. <code>issues[0]?.message</code> с запасным текстом: компилятор с <code>noUncheckedIndexedAccess</code> требует учесть, что массив теоретически пуст. Тексты ошибок заданы прямо в цепочке вторым аргументом.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="zd-t-messages" data-task="zod/zd-t-messages">
+<h4>Задача 7. Ошибки формы по полям <span class="lvl">★★☆ практика</span></h4>
+<p>Схема формы регистрации: имя (непустое), email (формат <code>z.email()</code>), возраст (целое от 14). Все сообщения по-русски. Напишите <code>validateSignup(data)</code>, которая возвращает либо данные, либо объект <code>{ поле: первое сообщение }</code>, готовый для функции показа ошибок у полей.</p>
+<p class="why"><b>Зачем:</b> форма показывает одну ошибку у поля, а не список. Преобразовать <code>flattenError</code> в «поле → строка» нужно в одном месте, и тогда любая схема подключается к любой форме одинаково.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// signup.ts
+import { z } from 'zod';
+
+export const Signup = z.object({
+  name: z.string().trim().min(1, 'Укажите имя'),
+  email: z.email('Нужен адрес почты вида name@example.com'),
+  age: z.number({ error: 'Укажите возраст числом' }).int().min(14, 'Регистрация с 14 лет'),
+});
+
+export function firstErrors(error: z.ZodError): Record&lt;string, string&gt; {
+  const fields = z.flattenError(error).fieldErrors as Record&lt;string, string[] | undefined&gt;;
+  return Object.fromEntries(
+    Object.entries(fields).flatMap(([field, messages]) =&gt; (messages?.[0] ? [[field, messages[0]]] : [])),
+  );
+}
+
+export function validateSignup(data: unknown) {
+  const result = Signup.safeParse(data);
+  return result.success ? { ok: true as const, value: result.data } : { ok: false as const, errors: firstErrors(result.error) };
+}</code></pre>
+<p><code>firstErrors</code> не привязана к <code>Signup</code> и подходит для любой схемы. Её можно вынести в общий модуль. Почта <code>anna@example.com</code> пройдёт, а <code>a@b.c</code> — нет: в Zod 4 часть после последней точки должна быть не короче двух букв (проверено запуском). Об этом стоит помнить, тестируя формы.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="zd-t-paths" data-task="zod/zd-t-paths">
+<h4>Задача 8. Ошибки во вложенных данных <span class="lvl">★★☆ практика</span></h4>
+<p>Для схемы заказа из задачи «Заказ: непустой массив строк» напишите <code>describeIssues(error)</code>: превращает <code>issues</code> в понятные строки вида <code>«Строка 2, количество: …»</code> для ошибок в <code>items</code> и <code>«промокод: …»</code> для промокода. Номер строки начинается с 1.</p>
+<pre><code>// order.ts
+import { z } from 'zod';
+export const Order = z.object({
+  items: z.array(z.object({ productId: z.string().min(1), quantity: z.number().int().min(1).max(99) })).min(1).max(50),
+  promo: z.string().trim().toUpperCase().optional(),
+});</code></pre>
+<p class="why"><b>Зачем:</b> <code>flattenError</code> собирает ошибки только верхнего уровня, а у вложенных важен путь: <code>['items', 1, 'quantity']</code>. Перевести путь на человеческий язык — работа интерфейса, и <code>issues</code> дают для этого всё нужное.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// describe.ts
+import type { z } from 'zod';
+
+const FIELD_NAMES: Record&lt;string, string&gt; = { productId: 'товар', quantity: 'количество', promo: 'промокод', items: 'состав заказа' };
+
+export function describeIssues(error: z.ZodError): string[] {
+  return error.issues.map((issue) =&gt; {
+    const [first, index, field] = issue.path;
+    if (first === 'items' &amp;&amp; typeof index === 'number' &amp;&amp; typeof field === 'string') {
+      return `Строка ${index + 1}, ${FIELD_NAMES[field] ?? field}: ${issue.message}`;
+    }
+    return `${FIELD_NAMES[String(first)] ?? String(first)}: ${issue.message}`;
+  });
+}</code></pre>
+<p>Путь — массив из ключей объекта (строки) и индексов массива (числа). По <code>typeof</code> различаем «элемент массива» и «поле». Индекс +1, потому что пользователи считают строки с единицы. Словарь названий полей отделяет технические имена от слов интерфейса: переименуете поле в коде — словарь подскажет, где поправить подпись.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>
