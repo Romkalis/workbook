@@ -12,7 +12,38 @@ import format, { prefix } from &quot;./model.js&quot;;
 import type { Lesson } from &quot;./model.js&quot;;
 const lesson: Lesson = { title: &quot;TypeScript&quot; };
 console.log(format(lesson), prefix.length);
-</code></pre><p>Именованный импорт использует фигурные скобки и имя экспорта; default можно локально назвать иначе. <code>import type</code> явно отделяет типы и исчезает из выпущенного кода. Интерфейс нельзя передать в instanceof: во время выполнения его нет. <code>export type</code> аналогично экспортирует только тип. Если в файле нет ни одного <code>import</code> или <code>export</code>, TypeScript по умолчанию может считать его обычным скриптом, у которого все переменные общие с другими такими файлами. Тогда две переменные <code>count</code> в разных файлах дадут ошибку «уже объявлена». Пустой <code>export {}</code> в начале файла явно делает его модулем со своими переменными.</p><h3 id="ts-namespaces">Namespace не заменяет модульную систему</h3><pre><code>namespace Geometry {
+</code></pre><p>Именованный импорт использует фигурные скобки и имя экспорта; default можно локально назвать иначе. <code>import type</code> явно отделяет типы и исчезает из выпущенного кода. Интерфейс нельзя передать в instanceof: во время выполнения его нет. <code>export type</code> аналогично экспортирует только тип. Если в файле нет ни одного <code>import</code> или <code>export</code>, TypeScript по умолчанию может считать его обычным скриптом, у которого все переменные общие с другими такими файлами. Тогда две переменные <code>count</code> в разных файлах дадут ошибку «уже объявлена». Пустой <code>export {}</code> в начале файла явно делает его модулем со своими переменными.</p><article class="task" id="tsb-modules" data-task="typescript-basic/tsb-modules">
+<h4>Задача 33. Разложите код по модулям <span class="lvl">★★☆ практика</span></h4>
+<p>Разложите мини-магазин на три файла. <code>model.ts</code> — только типы <code>Product</code> и <code>CartLine</code>. <code>cart.ts</code> — функции <code>addLine</code> и <code>cartTotal</code>. <code>main.ts</code> — пример использования. Импортируйте типы через <code>import type</code>, а пути пишите с <code>.js</code>. Скомпилируйте и посмотрите, что осталось от <code>model.ts</code> в выходном JS.</p>
+<p class="why"><b>Зачем:</b> модель отдельно от логики — первый шаг к архитектуре. Типы нужны всем, логика — некоторым, а <code>import type</code> явно говорит, что зависимость исчезнет после сборки и не создаст лишнюю загрузку или цикл.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// model.ts
+export interface Product { id: number; title: string; price: number }
+export interface CartLine { productId: number; price: number; quantity: number }</code></pre>
+<pre><code>// cart.ts
+import type { CartLine, Product } from './model.js';
+
+export function addLine(lines: readonly CartLine[], product: Product): CartLine[] {
+  const found = lines.find((l) =&gt; l.productId === product.id);
+  if (!found) return [...lines, { productId: product.id, price: product.price, quantity: 1 }];
+  return lines.map((l) =&gt; (l === found ? { ...l, quantity: l.quantity + 1 } : l));
+}
+
+export function cartTotal(lines: readonly CartLine[]): number {
+  return lines.reduce((sum, l) =&gt; sum + l.price * l.quantity, 0);
+}</code></pre>
+<pre><code>// main.ts
+import { addLine, cartTotal } from './cart.js';
+import type { Product } from './model.js';
+
+const book: Product = { id: 1, title: 'Чистый код', price: 150000 };
+const lines = addLine(addLine([], book), book);
+console.log(cartTotal(lines)); // 300000</code></pre>
+<p>После компиляции <code>model.js</code> почти пустой (только <code>export {}</code>), а в <code>cart.js</code> и <code>main.js</code> нет импорта модели: <code>import type</code> стёрся. Зависимости идут в одну сторону: <code>main → cart → model</code>. Модель ни от чего не зависит, поэтому её можно переиспользовать и в браузере, и на сервере. Обратите внимание: <code>addLine</code> не меняет массив, а возвращает новый. Об этом подробнее в задачах про состояние.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-namespaces">Namespace не заменяет модульную систему</h3><pre><code>namespace Geometry {
   export interface Point { x: number; y: number }
   export function length(point: Point): number {
     return Math.hypot(point.x, point.y);

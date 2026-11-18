@@ -10,13 +10,55 @@ function sum(...values: number[]): number {
 type Transform = (value: number) =&gt; number;
 const square: Transform = value =&gt; value * value;
 console.log(greet(&quot;Маша&quot;), sum(1, 2, 3), square(4));
-</code></pre><p>Optional-параметр имеет внутри функции тип с undefined; необязательные параметры ставят после обязательных. Значение по умолчанию срабатывает при пропуске или undefined, но не при null. Rest собирает остаток аргументов в массив. В типе функции стрелка отделяет тип результата, а в обычном объявлении для этого используется двоеточие.</p><h3 id="ts-function-callbacks">Контракт колбэка и this</h3><p>Не добавляйте <code>index?</code> в тип колбэка «на всякий случай»: это обещает, что вызывающая сторона вправе не передать index. Если индекс всегда передаётся, пишите number; обработчик, которому он не нужен, просто объявит меньше параметров. Специальный первый параметр <code>this</code> описывает контекст вызова и стирается из JS.</p><pre><code>function show(this: { title: string }, prefix: string): string {
+</code></pre><p>Optional-параметр имеет внутри функции тип с undefined; необязательные параметры ставят после обязательных. Значение по умолчанию срабатывает при пропуске или undefined, но не при null. Rest собирает остаток аргументов в массив. В типе функции стрелка отделяет тип результата, а в обычном объявлении для этого используется двоеточие.</p><article class="task" id="tsb-params" data-task="typescript-basic/tsb-params">
+<h4>Задача 19. Параметры по умолчанию и rest <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>formatMoney(kopecks, currency = '₽', showKopecks?)</code>: если <code>showKopecks</code> не <code>false</code>, показывает два знака после точки. И <code>sumAll(...amounts)</code>, которая складывает любое число сумм.</p>
+<p class="why"><b>Зачем:</b> значения по умолчанию избавляют вызывающий код от повторения одного и того же (<code>'₽'</code> в сотне мест), а rest-параметр делает вызов естественным: <code>sumAll(a, b, c)</code> вместо создания массива.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function formatMoney(kopecks: number, currency = '₽', showKopecks?: boolean): string {
+  const rubles = kopecks / 100;
+  const text = showKopecks === false ? Math.round(rubles).toString() : rubles.toFixed(2);
+  return `${text} ${currency}`;
+}
+
+export function sumAll(...amounts: number[]): number {
+  return amounts.reduce((sum, a) =&gt; sum + a, 0);
+}</code></pre>
+<p>Тип <code>currency</code> выводится из значения по умолчанию (<code>string</code>), аннотация не нужна. <code>showKopecks?</code> внутри функции имеет тип <code>boolean | undefined</code>, поэтому сравниваем с <code>false</code> явно: «не передали» означает «показывать». Необязательные параметры идут после обязательных, иначе их нельзя было бы пропустить.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-function-callbacks">Контракт колбэка и this</h3><p>Не добавляйте <code>index?</code> в тип колбэка «на всякий случай»: это обещает, что вызывающая сторона вправе не передать index. Если индекс всегда передаётся, пишите number; обработчик, которому он не нужен, просто объявит меньше параметров. Специальный первый параметр <code>this</code> описывает контекст вызова и стирается из JS.</p><pre><code>function show(this: { title: string }, prefix: string): string {
   return prefix + this.title;
 }
 console.log(show.call({ title: &quot;TypeScript&quot; }, &quot;Урок: &quot;));
 async function loadCount(): Promise&lt;number&gt; { return 3; }
 void loadCount().then(count =&gt; console.log(count));
-</code></pre><p>Результат async-функции всегда обёрнут в Promise. Здесь <code>Promise&lt;number&gt;</code> описывает число после успешного ожидания, а не значение, доступное синхронно.</p><h3 id="ts-overloads">Когда нужны перегрузки</h3><pre><code>function convert(value: string): number;
+</code></pre><p>Результат async-функции всегда обёрнут в Promise. Здесь <code>Promise&lt;number&gt;</code> описывает число после успешного ожидания, а не значение, доступное синхронно.</p><article class="task" id="tsb-callback" data-task="typescript-basic/tsb-callback">
+<h4>Задача 20. Колбэк и асинхронная загрузка <span class="lvl">★★☆ практика</span></h4>
+<p>1) Напишите <code>renderList(products, render)</code>, где <code>render: (p: Product, index: number) =&gt; string</code>, возвращает массив строк. Передайте обработчик, которому индекс не нужен. 2) Напишите <code>async function loadProducts(): Promise&lt;Product[]&gt;</code>, которая возвращает два товара после <code>await</code> задержки 10 мс.</p>
+<p class="why"><b>Зачем:</b> в типе колбэка параметры описывают то, что <i>вы передаёте</i>, а не то, что обработчик обязан принять. Поэтому индекс в типе обязательный, а обработчику можно его не объявлять. <code>Promise&lt;T&gt;</code> в результате честно говорит: данных сейчас нет, они будут позже.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type Product = { id: number; title: string };
+
+export function renderList(products: Product[], render: (p: Product, index: number) =&gt; string): string[] {
+  return products.map((p, i) =&gt; render(p, i));
+}
+
+const titles = renderList([{ id: 1, title: 'A' }], (p) =&gt; p.title); // индекс не объявлен — это нормально
+console.log(titles);
+
+const wait = (ms: number) =&gt; new Promise&lt;void&gt;((resolve) =&gt; setTimeout(resolve, ms));
+
+export async function loadProducts(): Promise&lt;Product[]&gt; {
+  await wait(10);
+  return [{ id: 1, title: 'Чистый код' }, { id: 2, title: 'Каркассон' }];
+}</code></pre>
+<p>Функция с меньшим числом параметров подходит туда, где ждут больше: лишние аргументы она просто проигнорирует (так работает и JavaScript). А вот <code>index?: number</code> в типе был бы ложью: <code>renderList</code> индекс передаёт всегда. У <code>loadProducts</code> результат аннотирован <code>Promise&lt;Product[]&gt;</code>: вызывающий код обязан сделать <code>await</code>, и попытка взять <code>.length</code> у промиса будет ошибкой.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-overloads">Когда нужны перегрузки</h3><pre><code>function convert(value: string): number;
 function convert(value: number): string;
 function convert(value: string | number): number | string {
   return typeof value === &quot;string&quot; ? Number(value) : String(value);
@@ -25,4 +67,30 @@ const parsed = convert(&quot;42&quot;); // number
 const printed = convert(42); // string
 console.log(parsed.toFixed(0), printed.toUpperCase());
 </code></pre><p>Перегрузки сохраняют зависимость результата от аргумента. Сигнатура реализации должна обслужить все перегрузки, но снаружи сама по себе недоступна. Если зависимость не нужна, одна сигнатура с union проще. Перегрузка не создаёт несколько JS-функций: тело остаётся одно.</p>
+<article class="task" id="tsb-overloads" data-task="typescript-basic/tsb-overloads">
+<h4>Задача 21. Поиск по одному id и по списку <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>findProducts</code> с перегрузками: по одному <code>id: number</code> возвращает <code>Product | undefined</code>, по массиву <code>ids: number[]</code> возвращает <code>Product[]</code>. Проверьте, что результат первого вызова нельзя использовать как массив.</p>
+<p class="why"><b>Зачем:</b> перегрузки нужны, когда тип результата зависит от типа аргумента. С одной сигнатурой <code>(ids: number | number[]): Product | Product[] | undefined</code> каждому вызывающему пришлось бы самому разбираться, что вернулось.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type Product = { id: number; title: string };
+const PRODUCTS: Product[] = [{ id: 1, title: 'A' }, { id: 2, title: 'B' }];
+
+export function findProducts(id: number): Product | undefined;
+export function findProducts(ids: number[]): Product[];
+export function findProducts(arg: number | number[]): Product | undefined | Product[] {
+  if (Array.isArray(arg)) return PRODUCTS.filter((p) =&gt; arg.includes(p.id));
+  return PRODUCTS.find((p) =&gt; p.id === arg);
+}
+
+const one = findProducts(1); // Product | undefined
+const many = findProducts([1, 2]); // Product[]
+console.log(one?.title, many.length);
+if (false) {
+  // @ts-expect-error: у одного товара нет length
+  findProducts(1).length;
+}</code></pre>
+<p>Снаружи видны только две верхние сигнатуры. Нижняя (реализация) должна принимать и возвращать всё, что обещают перегрузки, но вызвать её напрямую нельзя. Тело одно: внутри всё равно нужен <code>Array.isArray</code>. Перед тем как писать перегрузки, подумайте, не проще ли две функции <code>findById</code> и <code>findByIds</code>: часто проще, и тогда это лучшее решение.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

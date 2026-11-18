@@ -18,7 +18,55 @@ class Lesson implements Describable {
 }
 const lesson = new Lesson(1, &quot;TS&quot;);
 console.log(Lesson.category, lesson.describe());
-</code></pre><p><code>implements</code> проверяет форму экземпляра, но не создаёт методы и не наследует реализацию. Типы параметров метода всё равно нужно объявить. <code>static</code> относится к самому классу, а не экземпляру. При strictPropertyInitialization поле должно быть инициализировано сразу или в конструкторе; optional-поле или тип с undefined явно допускает отсутствие.</p><h3 id="ts-class-inheritance">public, protected, private и абстрактные классы</h3><pre><code>abstract class Material {
+</code></pre><p><code>implements</code> проверяет форму экземпляра, но не создаёт методы и не наследует реализацию. Типы параметров метода всё равно нужно объявить. <code>static</code> относится к самому классу, а не экземпляру. При strictPropertyInitialization поле должно быть инициализировано сразу или в конструкторе; optional-поле или тип с undefined явно допускает отсутствие.</p><article class="task" id="tsb-class" data-task="typescript-basic/tsb-class">
+<h4>Задача 30. Класс корзины <span class="lvl">★★☆ практика</span></h4>
+<p>Опишите интерфейс <code>CartApi</code> с методами <code>add(id, price)</code>, <code>remove(id)</code>, <code>total()</code> и <code>count()</code> (общее количество штук). Реализуйте <code>class Cart implements CartApi</code> с <b>приватным</b> хранилищем строк. Повторное добавление увеличивает количество. Покажите, что снаружи нельзя добраться до хранилища.</p>
+<p class="why"><b>Зачем:</b> приватное состояние — это гарантия инварианта: количество не станет нулём или отрицательным, потому что менять его можно только через методы класса. <code>implements</code> фиксирует публичный контракт: его можно реализовать иначе (например, с localStorage), не меняя код, который пользуется корзиной.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface CartApi {
+  add(id: number, price: number): void;
+  remove(id: number): void;
+  total(): number;
+  count(): number;
+}
+
+export class Cart implements CartApi {
+  #lines = new Map&lt;number, { price: number; quantity: number }&gt;();
+
+  add(id: number, price: number): void {
+    const line = this.#lines.get(id);
+    if (line) line.quantity += 1;
+    else this.#lines.set(id, { price, quantity: 1 });
+  }
+
+  remove(id: number): void {
+    this.#lines.delete(id);
+  }
+
+  total(): number {
+    let sum = 0;
+    for (const { price, quantity } of this.#lines.values()) sum += price * quantity;
+    return sum;
+  }
+
+  count(): number {
+    let n = 0;
+    for (const { quantity } of this.#lines.values()) n += quantity;
+    return n;
+  }
+}
+
+if (false) {
+  const cart = new Cart();
+  // @ts-expect-error: снаружи хранилища не видно ни под каким именем
+  cart.lines;
+}
+// Даже во время работы: Object.keys(new Cart()) → [], поле #lines не перечисляется и не читается извне.</code></pre>
+<p>Выбрано поле <code>#lines</code>, а не <code>private lines</code>: <code>#</code> защищает и во время выполнения, а <code>private</code> только при проверке типов. <code>Map</code> по id даёт поиск за O(1) и сам решает вопрос «повторное добавление». Методы <code>total</code> и <code>count</code> вычисляют значения, а не хранят их: хранимую сумму пришлось бы пересчитывать при каждом изменении, и рано или поздно её забудут обновить.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-class-inheritance">public, protected, private и абстрактные классы</h3><pre><code>abstract class Material {
   constructor(protected title: string) {}
   abstract read(): string;
   get label(): string { return this.title; }
@@ -33,4 +81,43 @@ class Article extends Material {
 const article = new Article(&quot;TypeScript&quot;);
 console.log(article.label, article.read());
 </code></pre><p><code>public</code> доступен снаружи (это значение по умолчанию), <code>protected</code> — в классе и наследниках, <code>private</code> — внутри объявившего класса. TS-модификатор private проверяется компилятором; JS-поле <code>#opened</code> обеспечивает приватность и при выполнении. <code>protected title</code> в параметре конструктора — сокращённое объявление и присваивание поля.</p><p>Абстрактный класс нельзя непосредственно создать через new; наследник реализует абстрактные члены. <code>extends</code> наследует реализацию, а <code>implements</code> только проверяет контракт. В собственном конструкторе наследника перед обращением к this вызывают super. <code>override</code> явно помечает переопределение; флаг noImplicitOverride требует такие отметки. Геттер читают как свойство.</p><details class="q"><summary>Интерфейс и абстрактный класс взаимозаменяемы?</summary><div class="a"><p>Не полностью. Интерфейс стирается и не хранит реализацию. Абстрактный класс может содержать реализацию и состояние и участвует в цепочке наследования.</p></div></details>
+<article class="task" id="tsb-abstract" data-task="typescript-basic/tsb-abstract">
+<h4>Задача 31. Скидки: абстрактный класс и наследники <span class="lvl">★★★ с подвохом</span></h4>
+<p>Опишите <code>abstract class Discount</code> с абстрактным методом <code>amount(total: number): number</code> и обычным методом <code>apply(total)</code>, который возвращает итог, <b>не меньше нуля</b>. Реализуйте <code>PercentDiscount</code> (процент) и <code>FixedDiscount</code> (сумма в копейках). Пометьте переопределения <code>override</code>.</p>
+<p class="why"><b>Зачем:</b> общее правило «итог не уходит в минус» живёт в одном месте, в базовом классе, а наследники отвечают только за «сколько скидка». Новый вид скидки — новый маленький класс без копирования проверки.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export abstract class Discount {
+  abstract amount(total: number): number;
+
+  apply(total: number): number {
+    return Math.max(0, total - this.amount(total));
+  }
+}
+
+export class PercentDiscount extends Discount {
+  constructor(private readonly percent: number) {
+    super();
+  }
+  override amount(total: number): number {
+    return Math.round((total * this.percent) / 100);
+  }
+}
+
+export class FixedDiscount extends Discount {
+  constructor(private readonly kopecks: number) {
+    super();
+  }
+  override amount(): number {
+    return this.kopecks;
+  }
+}
+
+if (false) {
+  // @ts-expect-error: абстрактный класс нельзя создать
+  new Discount();
+}</code></pre>
+<p>Это паттерн «шаблонный метод»: <code>apply</code> задаёт алгоритм, наследники подставляют шаг. <code>constructor(private readonly percent: number)</code> одновременно объявляет и заполняет поле. Наследник вызывает <code>super()</code> до обращения к <code>this</code>. <code>FixedDiscount.amount</code> объявлен без параметра, и это допустимо: меньше параметров, как с колбэками. Округление стоит в одном месте, в процентной скидке, потому что только она даёт дробные копейки.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

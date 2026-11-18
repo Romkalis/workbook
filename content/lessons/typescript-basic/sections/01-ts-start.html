@@ -9,7 +9,47 @@ if (false) {
   // @ts-expect-error: строка не является числом
   double(&quot;21&quot;);
 }
-</code></pre><p>В записи <code>value: number</code> после двоеточия описан параметр, а после скобок — результат функции. Эти аннотации исчезнут из выпущенного JS. Если проверку обойти и передать строку, поведение определит JavaScript, а не аннотация. TypeScript не добавляет автоматическую проверку ответа сервера. Большинство типов стирается, но обычные классы и <code>enum</code> создают код выполнения.</p><h3 id="ts-workflow">Первый запуск и настройки</h3><p>Самый короткий путь — открыть <a href="https://www.typescriptlang.org/play/index.html">TypeScript Playground</a>, включить Strict и сравнить вкладки TypeScript и JavaScript. Для отдельного учебного проекта установите локальный компилятор. Команды ниже выполняются в новой папке, где установлен <a href="/lessons/node-basics">Node.js</a>; <code>src/index.ts</code> содержит первый пример.</p><pre><code>npm init -y
+</code></pre><p>В записи <code>value: number</code> после двоеточия описан параметр, а после скобок — результат функции. Эти аннотации исчезнут из выпущенного JS. Если проверку обойти и передать строку, поведение определит JavaScript, а не аннотация. TypeScript не добавляет автоматическую проверку ответа сервера. Большинство типов стирается, но обычные классы и <code>enum</code> создают код выполнения.</p><article class="task" id="tsb-price" data-task="typescript-basic/tsb-price">
+<h4>Задача 1. Контракт функции цены <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите функцию <code>formatPrice</code>: она принимает цену в копейках (число) и возвращает строку вида <code>"1500.00 ₽"</code>. Добавьте аннотации параметра и результата. Ниже вызова с числом напишите вызов со строкой <code>"1500"</code> и пометьте его <code>// @ts-expect-error</code>: компилятор должен его отклонить.</p>
+<p class="why"><b>Зачем:</b> аннотация на границе функции — это договор. Тот, кто вызывает функцию, видит, что передавать, а ошибка «передал строку» ловится в редакторе, а не у пользователя.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Копейки в рубли: деление на 100. Два знака после точки даёт <code>toFixed(2)</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function formatPrice(kopecks: number): string {
+  return `${(kopecks / 100).toFixed(2)} ₽`;
+}
+
+console.log(formatPrice(150000)); // 1500.00 ₽
+
+if (false) {
+  // @ts-expect-error: строка не число
+  formatPrice('1500');
+}</code></pre>
+<p>Аннотации <code>: number</code> и <code>: string</code> исчезнут после компиляции, но до запуска они не дадут передать строку. Результат тоже аннотирован: если кто-то потом поменяет тело так, что функция вернёт число, ошибка появится в самой функции, а не у всех, кто её вызывает. <code>@ts-expect-error</code> — способ <i>доказать</i>, что неверный вызов запрещён: если ошибки вдруг не будет, компилятор пожалуется на лишнюю директиву.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="tsb-runtime" data-task="typescript-basic/tsb-runtime">
+<h4>Задача 2. Типы не защищают во время работы <span class="lvl">★★☆ практика</span></h4>
+<p>Функция ниже типизирована, но её вызывает JavaScript-код, который прислал строку. Не меняя сигнатуру, добавьте проверку во время выполнения: если пришло не конечное число, бросьте <code>TypeError</code> с понятным сообщением.</p>
+<pre><code>export function applyDiscount(price: number, percent: number): number {
+  return price - (price * percent) / 100;
+}
+// где-то в JS: applyDiscount("1000", 10) → "1000" - 100 = 900? А "1000" * 10 ...</code></pre>
+<p class="why"><b>Зачем:</b> типы стираются при сборке. Всё, что приходит из JS-кода, формы, сети или localStorage, может оказаться чем угодно. Аннотация описывает намерение, а проверка защищает от реальности.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p><code>Number.isFinite(x)</code> возвращает <code>true</code> только для обычного числа: не для строки, <code>NaN</code> или <code>Infinity</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function applyDiscount(price: number, percent: number): number {
+  if (!Number.isFinite(price) || !Number.isFinite(percent)) {
+    throw new TypeError(`applyDiscount: ожидались числа, получено ${typeof price} и ${typeof percent}`);
+  }
+  return price - (price * percent) / 100;
+}</code></pre>
+<p>В типах ничего не поменялось: внутри TypeScript-кода проверка выглядит лишней, ведь <code>price</code> уже <code>number</code>. Но она нужна на <b>границе</b>, там, где в код попадают данные снаружи. Внутри доверяем типам, на краях проверяем. <code>Number.isFinite</code>, в отличие от глобального <code>isFinite</code>, не приводит строку к числу, поэтому <code>"1000"</code> не пройдёт.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-workflow">Первый запуск и настройки</h3><p>Самый короткий путь — открыть <a href="https://www.typescriptlang.org/play/index.html">TypeScript Playground</a>, включить Strict и сравнить вкладки TypeScript и JavaScript. Для отдельного учебного проекта установите локальный компилятор. Команды ниже выполняются в новой папке, где установлен <a href="/lessons/node-basics">Node.js</a>; <code>src/index.ts</code> содержит первый пример.</p><pre><code>npm init -y
 npm install --save-dev typescript
 npx tsc --init
 npx tsc --project tsconfig.json
@@ -29,4 +69,20 @@ node dist/index.js
 </code></pre><div class="note"><p><code>strict</code> включает семейство строгих проверок, в том числе <code>noImplicitAny</code> и <code>strictNullChecks</code>. <code>noEmitOnError</code> запрещает выпуск JS при ошибках; без этой опции диагностика и выпуск кода — разные процессы. <code>tsc --noEmit</code> только проверяет типы. Не передавайте имя файла вместе с ожиданием, что автоматически применится ваш tsconfig: используйте <code>--project</code>.</p></div><p>Практический совет из общих знаний: сохраните конфигурацию, исходники и lock-файл зависимостей вместе. Так другой студент сможет повторить запуск с той же версией компилятора.</p>
 
 <p>Создайте отдельную папку для упражнения, откройте в ней терминал, затем выполните команды установки. Перед сборкой создайте папку src, файл src/index.ts с первым примером и tsconfig.json из блока ниже. Команды npx tsc и node dist/index.js выполняйте только после создания этих файлов. В Playground включите strict и выберите target ES2020: это важно для примера с bigint.</p>
+<article class="task" id="tsb-setup" data-task="typescript-basic/tsb-setup">
+<h4>Задача 3. Проект, который не собирается с ошибкой <span class="lvl">★☆☆ разминка</span></h4>
+<p>Создайте учебный проект по разделу выше. Добавьте в <code>package.json</code> два скрипта: <code>check</code> только проверяет типы, <code>build</code> собирает в <code>dist</code>. Затем намеренно сделайте ошибку типа в <code>src/index.ts</code> и убедитесь, что <code>npm run build</code> завершается с ошибкой и <b>не создаёт</b> файлы в <code>dist</code>.</p>
+<p class="why"><b>Зачем:</b> проверка, которую надо помнить запустить, рано или поздно не запустится. Скрипты в <code>package.json</code> — общий язык команды и CI. <code>noEmitOnError</code> гарантирует, что сломанный код не уедет дальше.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Перед проверкой удалите старую папку <code>dist</code>, иначе увидите файлы прошлой сборки.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>{
+  "scripts": {
+    "check": "tsc --noEmit --project tsconfig.json",
+    "build": "tsc --project tsconfig.json"
+  }
+}</code></pre>
+<p>С <code>"noEmitOnError": true</code> из конфигурации раздела <code>tsc</code> печатает ошибку и не пишет ни одного файла, а код выхода ненулевой: CI тоже увидит провал. Без этого флага TypeScript выпустил бы JavaScript, несмотря на ошибку. Проверка типов и выпуск кода — разные процессы. Скрипт <code>check</code> быстрее: он ничего не записывает, его удобно гонять перед коммитом.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

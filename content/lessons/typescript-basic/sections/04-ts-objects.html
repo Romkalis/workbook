@@ -15,18 +15,96 @@ if (false) {
   // @ts-expect-error: у свежего литерала проверяются лишние свойства
   label({ id: 1, name: &quot;Маша&quot;, group: &quot;RS&quot; });
 }
-</code></pre><p><code>nickname?</code> можно не передавать; при чтении получится <code>string | undefined</code>. Оператор <code>??</code> выбирает запасное значение только при null или undefined. <code>readonly id</code> запрещает менять id через ссылку типа Student. Лишние поля у уже существующей переменной не мешают совместимости, а у свежего объектного литерала проверяются строже. Тип не удаляет лишние поля из реального объекта.</p><h3 id="ts-type-interface">Как выбрать interface или type</h3><pre><code>interface Named { name: string }
+</code></pre><p><code>nickname?</code> можно не передавать; при чтении получится <code>string | undefined</code>. Оператор <code>??</code> выбирает запасное значение только при null или undefined. <code>readonly id</code> запрещает менять id через ссылку типа Student. Лишние поля у уже существующей переменной не мешают совместимости, а у свежего объектного литерала проверяются строже. Тип не удаляет лишние поля из реального объекта.</p><article class="task" id="tsb-interface" data-task="typescript-basic/tsb-interface">
+<h4>Задача 9. Интерфейс товара <span class="lvl">★☆☆ разминка</span></h4>
+<p>Объявите <code>interface Product</code>: <code>id</code> только для чтения (число), название, цена, необязательное описание. Напишите <code>productSubtitle(p)</code>: возвращает описание, а если его нет — <code>"Без описания"</code>. Строкой с <code>@ts-expect-error</code> покажите, что <code>id</code> поменять нельзя.</p>
+<p class="why"><b>Зачем:</b> <code>readonly</code> фиксирует решение «идентификатор не меняется», и это решение проверяет компилятор, а не память команды. Необязательное поле честно говорит, что описания может не быть, и заставляет обработать этот случай.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Product {
+  readonly id: number;
+  title: string;
+  price: number;
+  description?: string;
+}
+
+export function productSubtitle(p: Product): string {
+  return p.description ?? 'Без описания';
+}
+
+const book: Product = { id: 1, title: 'Чистый код', price: 150000 };
+if (false) {
+  // @ts-expect-error: id только для чтения
+  book.id = 2;
+}</code></pre>
+<p>Поле <code>description?</code> при чтении имеет тип <code>string | undefined</code>, и <code>??</code> подставляет запасной текст только для <code>null</code>/<code>undefined</code>. С <code>||</code> пустая строка <code>""</code> тоже превратилась бы в «Без описания». Иногда это и нужно, но решать надо осознанно.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-type-interface">Как выбрать interface или type</h3><pre><code>interface Named { name: string }
 interface Named { active: boolean } // слияние объявлений
 interface Member extends Named { id: number }
 type Identifier = string | number;
 type WithScore = Member &amp; { score: number };
 const member: WithScore = { name: &quot;Маша&quot;, active: true, id: 1, score: 95 };
 console.log(member.name, member.score);
-</code></pre><p><code>interface</code> удобно расширять через <code>extends</code>; повторные объявления одного имени объединяются. <code>type</code> даёт имя любому типу, включая union, кортеж и функцию; повторно объявить его с тем же именем нельзя. Оба подходят для объектов, методов и <a href="/lessons/typescript-advanced">generics</a>. Не выбирайте по мифу «type для примитивов, interface для всего остального»: выбирайте нужные возможности и стиль проекта.</p><h3 id="ts-dictionaries">Индексная сигнатура и словарь</h3><pre><code>interface Counts { [name: string]: number }
+</code></pre><p><code>interface</code> удобно расширять через <code>extends</code>; повторные объявления одного имени объединяются. <code>type</code> даёт имя любому типу, включая union, кортеж и функцию; повторно объявить его с тем же именем нельзя. Оба подходят для объектов, методов и <a href="/lessons/typescript-advanced">generics</a>. Не выбирайте по мифу «type для примитивов, interface для всего остального»: выбирайте нужные возможности и стиль проекта.</p><article class="task" id="tsb-extends" data-task="typescript-basic/tsb-extends">
+<h4>Задача 10. Строка корзины: extends и &amp; <span class="lvl">★★☆ практика</span></h4>
+<p>На основе <code>Product</code> из прошлой задачи опишите строку корзины <code>CartItem</code> (товар плюс <code>quantity</code>) через <code>interface ... extends</code>. Опишите <code>ProductId</code> как <code>string | number</code> (можно ли это сделать через interface?). Затем опишите <code>DiscountedProduct</code> через пересечение <code>&amp;</code> с полем <code>discount</code>. Напишите <code>lineTotal(item: CartItem)</code>.</p>
+<p class="why"><b>Зачем:</b> типы строятся из других типов, а не копируются. Если завтра у товара появится поле <code>category</code>, оно автоматически окажется и в строке корзины.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>interface Product {
+  readonly id: number;
+  title: string;
+  price: number;
+}
+
+export interface CartItem extends Product {
+  quantity: number;
+}
+
+export type ProductId = string | number; // union можно назвать только через type
+
+export type DiscountedProduct = Product &amp; { discount: number };
+
+export function lineTotal(item: CartItem): number {
+  return item.price * item.quantity;
+}</code></pre>
+<p><code>extends</code> и <code>&amp;</code> здесь дают одинаковый результат, выбор — вопрос стиля и возможностей. Interface удобно расширять и читать в ошибках. Union вроде <code>string | number</code> через interface не описать: interface всегда описывает объект. Не копируйте поля <code>Product</code> в <code>CartItem</code> руками: два описания одного и того же рано или поздно разъедутся.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-dictionaries">Индексная сигнатура и словарь</h3><pre><code>interface Counts { [name: string]: number }
 const counts: Counts = { html: 2, typescript: 4 };
 const statusLabels: Record&lt;&quot;draft&quot; | &quot;done&quot;, string&gt; = {
   draft: &quot;Черновик&quot;, done: &quot;Готово&quot;
 };
 console.log(counts.typescript, statusLabels.done);
 </code></pre><p>Индексная сигнатура допускает строковые ключи с одинаковым типом значений. Она не гарантирует, что любой ключ существует. <code>Record&lt;K, V&gt;</code> полезен для словаря с известным набором ключей: в примере пропуск done станет ошибкой. <code>object</code> означает непримитивное значение, а не объект с любыми полями; пустой тип <code>{}</code> при strictNullChecks допускает почти любое значение, кроме null и undefined.</p>
+<article class="task" id="tsb-record" data-task="typescript-basic/tsb-record">
+<h4>Задача 11. Счётчик по категориям и подписи <span class="lvl">★★☆ практика</span></h4>
+<p>1) Напишите <code>countByCategory(products)</code>, которая возвращает словарь «категория → количество товаров» (<code>Record&lt;string, number&gt;</code>). 2) Объявите <code>type Category = 'books' | 'games'</code> и константу <code>CATEGORY_LABELS: Record&lt;Category, string&gt;</code> с русскими подписями. Убедитесь, что без одной из подписей код не компилируется.</p>
+<p class="why"><b>Зачем:</b> словарь с произвольными ключами и словарь с известными ключами — разные контракты. Во втором случае компилятор не даст забыть подпись для новой категории, а это частый баг в интерфейсе («undefined» вместо названия).</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Если ключа ещё нет в словаре, <code>counts[key]</code> вернёт <code>undefined</code>, поэтому пишите <code>(counts[key] ?? 0) + 1</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type Category = 'books' | 'games';
+
+export function countByCategory(products: { category: string }[]): Record&lt;string, number&gt; {
+  const counts: Record&lt;string, number&gt; = {};
+  for (const p of products) counts[p.category] = (counts[p.category] ?? 0) + 1;
+  return counts;
+}
+
+export const CATEGORY_LABELS: Record&lt;Category, string&gt; = {
+  books: 'Книги',
+  games: 'Настольные игры',
+};
+
+if (false) {
+  // @ts-expect-error: нет подписи для games
+  const broken: Record&lt;Category, string&gt; = { books: 'Книги' };
+}</code></pre>
+<p><code>Record&lt;string, number&gt;</code> не обещает, что ключ существует: TypeScript без флага <code>noUncheckedIndexedAccess</code> считает <code>counts['x']</code> числом, хотя там <code>undefined</code>. Поэтому <code>?? 0</code> обязателен по смыслу, даже если компилятор не требует. <code>Record&lt;Category, string&gt;</code> требует все ключи union: добавите <code>'toys'</code> в <code>Category</code> — получите ошибку ровно там, где забыли подпись.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

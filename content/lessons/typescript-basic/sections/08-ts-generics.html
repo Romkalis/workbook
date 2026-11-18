@@ -8,7 +8,33 @@ const count = identity(42); // тип выведен из аргумента
 const title = identity&lt;string&gt;(box.value); // тип задан явно
 function first&lt;T&gt;(items: readonly T[]): T | undefined { return items[0]; }
 console.log(count, title.toUpperCase(), first&lt;number&gt;([]));
-</code></pre><p>В <code>identity&lt;T&gt;</code> один и тот же T описывает вход и выход. Компилятор чаще всего выводит его сам. Сигнатура first учитывает пустой массив: обещание просто T было бы неверным. Внутри generic-функции нельзя считать, что у любого T есть length.</p><h3 id="ts-generic-constraints">Ограничение extends</h3><pre><code>function lengthOf&lt;T extends { length: number }&gt;(value: T): number {
+</code></pre><p>В <code>identity&lt;T&gt;</code> один и тот же T описывает вход и выход. Компилятор чаще всего выводит его сам. Сигнатура first учитывает пустой массив: обещание просто T было бы неверным. Внутри generic-функции нельзя считать, что у любого T есть length.</p><article class="task" id="tsb-generic-last" data-task="typescript-basic/tsb-generic-last">
+<h4>Задача 22. Обобщённые last и uniqueBy <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>last&lt;T&gt;(items: readonly T[]): T | undefined</code> и <code>uniqueBy&lt;T&gt;(items, key)</code>, где <code>key: (item: T) =&gt; string | number</code>: оставляет первый элемент с каждым ключом. Проверьте, что <code>last([1, 2])</code> имеет тип <code>number | undefined</code>, а не <code>unknown</code> или <code>any</code>.</p>
+<p class="why"><b>Зачем:</b> одна функция для товаров, заказов и пользователей без потери типа. С <code>any</code> вы бы получили функцию для всего, но после её вызова компилятор перестал бы помогать.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function last&lt;T&gt;(items: readonly T[]): T | undefined {
+  return items[items.length - 1];
+}
+
+export function uniqueBy&lt;T&gt;(items: readonly T[], key: (item: T) =&gt; string | number): T[] {
+  const seen = new Set&lt;string | number&gt;();
+  return items.filter((item) =&gt; {
+    const k = key(item);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+const n = last([1, 2]); // number | undefined
+const products = uniqueBy([{ id: 1, t: 'a' }, { id: 1, t: 'b' }], (p) =&gt; p.id); // { id: number; t: string }[]
+console.log(n, products);</code></pre>
+<p><code>T</code> связывает вход и выход: какой массив передали, элементы такого типа и вернутся. <code>T | undefined</code> у <code>last</code> обязателен, ведь массив может быть пустым. В <code>uniqueBy</code> тип <code>p</code> в колбэке выводится из массива, хотя мы его нигде не писали. <code>Set</code> проверяет наличие за O(1), в отличие от поиска по массиву.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-generic-constraints">Ограничение extends</h3><pre><code>function lengthOf&lt;T extends { length: number }&gt;(value: T): number {
   return value.length;
 }
 console.log(lengthOf(&quot;TS&quot;), lengthOf([1, 2, 3]));
@@ -16,7 +42,27 @@ if (false) {
   // @ts-expect-error: у числа нет свойства length
   lengthOf(42);
 }
-</code></pre><p><code>extends</code> здесь задаёт минимальный контракт, а не наследование класса. Если нужно только прочитать length и нигде не сохранить T, достаточно параметра <code>{ length: number }</code>. Generic полезен, когда связь типов реально используется.</p><h3 id="ts-keyof">keyof и доступ к типу свойства</h3><pre><code>function get&lt;T, K extends keyof T&gt;(object: T, key: K): T[K] {
+</code></pre><p><code>extends</code> здесь задаёт минимальный контракт, а не наследование класса. Если нужно только прочитать length и нигде не сохранить T, достаточно параметра <code>{ length: number }</code>. Generic полезен, когда связь типов реально используется.</p><article class="task" id="tsb-constraint" data-task="typescript-basic/tsb-constraint">
+<h4>Задача 23. Ограничение: «что-то с длиной» <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>longest&lt;T extends { length: number }&gt;(a: T, b: T): T</code>: возвращает более длинное значение (при равенстве — первое). Проверьте на строках и массивах, а вызов с числами пометьте <code>@ts-expect-error</code>.</p>
+<p class="why"><b>Зачем:</b> <code>extends</code> в generic задаёт минимальное требование: «мне неважно, что это, лишь бы была длина». Без ограничения внутри функции нельзя прочитать <code>.length</code>, а с конкретным типом <code>string</code> функция потеряла бы массивы.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function longest&lt;T extends { length: number }&gt;(a: T, b: T): T {
+  return b.length &gt; a.length ? b : a;
+}
+
+const word = longest('кот', 'собака'); // string
+const list = longest([1], [1, 2]); // number[]
+console.log(word, list);
+if (false) {
+  // @ts-expect-error: у number нет length
+  longest(1, 2);
+}</code></pre>
+<p>Почему generic, а не параметр <code>{ length: number }</code>? Здесь <code>T</code> возвращается, и вызывающий получает <code>string</code> или <code>number[]</code>, а не безликое «что-то с длиной». Если бы функция возвращала только число (длину), generic был бы не нужен: правило из раздела «generic полезен, когда связь типов реально используется».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-keyof">keyof и доступ к типу свойства</h3><pre><code>function get&lt;T, K extends keyof T&gt;(object: T, key: K): T[K] {
   return object[key];
 }
 const student = { name: &quot;Маша&quot;, score: 95 };
@@ -27,9 +73,60 @@ if (false) {
   // @ts-expect-error: такого ключа нет
   get(student, &quot;age&quot;);
 }
-</code></pre><p><code>typeof student</code> в позиции типа получает тип переменной, <code>keyof</code> — объединение ключей этого типа, <code>T[K]</code> — тип выбранного свойства. В JS-выражении typeof по-прежнему возвращает строку. У числовой индексной сигнатуры keyof будет number; у строковой — string | number, потому что числовые ключи JS-объекта преобразуются в строки.</p><h3 id="ts-utility-types">Готовые преобразования типов</h3><p>Дополнение из общих знаний, сверяемое со справочником TypeScript: <code>Partial&lt;T&gt;</code> делает свойства необязательными, <code>Required&lt;T&gt;</code> — обязательными, <code>Readonly&lt;T&gt;</code> — доступными только для чтения. <code>Pick&lt;T, K&gt;</code> оставляет выбранные ключи, <code>Omit&lt;T, K&gt;</code> исключает их. Это изменения типов, не преобразования объектов во время выполнения.</p><pre><code>interface Profile { id: number; name: string; bio?: string }
+</code></pre><p><code>typeof student</code> в позиции типа получает тип переменной, <code>keyof</code> — объединение ключей этого типа, <code>T[K]</code> — тип выбранного свойства. В JS-выражении typeof по-прежнему возвращает строку. У числовой индексной сигнатуры keyof будет number; у строковой — string | number, потому что числовые ключи JS-объекта преобразуются в строки.</p><article class="task" id="tsb-keyof" data-task="typescript-basic/tsb-keyof">
+<h4>Задача 24. pluck и sortBy по ключу <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>pluck(items, key)</code>: собирает значения одного поля, тип результата — массив значений этого поля. И <code>sortBy(items, key)</code>, где <code>key</code> — ключ, значение которого число; функция не меняет исходный массив. Неверный ключ должен быть ошибкой компиляции.</p>
+<p class="why"><b>Зачем:</b> <code>keyof</code> и <code>T[K]</code> позволяют написать функцию «по имени поля» без строк, которые никто не проверяет. Переименовали поле в типе — компилятор покажет все вызовы со старым именем.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Для <code>sortBy</code> ограничьте ключ: <code>K extends keyof T</code>, а значение по нему должно быть числом: <code>T extends Record&lt;K, number&gt;</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function pluck&lt;T, K extends keyof T&gt;(items: readonly T[], key: K): T[K][] {
+  return items.map((item) =&gt; item[key]);
+}
+
+export function sortBy&lt;K extends PropertyKey, T extends Record&lt;K, number&gt;&gt;(items: readonly T[], key: K): T[] {
+  return [...items].sort((a, b) =&gt; a[key] - b[key]);
+}
+
+const products = [{ title: 'B', price: 200 }, { title: 'A', price: 100 }];
+const titles = pluck(products, 'title'); // string[]
+const cheapFirst = sortBy(products, 'price');
+console.log(titles, cheapFirst);
+if (false) {
+  // @ts-expect-error: нет такого поля
+  pluck(products, 'cost');
+  // @ts-expect-error: title — не число, по нему так сортировать нельзя
+  sortBy(products, 'title');
+}</code></pre>
+<p>В <code>pluck</code> тип <code>T[K][]</code> означает «массив значений поля K»: для <code>'title'</code> получится <code>string[]</code>. В <code>sortBy</code> ограничение записано через <code>Record&lt;K, number&gt;</code>: объект должен иметь числовое поле <code>K</code>, иначе вычитание <code>a[key] - b[key]</code> не имело бы смысла. Копия <code>[...items]</code> — потому что <code>sort</code> меняет массив на месте.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-utility-types">Готовые преобразования типов</h3><p>Дополнение из общих знаний, сверяемое со справочником TypeScript: <code>Partial&lt;T&gt;</code> делает свойства необязательными, <code>Required&lt;T&gt;</code> — обязательными, <code>Readonly&lt;T&gt;</code> — доступными только для чтения. <code>Pick&lt;T, K&gt;</code> оставляет выбранные ключи, <code>Omit&lt;T, K&gt;</code> исключает их. Это изменения типов, не преобразования объектов во время выполнения.</p><pre><code>interface Profile { id: number; name: string; bio?: string }
 const patch: Partial&lt;Profile&gt; = { name: &quot;Анна&quot; };
 const card: Pick&lt;Profile, &quot;id&quot; | &quot;name&quot;&gt; = { id: 1, name: &quot;Маша&quot; };
 console.log({ ...card, ...patch });
 </code></pre>
+<article class="task" id="tsb-utility" data-task="typescript-basic/tsb-utility">
+<h4>Задача 25. Частичное обновление товара <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>updateProduct(product, patch)</code>, где <code>patch</code> может содержать любые поля товара, <b>кроме</b> <code>id</code>. Функция возвращает новый объект. Также опишите <code>ProductPreview</code> — только <code>id</code> и <code>title</code> — через утилитарный тип.</p>
+<p class="why"><b>Зачем:</b> форма редактирования отправляет только изменённые поля, но менять идентификатор нельзя. Это правило бизнес-логики, и его можно выразить типом <code>Partial&lt;Omit&lt;...&gt;&gt;</code>, а не комментарием.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Product { id: number; title: string; price: number; description?: string }
+
+export type ProductPatch = Partial&lt;Omit&lt;Product, 'id'&gt;&gt;;
+export type ProductPreview = Pick&lt;Product, 'id' | 'title'&gt;;
+
+export function updateProduct(product: Product, patch: ProductPatch): Product {
+  return { ...product, ...patch };
+}
+
+if (false) {
+  const p: Product = { id: 1, title: 'A', price: 1 };
+  // @ts-expect-error: id нельзя менять патчем
+  updateProduct(p, { id: 2 });
+}</code></pre>
+<p>Утилиты собираются как конструктор: <code>Omit</code> убирает <code>id</code>, <code>Partial</code> делает остальное необязательным. Возвращается новый объект, исходный не меняется: так проще отследить изменения (например, сравнить «до» и «после»). Утилитарные типы работают только при проверке: <code>Omit</code> не удалит <code>id</code> из реального объекта, если он придёт через <code>any</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>
