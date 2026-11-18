@@ -1,0 +1,66 @@
+<section id="ev-start">
+<h2>Обработчик и объект события</h2>
+<p>Пользователь кликает, печатает, отправляет форму — браузер создаёт <b>событие</b> и вызывает функции, которые на него подписаны. Подписка — <code>addEventListener(тип, обработчик)</code>:</p>
+<pre><code>const button = document.querySelector('button');
+button?.addEventListener('click', (event) =&gt; {
+  console.log(event.type); // 'click'
+});</code></pre>
+<p>Обработчик получает объект события. В нём то, что нужно для реакции: <code>event.target</code> — элемент, где событие произошло (по нему кликнули), <code>event.currentTarget</code> — элемент, на котором висит обработчик, <code>event.key</code> у клавиатуры, <code>event.preventDefault()</code> — отменить действие браузера. Это урок о DOM-событиях; про события в Node.js и <code>EventEmitter</code> — в уроке <a href="/lessons/node-basics#nb-events">Основы Node.js</a>, идея та же: подписались и получаем уведомления.</p>
+<h3 id="ev-target">target и currentTarget</h3>
+<p>Внутри кнопки бывают иконка и текст. Клик по иконке: <code>target</code> — сама иконка (<code>svg</code> или <code>span</code>), <code>currentTarget</code> — кнопка, на которой обработчик. Если вам нужна кнопка, берите <code>currentTarget</code>. <code>target</code> нужен, когда обработчик висит на общем родителе и надо понять, где именно кликнули (делегирование ниже).</p>
+<article class="task" id="ev-t-current" data-task="dom-events/ev-t-current">
+<h4>Задача 2. target или currentTarget <span class="lvl">★☆☆ разминка</span></h4>
+<p>Кнопки «В корзину» содержат иконку и текст. Обработчик на кнопке должен прочитать <code>data-id</code> кнопки и вызвать <code>onAdd(id)</code>. Код ниже иногда передаёт <code>undefined</code>. Найдите причину и исправьте.</p>
+<pre><code>button.addEventListener('click', (event) =&gt; {
+  const id = (event.target as HTMLElement).dataset.id;
+  onAdd(id!);
+});</code></pre>
+<p class="why"><b>Зачем:</b> баг «работает, только если кликнуть по краю кнопки» — классика. Он проявляется не у всех и не всегда, поэтому его долго не замечают.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// add.ts
+export function listenAdd(button: HTMLButtonElement, onAdd: (id: string) =&gt; void): void {
+  button.addEventListener('click', (event) =&gt; {
+    const id = (event.currentTarget as HTMLElement).dataset.id;
+    if (id) onAdd(id);
+  });
+}</code></pre>
+<p>Клик по иконке делает <code>target</code> иконкой, у которой нет <code>data-id</code>. <code>currentTarget</code> — всегда кнопка, на которой висит обработчик. Утверждение <code>as HTMLElement</code> здесь оправдано: обработчик привязан к кнопке, и <code>currentTarget</code> не может быть ничем другим. Проверка <code>if (id)</code> заменяет опасный <code>!</code> из исходного кода.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ev-options">Опции: once и signal</h3>
+<p>Третий аргумент — объект опций. <code>{ once: true }</code> снимает обработчик после первого вызова: подходит для «показать подсказку один раз». <code>{ signal }</code> привязывает обработчик к <code>AbortController</code>: вызов <code>controller.abort()</code> снимает разом все обработчики с этим сигналом. Подробно — в разделе об отписке.</p>
+<article class="task" id="ev-t-counter" data-task="dom-events/ev-t-counter">
+<h4>Задача 1. Счётчик кликов <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>mountCounter(button, output)</code>: каждый клик по кнопке увеличивает число в <code>output</code> на 1. Счётчик хранится в переменной, а не читается из текста элемента.</p>
+<p class="why"><b>Зачем:</b> источник истины — данные, а DOM их только показывает. Если читать число из <code>textContent</code>, то любое изменение формата («Кликов: 3») сломает подсчёт. Это самый маленький пример принципа, на котором построен урок о состоянии.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// counter.ts
+export function mountCounter(button: HTMLButtonElement, output: HTMLElement): void {
+  let count = 0;
+  output.textContent = String(count);
+  button.addEventListener('click', () =&gt; {
+    count += 1;
+    output.textContent = String(count);
+  });
+}</code></pre>
+<p>Переменная <code>count</code> живёт в замыкании обработчика: снаружи её не испортить, и у каждого вызова <code>mountCounter</code> свой счётчик. Начальное значение тоже отрисовывается при монтировании, чтобы на экране не было пустоты до первого клика.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ev-t-once" data-task="dom-events/ev-t-once">
+<h4>Задача 3. Подсказка один раз <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>showHintOnce(field, hint)</code>: при первом фокусе на поле показывает подсказку (<code>hint.hidden = false</code>), при следующих — ничего не делает. Без флагов в переменных.</p>
+<p class="why"><b>Зачем:</b> опция <code>once</code> выражает намерение прямо в подписке, и обработчик сам убирается после срабатывания. Флаг «уже показали» пришлось бы хранить, проверять и не забывать.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// hint.ts
+export function showHintOnce(field: HTMLElement, hint: HTMLElement): void {
+  field.addEventListener('focus', () =&gt; {
+    hint.hidden = false;
+  }, { once: true });
+}</code></pre>
+<p>После первого вызова браузер сам снимает обработчик. Если пользователь закрыл подсказку и снова зашёл в поле, она не вернётся, и это именно то поведение, которое нужно.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

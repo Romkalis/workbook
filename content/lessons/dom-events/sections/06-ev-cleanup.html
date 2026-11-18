@@ -1,0 +1,79 @@
+<section id="ev-cleanup">
+<h2>Отписка и свои события</h2>
+<h3 id="ev-abort">Снять обработчики разом</h3>
+<p>Обработчик держит ссылки на всё, что использует. Если компонент удалён со страницы, а обработчик на <code>window</code> или <code>document</code> остался, он продолжит срабатывать и мешать — это утечка. <code>removeEventListener</code> требует ту же самую функцию, что передавали в <code>add</code>, поэтому стрелку «на месте» снять нельзя. Проще передать всем обработчикам один <code>signal</code>:</p>
+<pre><code>export function mountShortcuts(onClose: () =&gt; void, onSearch: () =&gt; void): () =&gt; void {
+  const controller = new AbortController();
+  const { signal } = controller;
+  document.addEventListener('keydown', (e) =&gt; { if (e.key === 'Escape') onClose(); }, { signal });
+  document.addEventListener('keydown', (e) =&gt; { if (e.key === '/' ) onSearch(); }, { signal });
+  return () =&gt; controller.abort(); // одна функция снимает все обработчики
+}</code></pre>
+<p>Функция «смонтировать» возвращает функцию «размонтировать» — тот же договор, что у <code>useEffect</code> в React. Тот же <code>AbortController</code> отменяет и запросы <code>fetch</code> (<a href="/lessons/country-search#cs-cancel">Country Search</a>): один сигнал может остановить и подписки, и загрузку.</p>
+<article class="task" id="ev-t-abort" data-task="dom-events/ev-t-abort">
+<h4>Задача 19. Компонент, который убирает за собой <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>mountDropdown(button, menu)</code>: клик по кнопке переключает <code>menu.hidden</code>, клик в любом месте документа вне меню и кнопки закрывает меню, Escape на документе закрывает меню. Функция возвращает <code>unmount()</code>, которая снимает <b>все</b> обработчики одним вызовом.</p>
+<p class="why"><b>Зачем:</b> обработчики на <code>document</code> переживают сам компонент. Если меню удалили со страницы, а слушатели остались, они продолжат реагировать на каждый клик, а с повторным монтированием их станет вдвое больше. <code>signal</code> делает уборку одной строкой.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// dropdown.ts
+export function mountDropdown(button: HTMLElement, menu: HTMLElement): () =&gt; void {
+  const controller = new AbortController();
+  const { signal } = controller;
+
+  button.addEventListener('click', () =&gt; {
+    menu.hidden = !menu.hidden;
+  }, { signal });
+
+  document.addEventListener('click', (event) =&gt; {
+    const target = event.target;
+    if (target instanceof Node &amp;&amp; !menu.contains(target) &amp;&amp; !button.contains(target)) menu.hidden = true;
+  }, { signal });
+
+  document.addEventListener('keydown', (event) =&gt; {
+    if (event.key === 'Escape') menu.hidden = true;
+  }, { signal });
+
+  return () =&gt; controller.abort();
+}</code></pre>
+<p>Клик по кнопке всплывает до <code>document</code>, поэтому обработчик документа исключает и меню, и кнопку. Иначе меню открывалось бы и тут же закрывалось. Все три подписки получили один <code>signal</code>, и <code>unmount</code> снимает их разом, не храня ссылок на функции.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ev-custom">Свои события</h3>
+<p>Элемент может генерировать и своё событие: <code>new CustomEvent('cart:change', { detail: данные, bubbles: true })</code> и <code>element.dispatchEvent(event)</code>. Слушатели получают данные в <code>event.detail</code>. Это способ связать независимые части страницы: корзина объявляет «изменилась», а счётчик в шапке слушает и обновляется, не зная, как устроена корзина. В TypeScript <code>detail</code> типизируют через <code>CustomEvent&lt;Тип&gt;</code>.</p>
+<pre><code>export type CartChange = { count: number };
+
+export function announceCart(el: EventTarget, count: number): void {
+  el.dispatchEvent(new CustomEvent&lt;CartChange&gt;('cart:change', { detail: { count }, bubbles: true }));
+}
+
+export function onCartChange(el: EventTarget, handler: (detail: CartChange) =&gt; void): void {
+  el.addEventListener('cart:change', (event) =&gt; {
+    if (event instanceof CustomEvent) handler(event.detail as CartChange);
+  });
+}</code></pre>
+<article class="task" id="ev-t-custom" data-task="dom-events/ev-t-custom">
+<h4>Задача 20. Счётчик в шапке через своё событие <span class="lvl">★★☆ практика</span></h4>
+<p>Корзина при каждом изменении генерирует на своём элементе всплывающее событие <code>cart:change</code> с <code>{ count }</code>. Напишите <code>mountCartBadge(badge)</code>: слушает это событие на <code>document</code> и показывает число в бейдже, пряча его при нуле. Корзина и бейдж не импортируют друг друга.</p>
+<p class="why"><b>Зачем:</b> независимые части интерфейса не должны знать друг о друге: шапку можно переделать, не трогая корзину. Событие — договор «что случилось и с какими данными», и его легко проверить в тесте.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// badge.ts
+export type CartChange = { count: number };
+
+export function mountCartBadge(badge: HTMLElement): void {
+  document.addEventListener('cart:change', (event) =&gt; {
+    if (!(event instanceof CustomEvent)) return;
+    const { count } = event.detail as CartChange;
+    badge.textContent = String(count);
+    badge.hidden = count === 0;
+  });
+}
+
+export function emitCartChange(from: EventTarget, count: number): void {
+  from.dispatchEvent(new CustomEvent&lt;CartChange&gt;('cart:change', { detail: { count }, bubbles: true }));
+}</code></pre>
+<p>Без <code>bubbles: true</code> событие осталось бы на элементе корзины, и слушатель на <code>document</code> его бы не получил. Тип <code>CartChange</code> вынесен и экспортирован: это общий договор для обеих сторон. В большом проекте договоры событий собирают в один файл. Альтернатива событиям — общий стор с подпиской, его разберём в следующем уроке.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

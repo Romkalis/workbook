@@ -1,0 +1,245 @@
+<section id="ev-forms">
+<h2>Формы</h2>
+<h3 id="ev-submit">Слушайте submit, а не click по кнопке</h3>
+<p>Форма отправляется кликом по кнопке, Enter в текстовом поле, программно. Событие <code>submit</code> на форме ловит все способы сразу; обработчик <code>click</code> на кнопке пропустит Enter. Поэтому логика отправки живёт в <code>submit</code>:</p>
+<pre><code>export interface ReviewInput {
+  author: string;
+  rating: number;
+  text: string;
+}
+
+export type ParseResult = { ok: true; value: ReviewInput } | { ok: false; errors: Partial&lt;Record&lt;keyof ReviewInput, string&gt;&gt; };
+
+export function parseReviewForm(data: FormData): ParseResult {
+  const author = String(data.get('author') ?? '').trim();
+  const rating = Number(data.get('rating'));
+  const text = String(data.get('text') ?? '').trim();
+  const errors: Partial&lt;Record&lt;keyof ReviewInput, string&gt;&gt; = {};
+  if (author === '') errors.author = 'Укажите имя';
+  if (!Number.isInteger(rating) || rating &lt; 1 || rating &gt; 5) errors.rating = 'Оценка от 1 до 5';
+  if (text.length &lt; 10) errors.text = 'Отзыв — хотя бы 10 символов';
+  return Object.keys(errors).length === 0 ? { ok: true, value: { author, rating, text } } : { ok: false, errors };
+}
+
+export function listenReviewForm(form: HTMLFormElement, onSubmit: (review: ReviewInput) =&gt; void, onErrors: (errors: Partial&lt;Record&lt;keyof ReviewInput, string&gt;&gt;) =&gt; void): void {
+  form.addEventListener('submit', (event) =&gt; {
+    event.preventDefault();
+    const result = parseReviewForm(new FormData(form));
+    if (result.ok) onSubmit(result.value);
+    else onErrors(result.errors);
+  });
+}</code></pre>
+<p><code>new FormData(form)</code> собирает значения всех полей формы по атрибуту <code>name</code>. Значения — строки (или файлы), поэтому разбор и проверка вынесены в чистую функцию <code>parseReviewForm</code>: её тестируют без DOM, на объекте <code>FormData</code>, а обработчик остаётся тонким. Это тот же приём «функция-результат», что и в серверной проверке в уроке <a href="/lessons/express-typescript#et-t-create">Express на TypeScript</a>.</p>
+<article class="task" id="ev-t-formdata" data-task="dom-events/ev-t-formdata">
+<h4>Задача 8. Форма в объект <span class="lvl">★☆☆ разминка</span></h4>
+<p>Форма поиска с полями <code>q</code> (текст), <code>category</code> (select) и чекбоксом <code>inStock</code>. Напишите <code>readSearchForm(form)</code>, которая возвращает <code>{ q: string; category: string | null; inStock: boolean }</code>: строка обрезана, пустая категория — <code>null</code>.</p>
+<p class="why"><b>Зачем:</b> <code>FormData</code> отдаёт строки или <code>null</code>, а неотмеченный чекбокс вообще отсутствует. Функция-разбор переводит это в аккуратный объект с типами, и остальной код больше не думает о форме.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// search-form.ts
+export interface SearchQuery {
+  q: string;
+  category: string | null;
+  inStock: boolean;
+}
+
+export function readSearchForm(form: HTMLFormElement): SearchQuery {
+  const data = new FormData(form);
+  const category = String(data.get('category') ?? '');
+  return {
+    q: String(data.get('q') ?? '').trim(),
+    category: category === '' ? null : category,
+    inStock: data.has('inStock'),
+  };
+}</code></pre>
+<p>Отмеченный чекбокс без <code>value</code> даёт строку <code>"on"</code>, неотмеченный не попадает в <code>FormData</code> совсем. Поэтому <code>has</code>, а не сравнение значения. <code>String(x ?? '')</code> превращает <code>null</code> и файл в строку без ошибки. В этой форме файлов нет, но тип <code>FormDataEntryValue</code> их допускает.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ev-t-submit" data-task="dom-events/ev-t-submit">
+<h4>Задача 9. Отправка без перезагрузки <span class="lvl">★★☆ практика</span></h4>
+<p>Подключите <code>readSearchForm</code> из прошлой задачи к событию <code>submit</code>: отмените перезагрузку и вызовите <code>onSearch(query)</code>. Проверьте, что отправка Enter (программно — <code>form.requestSubmit()</code>) тоже срабатывает.</p>
+<p class="why"><b>Зачем:</b> одна точка входа для всех способов отправки: пользователю не важно, как он отправил форму, и коду тоже не должно быть важно.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// submit.ts
+import { readSearchForm, type SearchQuery } from './search-form.js';
+
+export function listenSearch(form: HTMLFormElement, onSearch: (q: SearchQuery) =&gt; void): void {
+  form.addEventListener('submit', (event) =&gt; {
+    event.preventDefault();
+    onSearch(readSearchForm(form));
+  });
+}</code></pre>
+<pre><code>// search-form.ts
+export interface SearchQuery {
+  q: string;
+  category: string | null;
+  inStock: boolean;
+}
+export function readSearchForm(form: HTMLFormElement): SearchQuery {
+  const data = new FormData(form);
+  const category = String(data.get('category') ?? '');
+  return { q: String(data.get('q') ?? '').trim(), category: category === '' ? null : category, inStock: data.has('inStock') };
+}</code></pre>
+<p><code>requestSubmit()</code> ведёт себя как настоящая отправка: проходит встроенную проверку полей и генерирует <code>submit</code>. Старый <code>form.submit()</code> отправляет форму в обход и того и другого, и ваш обработчик его не увидит. Это частая ловушка в тестах и при программной отправке.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ev-t-parse" data-task="dom-events/ev-t-parse">
+<h4>Задача 10. Проверка формы заказа <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите чистую функцию <code>parseOrderForm(data: FormData)</code> для полей <code>name</code> (непустое), <code>phone</code> (только цифры после удаления пробелов, скобок, дефисов и плюса, длина 11), <code>delivery</code> (<code>courier</code> или <code>pickup</code>) и <code>address</code> (обязателен только для курьера). Результат: <code>{ ok: true, value }</code> или <code>{ ok: false, errors }</code> с сообщением на каждое поле.</p>
+<p class="why"><b>Зачем:</b> правила формы — бизнес-логика, и она должна тестироваться без браузера. Условное правило («адрес нужен только для курьера») — типичное место ошибок, и в чистой функции его проверка стоит одну строку теста.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// order-form.ts
+export interface Order {
+  name: string;
+  phone: string;
+  delivery: 'courier' | 'pickup';
+  address: string | null;
+}
+type Errors = Partial&lt;Record&lt;keyof Order, string&gt;&gt;;
+
+export function parseOrderForm(data: FormData): { ok: true; value: Order } | { ok: false; errors: Errors } {
+  const get = (key: string) =&gt; String(data.get(key) ?? '').trim();
+  const errors: Errors = {};
+
+  const name = get('name');
+  if (name === '') errors.name = 'Укажите имя';
+
+  const phone = get('phone').replace(/[\s()+-]/g, '');
+  if (!/^\d{11}$/.test(phone)) errors.phone = 'Телефон — 11 цифр';
+
+  const delivery = get('delivery');
+  if (delivery !== 'courier' &amp;&amp; delivery !== 'pickup') errors.delivery = 'Выберите способ получения';
+
+  const address = get('address');
+  if (delivery === 'courier' &amp;&amp; address === '') errors.address = 'Для курьера нужен адрес';
+
+  if (Object.keys(errors).length &gt; 0) return { ok: false, errors };
+  return {
+    ok: true,
+    value: { name, phone, delivery: delivery as Order['delivery'], address: delivery === 'courier' ? address : null },
+  };
+}</code></pre>
+<p>Все ошибки собираются сразу, а не до первой: пользователь исправит всё за один раз. Для самовывоза адрес не сохраняется, даже если его ввели: в заказе не должно быть данных, которые ничего не значат. Утверждение <code>as Order['delivery']</code> безопасно: выше значение проверено, а если были ошибки, функция до этой строки не дошла.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ev-input-change">input или change</h3>
+<p><code>input</code> срабатывает на каждое изменение значения: каждую букву, вставку, удаление. <code>change</code> — когда изменение «завершено»: для текстового поля при потере фокуса, для <code>select</code> и чекбокса — сразу при выборе. Живой поиск слушает <code>input</code> (обычно с debounce, как в <a href="/lessons/country-search#cs-debounce">Country Search</a>), а <code>change</code> удобен для фильтров-переключателей.</p>
+<article class="task" id="ev-t-live-search" data-task="dom-events/ev-t-live-search">
+<h4>Задача 11. Живой поиск с задержкой <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>liveSearch(input, onQuery, delay = 300)</code>: на каждое событие <code>input</code> откладывает вызов <code>onQuery(значение)</code>; новый ввод отменяет предыдущий отложенный вызов. Одинаковое значение подряд не отправляется повторно (например, пользователь напечатал букву и стёр её).</p>
+<p class="why"><b>Зачем:</b> запрос на каждую букву перегружает сервер и вызывает гонку ответов. Задержка и отсев повторов — два простых правила, после которых поиск становится и быстрым, и экономным.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// live.ts
+export function liveSearch(input: HTMLInputElement, onQuery: (q: string) =&gt; void, delay = 300): void {
+  let timer: ReturnType&lt;typeof setTimeout&gt; | undefined;
+  let last: string | undefined;
+  input.addEventListener('input', () =&gt; {
+    clearTimeout(timer);
+    timer = setTimeout(() =&gt; {
+      const q = input.value.trim();
+      if (q === last) return;
+      last = q;
+      onQuery(q);
+    }, delay);
+  });
+}</code></pre>
+<p>Значение читается в момент срабатывания таймера, а не в момент ввода, поэтому уходит последнее. <code>ReturnType&lt;typeof setTimeout&gt;</code> подходит и для браузера (число), и для Node (объект): тип не привязан к среде. Тест использует управляемые таймеры Vitest (<code>vi.useFakeTimers</code>), то же, что <code>mock.timers</code> из <a href="/lessons/testing#testing-time">урока о тестировании</a>. Отмена устаревших <i>ответов</i> — следующая ступень, она разобрана в <a href="/lessons/country-search#cs-cancel">Country Search</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ev-t-change" data-task="dom-events/ev-t-change">
+<h4>Задача 12. Фильтр по select <span class="lvl">★☆☆ разминка</span></h4>
+<p>Подпишитесь на изменение <code>select</code> категории так, чтобы <code>onCategory</code> вызывался один раз при каждом выборе, с <code>null</code> для пункта «Все категории» (пустое значение).</p>
+<p class="why"><b>Зачем:</b> для выпадающего списка выбор и есть законченное действие, поэтому подходит <code>change</code>. Пустое значение превращается в <code>null</code> на границе, чтобы дальше в коде не было «магической» пустой строки.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// category.ts
+export function listenCategory(select: HTMLSelectElement, onCategory: (c: string | null) =&gt; void): void {
+  select.addEventListener('change', () =&gt; {
+    onCategory(select.value === '' ? null : select.value);
+  });
+}</code></pre>
+<p>У <code>select</code> события <code>input</code> и <code>change</code> срабатывают одновременно при выборе, но <code>change</code> точнее выражает намерение и единообразен с чекбоксами. Для текстового поля разница огромная: там <code>change</code> ждёт потери фокуса.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ev-validation">Встроенная проверка и свои сообщения</h3>
+<p>Атрибуты <code>required</code>, <code>min</code>, <code>max</code>, <code>minlength</code>, <code>pattern</code>, <code>type="email"</code> браузер проверяет сам и не даст отправить форму с нарушением, показав свою подсказку. <code>form.checkValidity()</code> проверяет программно, <code>input.validity</code> объясняет, что не так, <code>input.setCustomValidity('текст')</code> задаёт своё сообщение (пустая строка — «ошибки нет»). Встроенная проверка — хорошая первая линия, но её тексты и вид у каждого браузера свои, поэтому часто ставят <code>novalidate</code> на форму и показывают ошибки сами.</p>
+<p>Свою ошибку связывают с полем: поле получает <code>aria-invalid="true"</code> и <code>aria-describedby="id-сообщения"</code>, а сообщение — элемент с этим <code>id</code>. Тогда программа чтения с экрана, переходя на поле, прочитает и ошибку (из общих знаний о WAI-ARIA).</p>
+<div class="warn"><p>Проверка в браузере — удобство для пользователя, а не защита. Её обходят отключением JavaScript или запросом из Postman. Сервер проверяет данные всегда (урок <a href="/lessons/express-typescript#et-validate">Express на TypeScript</a>).</p></div>
+<article class="task" id="ev-t-errors" data-task="dom-events/ev-t-errors">
+<h4>Задача 13. Показать ошибки у полей <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>showErrors(form, errors)</code>: для каждого поля из <code>errors</code> ставит <code>aria-invalid="true"</code> и выводит текст в элемент <code>#&lt;name&gt;-error</code>, связанный через <code>aria-describedby</code>. У полей без ошибки снимает и атрибут, и текст. Фокус переводит на первое поле с ошибкой.</p>
+<p class="why"><b>Зачем:</b> ошибки должны быть видны, связаны с полем для программ чтения с экрана и исчезать, когда поле исправлено. Фокус на первой ошибке экономит пользователю поиск, особенно на длинной форме и на телефоне.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// show-errors.ts
+export function showErrors(form: HTMLFormElement, errors: Partial&lt;Record&lt;string, string&gt;&gt;): void {
+  let first: HTMLElement | null = null;
+  for (const field of form.querySelectorAll&lt;HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement&gt;('[name]')) {
+    const message = errors[field.name];
+    const box = form.querySelector(`#${field.name}-error`);
+    if (box) box.textContent = message ?? '';
+    if (message) {
+      field.setAttribute('aria-invalid', 'true');
+      if (box) field.setAttribute('aria-describedby', box.id);
+      first ??= field;
+    } else {
+      field.removeAttribute('aria-invalid');
+    }
+  }
+  first?.focus();
+}</code></pre>
+<p>Функция проходит по всем полям, а не только по тем, где есть ошибка. Так снимаются старые ошибки исправленных полей, и вызов с пустым объектом «очищает» форму. <code>??=</code> запоминает только первое поле с ошибкой. Здесь id собирается из <code>name</code> — имена полей задаёте вы сами в разметке, а не пользователь, поэтому подстановка в селектор безопасна. Сравните с задачами про <code>data-id</code>, где значения приходят из данных.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ev-t-custom-validity" data-task="dom-events/ev-t-custom-validity">
+<h4>Задача 14. Своё сообщение во встроенной проверке <span class="lvl">★★☆ практика</span></h4>
+<p>Поле подтверждения пароля должно совпадать с паролем. Используя <code>setCustomValidity</code>, сделайте так, чтобы при несовпадении <code>form.checkValidity()</code> возвращал <code>false</code>, а у поля было сообщение «Пароли не совпадают». Проверка запускается на каждый <code>input</code> в любом из двух полей.</p>
+<p class="why"><b>Зачем:</b> встроенная проверка не умеет сравнивать два поля, но позволяет добавить своё правило. Тогда <code>checkValidity</code>, псевдокласс <code>:invalid</code> в CSS и блокировка отправки работают единообразно для встроенных и своих правил.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// confirm.ts
+export function linkPasswords(password: HTMLInputElement, confirm: HTMLInputElement): void {
+  const check = () =&gt; {
+    confirm.setCustomValidity(confirm.value !== password.value ? 'Пароли не совпадают' : '');
+  };
+  password.addEventListener('input', check);
+  confirm.addEventListener('input', check);
+  check();
+}</code></pre>
+<p>Пустая строка в <code>setCustomValidity</code> означает «ошибки нет». Её обязательно нужно передать, иначе поле останется невалидным навсегда. Проверка подписана на оба поля: пользователь может исправить и первое поле, а не только подтверждение. Первый вызов <code>check()</code> синхронизирует состояние сразу при подключении.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ev-busy">Пока форма отправляется</h3>
+<p>Пока запрос идёт, кнопку отправки блокируют (<code>button.disabled = true</code>) и снимают блокировку в <code>finally</code>, чтобы она не осталась заблокированной после ошибки. Иначе нетерпеливый пользователь нажмёт трижды и создаст три заказа.</p>
+<article class="task" id="ev-t-busy" data-task="dom-events/ev-t-busy">
+<h4>Задача 15. Защита от двойной отправки <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>submitOnce(form, send)</code>: на <code>submit</code> блокирует кнопку отправки, вызывает асинхронную <code>send(formData)</code> и снимает блокировку после завершения — и при успехе, и при ошибке. Повторный <code>submit</code>, пока запрос идёт, игнорируется. Ошибку передайте в <code>onError</code>.</p>
+<p class="why"><b>Зачем:</b> двойная отправка — это два заказа и два списания денег. Блокировка кнопки — подсказка пользователю, а флаг «уже отправляем» — настоящая защита: Enter в поле отправит форму и при заблокированной кнопке.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// once.ts
+export function submitOnce(form: HTMLFormElement, send: (data: FormData) =&gt; Promise&lt;void&gt;, onError: (e: unknown) =&gt; void): void {
+  let busy = false;
+  form.addEventListener('submit', async (event) =&gt; {
+    event.preventDefault();
+    if (busy) return;
+    busy = true;
+    const button = form.querySelector&lt;HTMLButtonElement&gt;('[type=submit], button:not([type])');
+    if (button) button.disabled = true;
+    try {
+      await send(new FormData(form));
+    } catch (error) {
+      onError(error);
+    } finally {
+      busy = false;
+      if (button) button.disabled = false;
+    }
+  });
+}</code></pre>
+<p><code>finally</code> выполняется и после успеха, и после ошибки, поэтому кнопка не останется заблокированной навсегда. Флаг <code>busy</code> ставится синхронно, до первого <code>await</code>: второе событие, пришедшее, пока ждём сеть, уже увидит <code>true</code>. Селектор <code>button:not([type])</code> нужен потому, что кнопка без <code>type</code> внутри формы — это кнопка отправки.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

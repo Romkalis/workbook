@@ -1,0 +1,27 @@
+<section id="ev-default">
+<h2>Действия по умолчанию</h2>
+<p>У некоторых событий браузер делает что-то сам: ссылка переходит по адресу, форма отправляется с перезагрузкой страницы, пробел прокручивает страницу. <code>event.preventDefault()</code> отменяет это действие (если событие отменяемое, <code>event.cancelable</code>). Самый частый случай — форма: без <code>preventDefault</code> браузер отправит её и перезагрузит страницу, и ваш JavaScript-обработчик просто не успеет показать результат.</p>
+<div class="warn"><p><code>preventDefault</code> не останавливает всплытие, а <code>stopPropagation</code> не отменяет действие браузера. Это разные вещи, их часто путают.</p></div>
+<article class="task" id="ev-t-link" data-task="dom-events/ev-t-link">
+<h4>Задача 7. Ссылка, которая работает и без JavaScript <span class="lvl">★☆☆ разминка</span></h4>
+<p>Ссылки фильтров ведут на <code>?category=books</code>. Напишите обработчик: если JavaScript работает, он отменяет переход, вызывает <code>onFilter(category)</code> и обновляет адрес через <code>history.pushState</code>. Без JavaScript ссылка просто откроет страницу с параметром.</p>
+<p class="why"><b>Зачем:</b> это «прогрессивное улучшение»: базовое поведение даёт HTML, а JavaScript делает его быстрее и приятнее. Ссылку можно открыть в новой вкладке, скопировать, и она работает у поисковика.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// filter-links.ts
+export function enhanceFilterLinks(nav: HTMLElement, onFilter: (category: string) =&gt; void): void {
+  nav.addEventListener('click', (event) =&gt; {
+    if (!(event.target instanceof Element)) return;
+    const link = event.target.closest&lt;HTMLAnchorElement&gt;('a[href]');
+    if (!link || !nav.contains(link)) return;
+    const category = new URL(link.href).searchParams.get('category');
+    if (category === null) return;
+    event.preventDefault();
+    history.pushState(null, '', link.href);
+    onFilter(category);
+  });
+}</code></pre>
+<p><code>preventDefault</code> вызывается только когда мы точно обработаем клик сами. Ссылки без <code>category</code> работают как обычно. <code>pushState</code> меняет адрес без перезагрузки, поэтому кнопка «назад» и копирование ссылки по-прежнему работают. Чтобы «назад» перерисовывал фильтр, нужен ещё обработчик <code>popstate</code>; это тема урока о состоянии.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

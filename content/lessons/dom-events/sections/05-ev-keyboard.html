@@ -1,0 +1,66 @@
+<section id="ev-keyboard">
+<h2>Клавиатура и фокус</h2>
+<h3 id="ev-keys">event.key</h3>
+<p><code>keydown</code> срабатывает при нажатии клавиши. <code>event.key</code> — понятное имя: <code>'Enter'</code>, <code>'Escape'</code>, <code>'ArrowDown'</code>, <code>'a'</code>. Старое <code>event.keyCode</code> устарело и отличается между раскладками. Закрыть окно по Escape — стандартное ожидание пользователя; для <code>&lt;dialog&gt;</code> браузер делает это сам.</p>
+<article class="task" id="ev-t-escape" data-task="dom-events/ev-t-escape">
+<h4>Задача 16. Закрыть по Escape <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>closeOnEscape(panel, close)</code>: нажатие Escape, когда фокус внутри панели, вызывает <code>close()</code>. Остальные клавиши ничего не делают. Используйте <code>event.key</code>.</p>
+<p class="why"><b>Зачем:</b> Escape — ожидание пользователя для всего, что всплывает: меню, панели, подсказки. Обработчик на панели, а не на всём документе, не мешает другим компонентам со своим Escape.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// escape.ts
+export function closeOnEscape(panel: HTMLElement, close: () =&gt; void): void {
+  panel.addEventListener('keydown', (event) =&gt; {
+    if (event.key === 'Escape') close();
+  });
+}</code></pre>
+<p><code>keydown</code> всплывает, поэтому обработчик на панели поймает Escape из любого поля внутри неё. <code>event.key === 'Escape'</code> одинаков во всех раскладках, в отличие от устаревшего <code>keyCode === 27</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ev-t-tags" data-task="dom-events/ev-t-tags">
+<h4>Задача 17. Теги по Enter <span class="lvl">★★☆ практика</span></h4>
+<p>Поле ввода тегов: Enter добавляет тег (обрезанный, в нижнем регистре, без повторов и пустых) в список <code>ul</code> и очищает поле. При этом Enter не должен отправлять форму, в которой лежит поле. Backspace в пустом поле удаляет последний тег.</p>
+<p class="why"><b>Зачем:</b> клавиатура — полноценный способ управления, а не дополнение к мыши. И это хороший пример, когда <code>preventDefault</code> нужен для <code>keydown</code>: Enter в текстовом поле по умолчанию отправляет форму.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// tags.ts
+export function mountTags(input: HTMLInputElement, list: HTMLUListElement): () =&gt; string[] {
+  const tags: string[] = [];
+  const render = () =&gt; list.replaceChildren(...tags.map((t) =&gt; Object.assign(document.createElement('li'), { textContent: t })));
+
+  input.addEventListener('keydown', (event) =&gt; {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const tag = input.value.trim().toLowerCase();
+      if (tag !== '' &amp;&amp; !tags.includes(tag)) tags.push(tag);
+      input.value = '';
+      render();
+    } else if (event.key === 'Backspace' &amp;&amp; input.value === '' &amp;&amp; tags.length &gt; 0) {
+      tags.pop();
+      render();
+    }
+  });
+  return () =&gt; [...tags];
+}</code></pre>
+<p>Список тегов — данные в массиве, а <code>render</code> рисует его заново после каждого изменения. Здесь это уже маленький «состояние → отрисовка», тема следующего урока. Функция возвращает геттер с копией массива: снаружи теги можно прочитать, но не испортить.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ev-focus">Куда переходит фокус</h3>
+<p>После действия фокус должен оказаться в разумном месте. Удалили товар из корзины — кнопка удаления исчезла вместе с фокусом, и пользователь клавиатуры оказывается «в начале страницы». Правильно перевести фокус, например, на следующую строку или на заголовок корзины: <code>element.focus()</code>. Элементу без собственного фокуса (заголовку) нужен <code>tabindex="-1"</code>, чтобы его можно было сфокусировать скриптом, не добавляя в порядок Tab.</p>
+<article class="task" id="ev-t-focus" data-task="dom-events/ev-t-focus">
+<h4>Задача 18. Фокус после удаления строки <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>removeRowAndRefocus(row, heading)</code>: удаляет строку корзины и переводит фокус на кнопку удаления следующей строки, а если следующей нет — предыдущей, а если строк не осталось — на заголовок корзины (у заголовка <code>tabindex="-1"</code>).</p>
+<p class="why"><b>Зачем:</b> когда удаляется элемент с фокусом, браузер «теряет» фокус, и пользователь клавиатуры оказывается в начале страницы. Перевести фокус в соседнюю строку — то, что ожидает человек, удаляющий несколько товаров подряд.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// refocus.ts
+export function removeRowAndRefocus(row: HTMLElement, heading: HTMLElement): void {
+  const neighbour = (row.nextElementSibling ?? row.previousElementSibling) as HTMLElement | null;
+  row.remove();
+  const target = neighbour?.querySelector&lt;HTMLElement&gt;('button') ?? heading;
+  target.focus();
+}</code></pre>
+<p>Соседа ищем <b>до</b> удаления: после <code>remove</code> у строки больше нет соседей. Следующая строка в приоритете, потому что она заняла место удалённой, и пользователь продолжает ровно оттуда. Заголовок с <code>tabindex="-1"</code> принимает фокус от скрипта, но не появляется в обходе по Tab.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>
