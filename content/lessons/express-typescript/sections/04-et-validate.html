@@ -42,6 +42,78 @@ cartRouter.post('/quote', (req: Request&lt;{}, CartTotals, unknown&gt;, res: Res
 <li><code>quantity</code> — целое число от 1. Ноль, минус и дробь отсекаются сразу.</li>
 <li>Если товара нет, это 400 (клиент прислал неверные данные), а не 500 (сломался сервер).</li>
 </ul>
+<article class="task" id="et-t-create" data-task="express-typescript/et-t-create">
+<h4>Задача 8. Создание товара с проверкой тела <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>POST /api/products</code>: тело <code>{ title, category, price }</code> проверяется предикатом, категория — из фиксированного списка, цена — целое число от 0. Ответ 201 с созданным товаром (id генерирует сервер) и заголовком <code>Location: /api/products/&lt;id&gt;</code>. Для неверного тела ответ 400 со списком ошибок по полям.</p>
+<p class="why"><b>Зачем:</b> список ошибок по полям («price: должно быть целым числом») позволяет фронтенду подсветить именно нужное поле формы. Один общий «Неверное тело» заставит пользователя гадать.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// validate.ts
+const CATEGORIES = ['books', 'games', 'home'] as const;
+type Category = (typeof CATEGORIES)[number];
+
+export interface NewProduct {
+  title: string;
+  category: Category;
+  price: number;
+}
+
+export function validateNewProduct(body: unknown): { ok: true; value: NewProduct } | { ok: false; errors: string[] } {
+  if (typeof body !== 'object' || body === null) return { ok: false, errors: ['тело должно быть объектом'] };
+  const errors: string[] = [];
+  const title = 'title' in body ? body.title : undefined;
+  const category = 'category' in body ? body.category : undefined;
+  const price = 'price' in body ? body.price : undefined;
+
+  if (typeof title !== 'string' || title.trim() === '') errors.push('title: непустая строка');
+  if (typeof category !== 'string' || !(CATEGORIES as readonly string[]).includes(category)) {
+    errors.push(`category: одно из ${CATEGORIES.join(', ')}`);
+  }
+  if (typeof price !== 'number' || !Number.isInteger(price) || price &lt; 0) errors.push('price: целое число ≥ 0');
+
+  if (errors.length &gt; 0) return { ok: false, errors };
+  return { ok: true, value: { title: (title as string).trim(), category: category as Category, price: price as number } };
+}</code></pre>
+<pre><code>// app.ts
+import express from 'express';
+import { randomUUID } from 'node:crypto';
+import { validateNewProduct, type NewProduct } from './validate.js';
+
+export function createApp(store = new Map&lt;string, NewProduct &amp; { id: string }&gt;()) {
+  const app = express();
+  app.use(express.json());
+  app.post('/api/products', (req, res) =&gt; {
+    const result = validateNewProduct(req.body);
+    if (!result.ok) return res.status(400).json({ error: 'Неверные данные', details: result.errors });
+    const product = { id: randomUUID(), ...result.value };
+    store.set(product.id, product);
+    res.status(201).location(`/api/products/${product.id}`).json(product);
+  });
+  return app;
+}</code></pre>
+<p>Вместо предиката здесь функция-результат: она возвращает либо значение, либо <i>все</i> ошибки сразу. Предикат умеет сказать только «да/нет». Тип результата — размеченное объединение по полю <code>ok</code>: после <code>if (!result.ok)</code> компилятор знает, что дальше есть <code>value</code>. Утверждения <code>as</code> в конце безопасны, потому что выше каждое поле проверено. Это ровно та работа, которую автоматизирует библиотека схем вроде Zod. Id генерирует сервер (<code>randomUUID</code>): клиенту нельзя доверять уникальность.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="et-t-step4" data-task="express-typescript/et-t-step4">
+<h4>Задача 9. Проект, шаг 4: расчёт корзины <span class="lvl">★★☆ практика</span></h4>
+<p>Шаг 4 сквозного проекта: <code>POST /api/cart/quote</code> с проверкой тела, ценами с сервера и промокодом. Тесты шага проверяют в том числе, что цена из тела игнорируется и что кривые тела дают 400.</p>
+<p class="starter"><code>npx degit Romkalis/workbook/starters/shop-api/04-start shop-api-04-start</code> <a href="/starters/shop-api-04-start.zip" download>Скачать ZIP</a></p>
+<p class="why"><b>Зачем:</b> это главный урок про доверие: всё, что пришло по сети, — <code>unknown</code>, а деньги считает только сервер по своим данным.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// src/routes/cart.ts
+cartRouter.post('/quote', (req: Request&lt;{}, CartTotals, unknown&gt;, res: Response&lt;CartTotals&gt;) =&gt; {
+  if (!isQuoteBody(req.body)) throw new HttpError(400, 'Неверное тело запроса');
+  const lines: CartLine[] = req.body.items.map(({ productId, quantity }) =&gt; {
+    const product = PRODUCTS.find((p) =&gt; p.id === productId);
+    if (!product) throw new HttpError(400, `Нет товара ${productId}`);
+    return { productId, price: product.price, quantity };
+  });
+  res.json(calculateCart(lines, req.body.promo));
+});</code></pre>
+<p>Полный файл с <code>isQuoteBody</code> и <code>calculateCart</code> — в разделе урока «Проверка входных данных» и в папке шага 5. Обратите внимание на тест с <code>promo: 10</code>: предикат проверяет и необязательные поля, иначе <code>promo.trim()</code> упал бы с 500.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="et-zod">А как в больших проектах</h3>
 <p>Писать такие проверки вручную утомительно, и они разрастаются. В реальных проектах обычно берут библиотеку схем, например <a href="https://zod.dev/">Zod</a>: описываете схему один раз, получаете и проверку, и тип через <code>z.infer</code>. Это из общих знаний, в уроке Zod не используется: для трёх маршрутов хватит ручной проверки, а лишняя зависимость — ещё одна вещь, которую надо объяснить на интервью. Если API разрастётся, это хороший кандидат на «что бы я улучшил».</p>
 </section>

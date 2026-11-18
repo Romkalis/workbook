@@ -29,4 +29,64 @@ app.listen(port, () =&gt; {
 <li><b>Настройки через окружение.</b> Порт и адрес фронтенда берутся из <code>process.env</code> (<a href="/lessons/node-basics#nb-env">о переменных окружения</a>), потому что на хостинге они другие.</li>
 </ul>
 <p>Это тот же принцип единственной ответственности из <a href="/lessons/clean-code">Clean Code</a>, применённый к папкам.</p>
+<article class="task" id="et-t-repo" data-task="express-typescript/et-t-repo">
+<h4>Задача 14. Хранилище через интерфейс <span class="lvl">★★★ с подвохом</span></h4>
+<p>Опишите интерфейс <code>ProductRepo</code> (<code>list</code>, <code>findById</code>, <code>create</code>) и реализуйте <code>InMemoryProductRepo</code>. Передайте репозиторий в <code>createApp(repo)</code>. Тесты создают свой новый репозиторий в каждом тесте. Покажите, что маршруты не знают, где лежат данные.</p>
+<p class="why"><b>Зачем:</b> зависимость от интерфейса, а не от конкретной базы, — главное архитектурное решение маленького бэкенда. Тесты получают быстрый и изолированный fake, а переход на настоящую базу касается одного нового класса, а не всех маршрутов.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// repo.ts
+export interface Product {
+  id: string;
+  title: string;
+  price: number;
+}
+
+export interface ProductRepo {
+  list(): Promise&lt;Product[]&gt;;
+  findById(id: string): Promise&lt;Product | null&gt;;
+  create(data: Omit&lt;Product, 'id'&gt;): Promise&lt;Product&gt;;
+}
+
+export class InMemoryProductRepo implements ProductRepo {
+  #items = new Map&lt;string, Product&gt;();
+  #nextId = 1;
+
+  async list() {
+    return [...this.#items.values()];
+  }
+  async findById(id: string) {
+    return this.#items.get(id) ?? null;
+  }
+  async create(data: Omit&lt;Product, 'id'&gt;) {
+    const product = { id: String(this.#nextId++), ...data };
+    this.#items.set(product.id, product);
+    return product;
+  }
+}</code></pre>
+<pre><code>// app.ts
+import express from 'express';
+import type { ProductRepo } from './repo.js';
+
+export function createApp(repo: ProductRepo) {
+  const app = express();
+  app.use(express.json());
+  app.get('/api/products', async (_req, res) =&gt; {
+    res.json(await repo.list());
+  });
+  app.get('/api/products/:id', async (req, res) =&gt; {
+    const product = await repo.findById(req.params.id);
+    if (!product) return res.status(404).json({ error: 'Товар не найден' });
+    res.json(product);
+  });
+  app.post('/api/products', async (req, res) =&gt; {
+    const { title, price } = req.body ?? {};
+    if (typeof title !== 'string' || !Number.isInteger(price)) return res.status(400).json({ error: 'Неверные данные' });
+    res.status(201).json(await repo.create({ title, price }));
+  });
+  return app;
+}</code></pre>
+<p>Методы асинхронные, хотя <code>Map</code> отвечает сразу. Интерфейс описывает любую реализацию, а настоящей базе нужно время. Если сделать его синхронным, переход на базу заставит переписать все маршруты. В <code>app.ts</code> только <code>import type</code>: приложение зависит от формы хранилища, а не от кода реализации. Где создаётся <code>InMemoryProductRepo</code>? В <code>server.ts</code>, единственном месте, которое знает, «на чём мы работаем». Этот приём называется внедрением зависимостей (dependency injection).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>
