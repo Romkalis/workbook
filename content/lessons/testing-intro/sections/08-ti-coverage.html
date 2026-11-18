@@ -22,4 +22,60 @@ test('считает сумму', () =&gt; {
 });</code></pre>
 <p>Покрытие 100%: каждая строка выполнилась. Но функция неправильная — количество не учитывается, а тест этого не заметил, потому что взял <code>quantity: 1</code>. Покрытие отвечает на вопрос «что выполнялось», а не «что проверено». Используйте его как подсказку, где тестов нет совсем, а не как цель.</p>
 <p>В задании Testing Intro покрытие не влияет на оценку: нужен только скриншот отчёта в PR.</p>
+<article class="task" id="ti-coverage-bug" data-task="testing-intro/ti-coverage-bug">
+<h4>Задача 21. Тест, который ловит ошибку при 100% покрытии <span class="lvl">★★☆ практика</span></h4>
+<p>В разделе выше функция забыла умножить на <code>quantity</code>, а тест с покрытием 100% это пропустил. Напишите тест, который поймает эту ошибку. Затем проверьте себя: временно вставьте ошибку в функцию и убедитесь, что тест красный.</p>
+<pre><code>// subtotal.js
+function calculateCartSubtotal(cart) {
+  return cart.reduce((sum, item) =&gt; sum + item.price * item.quantity, 0);
+}
+module.exports = { calculateCartSubtotal };</code></pre>
+<p class="why"><b>Зачем:</b> покрытие говорит, что код выполнялся, но не говорит, что результат проверен содержательно. Данные с «удобными» значениями (количество 1, цена 0) маскируют ошибки. Привычка «а что будет, если сломать вот эту строку?» — главный способ проверить качество тестов.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// subtotal.test.js
+const { calculateCartSubtotal } = require('./subtotal');
+
+test('учитывает количество каждого товара', () =&gt; {
+  const cart = [{ price: 100, quantity: 3 }, { price: 50, quantity: 2 }];
+  expect(calculateCartSubtotal(cart)).toBe(400);
+});</code></pre>
+<p>Количество больше 1, и у разных строк оно разное, поэтому ошибочная версия даст 150, а не 400. Ручная проверка «сломать и посмотреть» называется мутационным тестированием. Все тесты этого урока проверены именно так: к каждой задаче на написание тестов есть сломанная версия кода, и решение обязано на ней упасть.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ti-branches" data-task="testing-intro/ti-branches">
+<h4>Задача 22. Найдите непокрытую ветку <span class="lvl">★★☆ практика</span></h4>
+<p>Для <code>calculateOrderTotal</code> уже есть два теста. Запустите <code>npx jest --coverage</code>, найдите в отчёте непокрытую ветку (колонка Branches) и допишите тест, который её покрывает и проверяет правильный результат.</p>
+<pre><code>// order.js
+function calculateOrderTotal(subtotal, promoCode) {
+  let discount = 0;
+  if (promoCode === 'SAVE10') {
+    if (subtotal &gt;= 20000) {
+      discount = Math.round(subtotal * 0.1);
+    }
+  }
+  const delivery = subtotal &gt;= 50000 ? 0 : 30000;
+  return { discount, delivery, total: subtotal - discount + delivery };
+}
+module.exports = { calculateOrderTotal };</code></pre>
+<pre><code>// order.test.js
+const { calculateOrderTotal } = require('./order');
+test('без промокода, с доставкой', () =&gt; {
+  expect(calculateOrderTotal(10000)).toEqual({ discount: 0, delivery: 30000, total: 40000 });
+});
+test('SAVE10 и бесплатная доставка', () =&gt; {
+  expect(calculateOrderTotal(60000, 'SAVE10')).toEqual({ discount: 6000, delivery: 0, total: 54000 });
+});</code></pre>
+<p class="why"><b>Зачем:</b> колонка Branches показывает условия, которые ни разу не пошли по одной из дорог. Это самые вероятные места непроверенных ошибок: правило «скидка только от 20 000» никем не проверено, хотя строки выполнялись.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// order.branch.test.js
+const { calculateOrderTotal } = require('./order');
+
+test('SAVE10 не действует на сумму меньше 20 000', () =&gt; {
+  expect(calculateOrderTotal(19999, 'SAVE10')).toEqual({ discount: 0, delivery: 30000, total: 49999 });
+});</code></pre>
+<p>Отчёт показывает 100% строк, но 83,33% веток, а в колонке Uncovered Line — номер строки с <code>if (subtotal &gt;= 20000)</code>. Её «ложная» дорога ни разу не выполнялась: ни один тест не проходит случай «промокод верный, но суммы не хватает». Новый тест закрывает именно эту дорогу и ловит мутанта, который забыл про порог. Учтите: если записать то же условие одной строкой через <code>&amp;&amp;</code> в тернарном операторе, отчёт может показать 100% веток, хотя случай по-прежнему не проверен. Покрытие зависит от формы кода, а не только от смысла.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

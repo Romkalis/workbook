@@ -10,6 +10,37 @@
   }
 }</code></pre>
 <p>Теперь <code>npm test</code> запускает Jest, а тот находит все файлы, которые заканчиваются на <code>.test.js</code> (или лежат в папке <code>__tests__</code>), и выполняет их. Можно запустить только часть: <code>npx jest tests/catalog</code> выполнит тесты из одной папки.</p>
+<article class="task" id="ti-setup" data-task="testing-intro/ti-setup">
+<h4>Задача 5. Проект с Jest с нуля <span class="lvl">★☆☆ разминка</span></h4>
+<p>Создайте пустую папку, установите Jest как dev-зависимость и добавьте скрипт <code>test</code>. Напишите <code>sum.js</code> и <code>sum.test.js</code> с одним тестом. Запустите сначала все тесты, затем только этот файл командой <code>npx jest sum</code>.</p>
+<p class="why"><b>Зачем:</b> проект, в котором тесты запускаются одной стандартной командой <code>npm test</code>, понятен любому разработчику и любому CI. Запуск одного файла ускоряет работу, когда тестов становятся сотни.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// package.json
+{
+  "name": "jest-start",
+  "private": true,
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^30.0.0"
+  }
+}</code></pre>
+<pre><code>// sum.js
+function sum(a, b) {
+  return a + b;
+}
+module.exports = { sum };</code></pre>
+<pre><code>// sum.test.js
+const { sum } = require('./sum');
+
+test('складывает два числа', () =&gt; {
+  expect(sum(2, 3)).toBe(5);
+});</code></pre>
+<p>Jest в <code>devDependencies</code>: пользователю сайта он не нужен. Скрипт называется именно <code>test</code>: у npm для него есть сокращение <code>npm test</code> без <code>run</code>. Аргумент <code>npx jest sum</code> — это шаблон пути: запустятся файлы, в пути которых есть <code>sum</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="ti-jest-anatomy">Анатомия тестового файла</h3>
 <p>Вот готовый пример из задания Testing Intro (сокращён):</p>
 <pre><code>const products = require('../../src/data/products');
@@ -33,6 +64,66 @@ describe('getAvailableProducts', () =&gt; {
 <li><code>expect(фактическое).toEqual(ожидаемое)</code> — <strong>проверка</strong>. <code>expect</code> принимает то, что вернула функция, а метод после точки — <strong>матчер</strong> — говорит, как сравнивать.</li>
 </ul>
 <p><code>describe</code>, <code>test</code> и <code>expect</code> не нужно импортировать: Jest сам делает их доступными во всех тестовых файлах.</p>
+<article class="task" id="ti-to-jest" data-task="testing-intro/ti-to-jest">
+<h4>Задача 6. Переведите проверки на Jest <span class="lvl">★☆☆ разминка</span></h4>
+<p>Перепишите проверки из задачи «Первый тест без библиотек» на Jest: файл <code>discount.test.js</code>, одна группа <code>describe</code> на функцию, по <code>test</code> на каждый случай.</p>
+<pre><code>// discount.js
+function calculateDiscount(subtotal) {
+  return subtotal &gt;= 20000 ? Math.round(subtotal * 0.1) : 0;
+}
+module.exports = { calculateDiscount };</code></pre>
+<p class="why"><b>Зачем:</b> тот же смысл, но теперь упавший тест не остановит остальные, отчёт покажет, что и где сломалось, а код выхода поймёт CI.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// discount.test.js
+const { calculateDiscount } = require('./discount');
+
+describe('calculateDiscount', () =&gt; {
+  test('без скидки при сумме меньше 20 000', () =&gt; {
+    expect(calculateDiscount(19999)).toBe(0);
+  });
+
+  test('10% ровно на пороге 20 000', () =&gt; {
+    expect(calculateDiscount(20000)).toBe(2000);
+  });
+
+  test('10% при сумме больше порога', () =&gt; {
+    expect(calculateDiscount(35000)).toBe(3500);
+  });
+});</code></pre>
+<p>Названия тестов теперь читаются как правила, а <code>describe</code> собирает их под именем функции. Попробуйте заменить в функции <code>&gt;=</code> на <code>&gt;</code>: упадёт ровно один тест, «10% ровно на пороге». Название сразу говорит, какое правило нарушено. Мы проверили это: такая версия функции действительно роняет этот набор.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ti-names" data-task="testing-intro/ti-names">
+<h4>Задача 7. Названия, которые объясняют правило <span class="lvl">★☆☆ разминка</span></h4>
+<p>Переименуйте тесты так, чтобы по названию было понятно правило, без чтения кода. Сами проверки не меняйте.</p>
+<pre><code>// starter.js
+const { isFreeDelivery } = require('./delivery');
+describe('isFreeDelivery', () =&gt; {
+  test('test 1', () =&gt; expect(isFreeDelivery(50000)).toBe(true));
+  test('works', () =&gt; expect(isFreeDelivery(49999)).toBe(false));
+  test('edge', () =&gt; expect(isFreeDelivery(0)).toBe(false));
+});</code></pre>
+<pre><code>// delivery.js
+const FREE_DELIVERY_FROM = 50000;
+function isFreeDelivery(subtotal) {
+  return subtotal &gt;= FREE_DELIVERY_FROM;
+}
+module.exports = { isFreeDelivery };</code></pre>
+<p class="why"><b>Зачем:</b> через полгода упавший тест прочитает человек, который не писал код, возможно, вы сами. «test 1 failed» не говорит ничего, а «доставка бесплатна ровно от 50 000» сразу показывает, какое правило сломано.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// delivery.test.js
+const { isFreeDelivery } = require('./delivery');
+
+describe('isFreeDelivery', () =&gt; {
+  test('бесплатна ровно от 50 000 копеек', () =&gt; expect(isFreeDelivery(50000)).toBe(true));
+  test('платная, если не хватает одной копейки', () =&gt; expect(isFreeDelivery(49999)).toBe(false));
+  test('платная для пустой корзины', () =&gt; expect(isFreeDelivery(0)).toBe(false));
+});</code></pre>
+<p>Удобный шаблон: «[результат] при/для [условие]». Название вместе с <code>describe</code> читается как предложение: <i>isFreeDelivery бесплатна ровно от 50 000 копеек</i>. В названии есть конкретное значение границы: если её поменяют, станет видно, что тест устарел.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="ti-jest-output">Как читать результат</h3>
 <p>Если все тесты прошли, Jest печатает зелёные галочки и сводку вида <code>Tests: 9 passed, 9 total</code>. Если какой-то упал, вы увидите его название красным и разницу (diff):</p>
 <pre><code>✕ исключает товары с нулевым остатком
@@ -49,7 +140,106 @@ describe('getAvailableProducts', () =&gt; {
   +   },</code></pre>
 <p>Строки с <code>-</code> есть в ожидаемом, но нет в фактическом. Строки с <code>+</code> — наоборот, лишние. Здесь функция вернула товар с <code>stock: 0</code>, которого быть не должно. Ниже Jest показывает номер строки в тестовом файле. (Вывод приведён по общим знаниям о формате Jest и может немного отличаться в вашей версии.)</p>
 <p class="note">Если тест упал, сначала поймите, кто прав: код или тест. Тест тоже может быть написан с ошибкой. Но в задании Testing Intro тесты корзины трогать нельзя — там правы они.</p>
+<article class="task" id="ti-who-wrong" data-task="testing-intro/ti-who-wrong">
+<h4>Задача 8. Кто прав: тест или код? <span class="lvl">★★☆ практика</span></h4>
+<p>Тест ниже падает с таким выводом. Определите по diff, что вернула функция, найдите ошибку и исправьте <b>код</b>, а не тест.</p>
+<pre><code>// starter.txt
+✕ возвращает только товары в наличии
+  expect(received).toEqual(expected)
+  - Expected  - 0
+  + Received  + 4
+  +   Object {
+  +     "id": 2,
+  +     "stock": 0,
+  +   },</code></pre>
+<pre><code>// available.test.js
+const { getAvailableProducts } = require('./available');
+test('возвращает только товары в наличии', () =&gt; {
+  const catalog = [{ id: 1, stock: 2 }, { id: 2, stock: 0 }, { id: 3, stock: 5 }];
+  expect(getAvailableProducts(catalog)).toEqual([{ id: 1, stock: 2 }, { id: 3, stock: 5 }]);
+});</code></pre>
+<p class="why"><b>Зачем:</b> красный тест — не приговор коду и не приговор тесту, это вопрос: «кто из нас неправ?». Умение читать diff экономит часы: он прямо показывает, чего не хватает и что лишнее.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Строки с <code>+</code> — лишнее в фактическом результате. В результат попал товар с <code>stock: 0</code>. Посмотрите на условие фильтра.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// available.js
+// Было: products.filter((p) =&gt; p.stock &gt;= 0)
+function getAvailableProducts(products) {
+  return products.filter((p) =&gt; p.stock &gt; 0);
+}
+module.exports = { getAvailableProducts };</code></pre>
+<p>Diff показал лишний объект с <code>stock: 0</code>. Значит, функция пропускает нулевой остаток, и виновато условие <code>&gt;= 0</code>. Почему прав тест: его название — правило из требований («только в наличии»), а товар с нулевым остатком купить нельзя. Если бы тест противоречил требованиям, исправлять пришлось бы его. Решение «кто прав» всегда принимается по требованиям, а не по тому, что проще поменять.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="ti-jest-todo">test.todo и test.each</h3>
 <p><code>test.todo('название')</code> — тест-заметка «надо написать». Он не выполняется и показывается в отчёте как todo. В задании все тесты каталога заданы именно так: вам нужно превратить каждый todo в настоящий тест.</p>
 <p><code>test.each</code> запускает один и тот же тест на нескольких наборах данных. Подробно — в разделе <a href="#ti-part1">с решением</a>.</p>
+<article class="task" id="ti-todo" data-task="testing-intro/ti-todo">
+<h4>Задача 9. План тестов через test.todo <span class="lvl">★☆☆ разминка</span></h4>
+<p>Для функции <code>applyPromo(subtotal, code)</code> из прошлых задач (<code>SAVE10</code> даёт 10% от 20 000 копеек) сначала запишите план: 5 тестов через <code>test.todo</code> с понятными названиями. Затем превратите два из них в настоящие тесты и запустите: в отчёте должно быть 2 passed и 3 todo.</p>
+<pre><code>// promo.js
+function applyPromo(subtotal, code) {
+  if (code !== 'SAVE10' || subtotal &lt; 20000) return subtotal;
+  return subtotal - Math.round(subtotal * 0.1);
+}
+module.exports = { applyPromo };</code></pre>
+<p class="why"><b>Зачем:</b> список todo — это чек-лист требований, который живёт рядом с кодом и виден в отчёте. Пока он не пуст, работа явно не закончена. Так удобно разбивать задачу на маленькие шаги.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// promo.test.js
+const { applyPromo } = require('./promo');
+
+describe('applyPromo', () =&gt; {
+  test('SAVE10 уменьшает сумму на 10% от 20 000', () =&gt; {
+    expect(applyPromo(30000, 'SAVE10')).toBe(27000);
+  });
+
+  test('без промокода сумма не меняется', () =&gt; {
+    expect(applyPromo(30000, undefined)).toBe(30000);
+  });
+
+  test.todo('SAVE10 не действует на сумму меньше 20 000');
+  test.todo('неизвестный промокод не даёт скидки');
+  test.todo('промокод чувствителен к регистру: save10 не работает');
+});</code></pre>
+<p>Последний todo — решение, которое надо принять осознанно: работает ли <code>save10</code>? Сейчас функция сравнивает строго, и тест зафиксирует это поведение. Записав такой вопрос в todo, вы не забудете обсудить его с командой.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ti-each" data-task="testing-intro/ti-each">
+<h4>Задача 10. Уберите копипасту через test.each <span class="lvl">★★☆ практика</span></h4>
+<p>Четыре теста ниже отличаются только данными. Перепишите их одним <code>test.each</code> с таблицей и названием, в котором подставляются значения.</p>
+<pre><code>// starter.js
+test('1 → 1 товар', () =&gt; expect(pluralize(1)).toBe('1 товар'));
+test('2 → 2 товара', () =&gt; expect(pluralize(2)).toBe('2 товара'));
+test('5 → 5 товаров', () =&gt; expect(pluralize(5)).toBe('5 товаров'));
+test('11 → 11 товаров', () =&gt; expect(pluralize(11)).toBe('11 товаров'));</code></pre>
+<pre><code>// pluralize.js
+function pluralize(n) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 &amp;&amp; mod100 !== 11) return `${n} товар`;
+  if (mod10 &gt;= 2 &amp;&amp; mod10 &lt;= 4 &amp;&amp; (mod100 &lt; 12 || mod100 &gt; 14)) return `${n} товара`;
+  return `${n} товаров`;
+}
+module.exports = { pluralize };</code></pre>
+<p class="why"><b>Зачем:</b> когда правило проверяется на многих примерах, таблица читается лучше пяти копий. Добавить случай — одна строка, и сразу видно, какие значения уже проверены, а какие нет (здесь не хватает 12, 21, 22…).</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// pluralize.test.js
+const { pluralize } = require('./pluralize');
+
+test.each([
+  [1, '1 товар'],
+  [2, '2 товара'],
+  [5, '5 товаров'],
+  [11, '11 товаров'],
+  [12, '12 товаров'],
+  [21, '21 товар'],
+  [22, '22 товара'],
+])('%s → %s', (n, expected) =&gt; {
+  expect(pluralize(n)).toBe(expected);
+});</code></pre>
+<p>В таблицу сразу добавлены 12, 21 и 22: когда данные лежат в столбик, пробелы в покрытии видны. Версия функции, которая помнит про 11, но забыла про 12–14, проходит все четыре исходных теста и возвращает «12 товара». Ловит её только строка с 12: мы проверили это запуском. <code>%s</code> в названии подставляет значения строки по порядку.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

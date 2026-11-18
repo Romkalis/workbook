@@ -4,6 +4,65 @@
 <h3 id="ti-tdd-cycle">Цикл красный — зелёный — рефакторинг</h3>
 <figure class="dg"><div class="dg-title">Один шаг TDD</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0">Красный: пишем тест на новое поведение, запускаем — он падает.</li><li class="card lit" style="--i:1">Зелёный: пишем самый простой код, чтобы тест прошёл.</li><li class="card lit" style="--i:2">Рефакторинг: улучшаем код, тесты всё время зелёные.</li></ol><figcaption>TDD повторяет три шага. Красный — тест на новое поведение написан и падает, потому что кода ещё нет. Зелёный — написан минимальный код, тест проходит. Рефакторинг — код делают чище, а тесты подтверждают, что поведение не сломалось. Затем следующий тест.</figcaption></figure>
 <p>Зачем видеть красный тест? Чтобы убедиться, что тест вообще что-то проверяет. Тест, который зелёный ещё до появления кода, бесполезен: он пройдёт и с ошибкой.</p>
+<article class="task" id="ti-tdd" data-task="testing-intro/ti-tdd">
+<h4>Задача 19. TDD: стоимость доставки <span class="lvl">★★☆ практика</span></h4>
+<p>Правило: доставка стоит 300 ₽ (30 000 копеек), от 3 000 ₽ — 150 ₽, от 5 000 ₽ — бесплатно; пустая корзина — 0. Сделайте функцию <code>deliveryCost(subtotal)</code> по TDD. На каждое правило сначала напишите тест, увидьте красный, затем минимальный код до зелёного. Закоммитьте пары «тест → код».</p>
+<p class="why"><b>Зачем:</b> красный тест доказывает, что тест вообще что-то проверяет. Короткие шаги «тест → минимальный код» не дают написать лишнего: каждая строка кода появилась ради конкретного требования.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Порядок шагов: пустая корзина → базовая цена → первый порог → второй порог. На каждом шаге код должен проходить <i>все</i> тесты, написанные до этого.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// delivery.test.js
+const { deliveryCost } = require('./delivery');
+
+describe('deliveryCost', () =&gt; {
+  test('пустая корзина — 0', () =&gt; expect(deliveryCost(0)).toBe(0));
+  test('до 3 000 ₽ — 300 ₽', () =&gt; expect(deliveryCost(299999)).toBe(30000));
+  test('ровно 3 000 ₽ — 150 ₽', () =&gt; expect(deliveryCost(300000)).toBe(15000));
+  test('ровно 5 000 ₽ — бесплатно', () =&gt; expect(deliveryCost(500000)).toBe(0));
+  test('чуть меньше 5 000 ₽ — 150 ₽', () =&gt; expect(deliveryCost(499999)).toBe(15000));
+});</code></pre>
+<pre><code>// delivery.js
+const STEPS = [
+  { from: 500000, cost: 0 },
+  { from: 300000, cost: 15000 },
+  { from: 1, cost: 30000 },
+];
+
+function deliveryCost(subtotal) {
+  return STEPS.find((s) =&gt; subtotal &gt;= s.from)?.cost ?? 0;
+}
+module.exports = { deliveryCost };</code></pre>
+<p>История коммитов для этой задачи может выглядеть так: <code>test: empty cart delivery</code> → <code>feat: ...</code> → <code>test: base delivery price</code> → … На шаге рефакторинга цепочка <code>if</code> превратилась в таблицу <code>STEPS</code>: правила видны как данные, а новый порог — одна строка. Тесты на этом шаге не менялись и остались зелёными, в этом и смысл рефакторинга под защитой тестов. Мутант со строгими <code>&gt;</code> ловят тесты «ровно 3 000» и «ровно 5 000».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ti-red" data-task="testing-intro/ti-red">
+<h4>Задача 20. Тест, который не может упасть <span class="lvl">★☆☆ разминка</span></h4>
+<p>Тест ниже зелёный даже тогда, когда функции <code>removeFromCart</code> ещё нет (она пустая заглушка). Объясните почему и перепишите тест так, чтобы на заглушке он был красным.</p>
+<pre><code>// starter.js
+// заглушка: function removeFromCart(cart, id) { return cart; }
+test('удаляет товар', () =&gt; {
+  const cart = [{ id: 1 }, { id: 2 }];
+  const result = removeFromCart(cart, 1);
+  expect(result).toBeTruthy();
+});</code></pre>
+<pre><code>// cart.js
+function removeFromCart(cart, id) {
+  return cart.filter((item) =&gt; item.id !== id);
+}
+module.exports = { removeFromCart };</code></pre>
+<p class="why"><b>Зачем:</b> шаг «красный» в TDD нужен именно для этого: увидеть, что тест способен упасть. Слабая проверка вроде <code>toBeTruthy</code> пройдёт почти с любым результатом, и тест превращается в декорацию.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// cart.test.js
+const { removeFromCart } = require('./cart');
+
+test('удаляет товар с указанным id и оставляет остальные', () =&gt; {
+  const cart = [{ id: 1 }, { id: 2 }];
+  expect(removeFromCart(cart, 1)).toEqual([{ id: 2 }]);
+});</code></pre>
+<p>Любой массив, даже пустой, — truthy, поэтому исходный тест проходил с заглушкой, которая ничего не удаляет. Конкретное ожидание <code>[{ id: 2 }]</code> проверяет и что удалено нужное, и что остальное на месте. Заглушка-мутант <code>return cart</code> новый тест роняет.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="ti-tdd-example">Пример на removeFromCart</h3>
 <p><strong>Красный.</strong> Тест из задания уже есть, функция — заглушка:</p>
 <pre><code>// tests/cart/cart.test.js
