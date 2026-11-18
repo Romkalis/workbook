@@ -1,0 +1,14 @@
+<section id="et-start">
+<h2>Зачем TypeScript на сервере</h2>
+<p>В уроке <a href="/lessons/node-basics#nb-express-app">«Основы Node.js и Express»</a> мы написали API списка задач на JavaScript. Он работает, но у него есть слабое место. Сервер получает данные от кого угодно: от вашего фронтенда, от Postman, от чужого скрипта. Когда в коде написано <code>req.body.items.map(...)</code>, вы <i>надеетесь</i>, что <code>items</code> — массив. Если пришёл объект или строка, сервер упадёт с <code>TypeError</code> где-то в глубине.</p>
+<p>TypeScript (надстройка над JavaScript с проверкой типов до запуска, подробно в уроке <a href="/lessons/typescript-basic">TypeScript Basic</a>) сам по себе входящие данные не проверяет: типы стираются при сборке. Зато он заставляет честно сказать: «тело запроса — <code>unknown</code>, пока я его не проверил». После проверки компилятор помнит форму данных, и дальше по коду ошибиться сложнее. Плюс общий язык с фронтендом: один и тот же тип <code>Product</code> описывает и ответ сервера, и то, что рисует карточка.</p>
+<h3 id="et-goals">Что соберём</h3>
+<p>Маленький API для учебного магазина. Он пригодится, если в <a href="/lessons/team-project-interview">командном проекте</a> вы решите добавить свой сервер:</p>
+<div class="tbl"><table><thead><tr><th>Метод и путь</th><th>Что делает</th><th>Ошибки</th></tr></thead><tbody>
+<tr><td><code>GET /api/health</code></td><td>проверка «сервер жив»</td><td>—</td></tr>
+<tr><td><code>GET /api/products?search=&amp;category=&amp;minPrice=&amp;maxPrice=</code></td><td>список товаров с фильтрами</td><td>400, если цена не число</td></tr>
+<tr><td><code>GET /api/products/:id</code></td><td>один товар</td><td>404, если нет</td></tr>
+<tr><td><code>POST /api/cart/quote</code></td><td>считает сумму корзины и скидку по промокоду</td><td>400 на неверное тело или битый JSON</td></tr>
+</tbody></table></div>
+<p>Что нужно знать заранее: маршруты, <code>req</code>/<code>res</code> и middleware из <a href="/lessons/node-basics#nb-express">раздела про Express</a>, модули из <a href="/lessons/node-basics#nb-esm">раздела про ESM</a>, union и сужение типов из <a href="/lessons/typescript-basic#ts-narrowing">TypeScript Basic</a>.</p>
+</section>

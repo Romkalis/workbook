@@ -1,0 +1,13 @@
+<section id="et-sources" class="sources">
+<h2>Источники и границы урока</h2>
+<p>Урок не опирается на отдельный модуль RS School: в материалах курса, которые есть в учебнике, Express разобран только на JavaScript (<a href="/lessons/node-basics">Основы Node.js и Express</a>, <a href="/lessons/jwt-auth">JWT-авторизация</a>). Весь серверный код урока собран в одном проекте и запущен: Node 22.23, Express 5.3.0, TypeScript 7.0.2, tsx 4.23, Vitest 5.1.0, supertest 7.3.2, cors 2.8.6. <code>tsc --noEmit</code> без ошибок, 13 тестов проходят, сборка в <code>dist</code> запускается, ответы и CORS-заголовки проверены через curl. Клиентский <code>fetchQuote</code> не запускался.</p>
+<ul>
+<li><a href="https://expressjs.com/en/guide/error-handling.html">Express: Error handling</a> — четыре аргумента обработчика, передача ошибок из async в Express 5 (проверено кодом).</li>
+<li><a href="https://expressjs.com/en/guide/migrating-5.html">Express: Migrating to Express 5</a> — отличия от Express 4.</li>
+<li><a href="https://www.typescriptlang.org/docs/handbook/modules/reference.html">TypeScript Handbook: Modules reference</a> — <code>nodenext</code> и расширения в импортах.</li>
+<li><a href="https://www.typescriptlang.org/tsconfig/">TSConfig Reference</a> — флаги из примера.</li>
+<li><a href="https://nodejs.org/api/typescript.html">Node.js: Modules: TypeScript</a> — type stripping и его ограничения. Поведение с импортами <code>.js</code> проверено запуском.</li>
+<li><a href="https://tsx.is/">tsx</a>, <a href="https://github.com/ladjs/supertest">supertest</a>, <a href="https://github.com/expressjs/cors">cors</a> — README пакетов.</li>
+<li>Из общих знаний и не проверено запуском: Zod, хостинги Render/Railway/Fly.io, поведение devDependencies при <code>NODE_ENV=production</code> на конкретных хостингах.</li>
+</ul>
+</section>

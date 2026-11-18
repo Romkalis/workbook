@@ -1,0 +1,55 @@
+<section id="et-errors">
+<h2>Ошибки: свой класс, 404 и общий обработчик</h2>
+<h3 id="et-http-error">Класс HttpError</h3>
+<pre><code>// src/http-error.ts
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}</code></pre>
+<p>Ошибка несёт HTTP-статус. Маршрут не думает, как отформатировать ответ: он бросает <code>new HttpError(404, 'Товар не найден')</code>, а всё остальное делает общий обработчик. Приём «свой класс ошибки» подробно разобран в уроке <a href="/lessons/error-handling">Обработка ошибок</a>.</p>
+<h3 id="et-error-handler">Сборка приложения</h3>
+<pre><code>// src/app.ts
+import express, { type ErrorRequestHandler } from 'express';
+import cors from 'cors';
+import { productsRouter } from './routes/products.js';
+import { cartRouter } from './routes/cart.js';
+import { HttpError } from './http-error.js';
+
+export function createApp(allowedOrigin = 'http://localhost:5173') {
+  const app = express();
+  app.use(cors({ origin: allowedOrigin }));
+  app.use(express.json());
+
+  app.get('/api/health', (_req, res) =&gt; {
+    res.json({ ok: true });
+  });
+  app.use('/api/products', productsRouter);
+  app.use('/api/cart', cartRouter);
+
+  app.use((_req, _res, next) =&gt; next(new HttpError(404, 'Маршрут не найден')));
+
+  const onError: ErrorRequestHandler = (err, _req, res, _next) =&gt; {
+    const status = err instanceof HttpError ? err.status : (err.status ?? 500);
+    if (status &gt;= 500) console.error(err);
+    res.status(status).json({ error: status &gt;= 500 ? 'Внутренняя ошибка сервера' : err.message });
+  };
+  app.use(onError);
+  return app;
+}</code></pre>
+<p>Порядок <code>app.use</code> — порядок обработки, сверху вниз:</p>
+<ol>
+<li><code>cors</code> и <code>express.json()</code> срабатывают на каждый запрос. Второй превращает JSON-тело в объект <code>req.body</code>.</li>
+<li>Маршруты.</li>
+<li>Middleware без пути после всех маршрутов ловит то, что никто не обработал, и создаёт 404.</li>
+<li>Обработчик ошибок. Express узнаёт его по <b>четырём параметрам</b> <code>(err, req, res, next)</code>. Тип <code>ErrorRequestHandler</code> подставляет типы всех четырёх, а неиспользуемые параметры начинаются с <code>_</code>.</li>
+</ol>
+<p>Ветка <code>err.status ?? 500</code> нужна для ошибок, которые создал не наш код. Когда <code>express.json()</code> получает битый JSON, он бросает ошибку со <code>status: 400</code>. Без этой ветки клиент получил бы 500, будто упал сервер. Это проверено тестом в разделе о тестах.</p>
+<div class="warn"><p>Для 5xx клиенту уходит общий текст, а подробности — в лог (<code>console.error</code>). Текст внутренней ошибки может раскрыть путь к файлам, запрос к базе или ключ. Это из общих знаний, но правило стоит запомнить сразу.</p></div>
+<h3 id="et-async">Express 5 и async-обработчики</h3>
+<p>В Express 4 исключение внутри <code>async</code>-обработчика терялось: промис отклонялся, а запрос висел, пока не истечёт время ожидания. Приходилось оборачивать каждый обработчик в <code>try/catch</code> с <code>next(err)</code>. В Express 5 отклонённый промис сам уходит в обработчик ошибок. Мы проверили: <code>app.get('/a', async () =&gt; { throw new Error('boom') })</code> отвечает 500 через наш обработчик. Если в интернете видите <code>express-async-errors</code> или обёртки <code>asyncHandler</code>, скорее всего, материал написан под Express 4.</p>
+</section>

@@ -1,0 +1,51 @@
+<section id="et-setup">
+<h2>Настройка проекта</h2>
+<h3 id="et-install">Зависимости</h3>
+<pre><code>mkdir shop-api &amp;&amp; cd shop-api
+npm init -y
+npm pkg set type=module
+npm i express cors
+npm i -D typescript tsx vitest supertest @types/express @types/cors @types/supertest @types/node</code></pre>
+<p>Две группы пакетов. В <code>dependencies</code> то, что нужно серверу в работе: Express и <code>cors</code>. В <code>devDependencies</code> то, что нужно только разработчику: компилятор, тесты и пакеты <code>@types/*</code>. Сам Express написан на JavaScript, а его типы лежат отдельно в репозитории <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">DefinitelyTyped</a>. Без <code>@types/express</code> TypeScript скажет, что не знает, что такое <code>express</code>. Строка <code>type=module</code> включает ES-модули (<code>import</code>/<code>export</code>) для файлов <code>.js</code>.</p>
+<h3 id="et-tsconfig">tsconfig.json для Node</h3>
+<pre><code>// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "rootDir": "src",
+    "outDir": "dist",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src"]
+}</code></pre>
+<dl class="gloss">
+<dt><code>module</code> и <code>moduleResolution</code>: <code>nodenext</code></dt><dd>Компилятор ищет и проверяет импорты по тем же правилам, что и сам Node. Для сервера, который запускает Node без сборщика (Vite, Webpack), это правильный выбор. Почему он отличается от настроек фронтенда, разобрано в <a href="/lessons/typescript-advanced#advanced-node-vs-bundler">TypeScript Advanced</a>.</dd>
+<dt><code>rootDir</code> / <code>outDir</code></dt><dd>Исходники в <code>src/</code>, готовый JavaScript в <code>dist/</code>. Папку <code>dist</code> добавьте в <code>.gitignore</code>.</dd>
+<dt><code>strict</code>, <code>noUncheckedIndexedAccess</code></dt><dd>Строгий режим. Второй флаг делает <code>record[key]</code> типом <code>T | undefined</code>: если промокода нет в словаре, компилятор заставит это обработать (<a href="/lessons/typescript-advanced#advanced-indexed-access">подробнее</a>).</dd>
+<dt><code>verbatimModuleSyntax</code></dt><dd>Импорт только типа пишется как <code>import { type Product }</code>. Так видно, какие импорты исчезнут после сборки.</dd>
+<dt><code>skipLibCheck</code></dt><dd>Не проверять файлы <code>.d.ts</code> из <code>node_modules</code>: быстрее, и чужие ошибки в типах не ломают вашу сборку.</dd>
+</dl>
+<h3 id="et-js-ext">Почему в импортах пишут .js, хотя файлы .ts</h3>
+<p>Самое неожиданное место для новичка:</p>
+<pre><code>import { HttpError } from '../http-error.js'; // файл на диске — http-error.ts</code></pre>
+<p>При <code>nodenext</code> TypeScript требует относительные импорты с расширением и <b>не переписывает</b> их при сборке. После <code>tsc</code> в <code>dist/</code> лежит <code>http-error.js</code>, и Node найдёт его ровно по этой строке. Если написать <code>'../http-error'</code> без расширения, <code>tsc</code> выдаст ошибку: в ES-модулях Node не подставляет расширения сам.</p>
+<h3 id="et-scripts">Как запускать: tsx, tsc и сам Node</h3>
+<pre><code>npm pkg set scripts.dev="tsx watch src/server.ts"
+npm pkg set scripts.build="tsc"
+npm pkg set scripts.start="node dist/server.js"
+npm pkg set scripts.typecheck="tsc --noEmit"
+npm pkg set scripts.test="vitest run"</code></pre>
+<div class="tbl"><table><thead><tr><th>Команда</th><th>Что происходит</th><th>Когда</th></tr></thead><tbody>
+<tr><td><code>npm run dev</code></td><td><a href="https://tsx.is/">tsx</a> на лету убирает типы и запускает код, а при сохранении файла перезапускает сервер. <b>Типы не проверяет.</b></td><td>разработка</td></tr>
+<tr><td><code>npm run typecheck</code></td><td><code>tsc</code> только проверяет типы, файлы не пишет</td><td>перед коммитом, в CI</td></tr>
+<tr><td><code>npm run build</code> + <code>npm start</code></td><td>компиляция в <code>dist/</code>, затем обычный Node запускает JavaScript</td><td>продакшен, деплой</td></tr>
+</tbody></table></div>
+<div class="warn"><p>tsx запустит сервер даже с ошибкой типов: он типы просто вырезает. Поэтому <code>typecheck</code> должен быть в CI или pre-commit хуке (<a href="/lessons/linters-formatters#lf-husky-setup">Husky</a>), иначе TypeScript превращается в комментарии.</p></div>
+<p>А сам Node умеет запускать <code>.ts</code>? Начиная с Node 22.18 включено «отбрасывание типов» (type stripping), в нашем Node 22.23 <code>process.features.typescript</code> равно <code>"strip"</code>. Но команда <code>node src/server.ts</code> на этом проекте падает с <code>ERR_MODULE_NOT_FOUND</code>: Node ищет буквально <code>app.js</code>, а рядом лежит <code>app.ts</code>. Для нативного запуска импорты нужно писать с <code>.ts</code> и включать в tsconfig <code>rewriteRelativeImportExtensions</code>. Кроме того, Node не поддерживает синтаксис, который требует генерации кода: <code>enum</code> и свойства-параметры конструктора (<code>constructor(readonly status: number)</code>). Для учебного проекта tsx проще. Подробности в <a href="https://nodejs.org/api/typescript.html">документации Node: Modules: TypeScript</a>.</p>
+</section>
