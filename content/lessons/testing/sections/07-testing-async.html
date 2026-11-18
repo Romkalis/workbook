@@ -26,7 +26,150 @@ test('отклоняет ответ без названия', async () =&gt; {
   await assert.rejects(() =&gt; loadTitle(7, async () =&gt; ({})), TypeError);
 });</code></pre>
 <p>Настоящая сеть здесь не используется: мы проверяем реакцию loadTitle на управляемую зависимость. Ошибку асинхронной функции проверяет <code>rejects</code>, а не <code>throws</code>. Перед await не забывайте, что сама проверка тоже возвращает Promise.</p>
+<article class="task" id="te-async" data-task="testing/te-async">
+<h4>Задача 9. Загрузка каталога: успех и отказ <span class="lvl">★★☆ практика</span></h4>
+<p>Функция <code>loadCatalog(fetchJson)</code> получает функцию загрузки и возвращает массив товаров. Если ответ не массив — <code>TypeError</code>, если загрузка упала — ошибка уходит дальше без изменений. Напишите три асинхронных теста с управляемой <code>fetchJson</code>.</p>
+<pre><code>// catalog.mjs
+export async function loadCatalog(fetchJson) {
+  const data = await fetchJson('/api/products');
+  if (!Array.isArray(data)) throw new TypeError('Ожидался массив товаров');
+  return data;
+}</code></pre>
+<p class="why"><b>Зачем:</b> асинхронный код ошибается не в том, что он считает, а в том, как реагирует на внешний мир: пустой ответ, мусор, отказ сети. Управляемая зависимость позволяет проверить все эти ситуации за миллисекунды и без интернета.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// catalog.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { loadCatalog } from './catalog.mjs';
+
+test('возвращает товары из ответа', async () =&gt; {
+  const products = await loadCatalog(async () =&gt; [{ id: 1 }]);
+  assert.deepEqual(products, [{ id: 1 }]);
+});
+
+test('ответ не массив — TypeError', async () =&gt; {
+  await assert.rejects(() =&gt; loadCatalog(async () =&gt; ({ error: 'oops' })), TypeError);
+});
+
+test('ошибка сети уходит вызывающему без изменений', async () =&gt; {
+  const network = new Error('Нет сети');
+  await assert.rejects(() =&gt; loadCatalog(async () =&gt; { throw network; }), network);
+});</code></pre>
+<p>Мутант «на всякий случай» глотает ошибки и возвращает пустой массив. Интерфейс тогда покажет «товаров нет» вместо «нет сети, повторите». Наши тесты ловят это сразу. <code>assert.rejects</code> с объектом ошибки проверяет, что дошла именно <i>та самая</i> ошибка, а не какая-то другая.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="te-forgot-await" data-task="testing/te-forgot-await">
+<h4>Задача 10. Тест, который «прошёл» <span class="lvl">★★★ с подвохом</span></h4>
+<p>В отчёте тест ниже помечен <code>ok</code>, хотя проверяемая функция работает неправильно. Найдите ошибку в тесте и исправьте её. Затем запустите исправленный тест на сломанной функции и убедитесь, что он теперь красный.</p>
+<pre><code>// starter.mjs
+test('отклоняет пустой ответ', () =&gt; {
+  assert.rejects(() =&gt; loadTitle(async () =&gt; ({})), TypeError);
+});</code></pre>
+<pre><code>// title.mjs
+export async function loadTitle(fetchMovie) {
+  const movie = await fetchMovie();
+  if (typeof movie.title !== 'string') throw new TypeError('Нет названия');
+  return movie.title;
+}</code></pre>
+<p class="why"><b>Зачем:</b> асинхронная проверка без <code>await</code> выполняется уже после того, как runner посчитал тест пройденным. Это классическая причина «зелёных» тестов, которые ничего не проверяют.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// title.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { loadTitle } from './title.mjs';
+
+test('отклоняет пустой ответ', async () =&gt; {
+  await assert.rejects(() =&gt; loadTitle(async () =&gt; ({})), TypeError);
+});</code></pre>
+<p><code>assert.rejects</code> возвращает Promise. Без <code>await</code> тест-функция завершается синхронно, и runner ставит <code>ok</code>. Мы проверили, что делает Node 22 со сломанной функцией: тест помечен <code>ok 1</code>, но ниже печатается «generated asynchronous activity after the test ended», и весь файл считается упавшим. Сообщение легко пропустить в длинном отчёте. В других runner'ах такая ошибка может пройти совсем тихо. Правило: тест с асинхронной проверкой — <code>async</code>, а каждая асинхронная проверка — с <code>await</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="testing-time">Время и ожидание — из общих знаний</h3>
 <p>Не делайте фиксированную паузу «на всякий случай»: на быстрой машине она тратит время, на медленной всё равно может оказаться короткой. Ждите конкретное событие или проверяемое состояние. Для debounce и таймеров можно использовать управляемые часы runner, но их API зависит от инструмента; после теста часы нужно восстанавливать.</p>
+<p>В <code>node:test</code> это <code>mock.timers</code>. После <code>enable</code> функции <code>setTimeout</code> и <code>clearTimeout</code> больше не ждут настоящего времени: оно идёт, только когда тест вызывает <code>tick(мс)</code>. Пример проверен в Node.js 22:</p>
+<pre><code>import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import assert from 'node:assert/strict';
+
+function debounce(fn, ms) {
+  let timer;
+  return (...args) =&gt; {
+    clearTimeout(timer);
+    timer = setTimeout(() =&gt; fn(...args), ms);
+  };
+}
+
+describe('debounce', () =&gt; {
+  beforeEach(() =&gt; mock.timers.enable({ apis: ['setTimeout'] }));
+  afterEach(() =&gt; mock.timers.reset()); // вернуть настоящие таймеры
+
+  it('вызывает один раз после паузы', () =&gt; {
+    const fn = mock.fn();
+    const search = debounce(fn, 300);
+    search('a');
+    search('ab');
+    mock.timers.tick(299);
+    assert.equal(fn.mock.callCount(), 0);
+    mock.timers.tick(1);
+    assert.deepEqual(fn.mock.calls[0].arguments, ['ab']);
+  });
+});</code></pre>
+<p>В Jest и Vitest та же идея называется fake timers (<code>jest.useFakeTimers()</code>, <code>vi.useFakeTimers()</code>), но названия методов отличаются.</p>
 <p>В браузерных тестах автоматическое ожидание элементов помогает синхронизации, но не исправляет гонки приложения. Если два запроса могут завершиться в обратном порядке, отдельно проверьте, что UI показывает актуальный результат.</p>
+<article class="task" id="te-timers" data-task="testing/te-timers">
+<h4>Задача 11. Debounce без ожидания <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите тесты для <code>debounce(fn, ms)</code> с управляемыми таймерами <code>mock.timers</code>: функция не вызывается раньше паузы; после паузы вызывается один раз с последними аргументами; новый вызов во время паузы сдвигает её. Настоящего ожидания в тестах быть не должно.</p>
+<pre><code>// debounce.mjs
+export function debounce(fn, ms) {
+  let timer;
+  return (...args) =&gt; {
+    clearTimeout(timer);
+    timer = setTimeout(() =&gt; fn(...args), ms);
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> тест с <code>await sleep(300)</code> медленный и всё равно ненадёжный на загруженной машине. Управляемые часы делают время частью Arrange: «прошло 299 мс» — и это ровно 299 мс, каждый раз (Repeatable из FIRST).</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// debounce.test.mjs
+import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import assert from 'node:assert/strict';
+import { debounce } from './debounce.mjs';
+
+describe('debounce', () =&gt; {
+  beforeEach(() =&gt; mock.timers.enable({ apis: ['setTimeout'] }));
+  afterEach(() =&gt; mock.timers.reset());
+
+  it('не вызывает раньше паузы', () =&gt; {
+    const fn = mock.fn();
+    debounce(fn, 300)('a');
+    mock.timers.tick(299);
+    assert.equal(fn.mock.callCount(), 0);
+  });
+
+  it('после паузы вызывает один раз с последними аргументами', () =&gt; {
+    const fn = mock.fn();
+    const search = debounce(fn, 300);
+    search('a');
+    search('ab');
+    mock.timers.tick(300);
+    assert.equal(fn.mock.callCount(), 1);
+    assert.deepEqual(fn.mock.calls[0].arguments, ['ab']);
+  });
+
+  it('новый вызов сдвигает паузу', () =&gt; {
+    const fn = mock.fn();
+    const search = debounce(fn, 300);
+    search('a');
+    mock.timers.tick(200);
+    search('ab');
+    mock.timers.tick(200);
+    assert.equal(fn.mock.callCount(), 0);
+    mock.timers.tick(100);
+    assert.equal(fn.mock.callCount(), 1);
+  });
+});</code></pre>
+<p>Мутант — это на самом деле throttle с первым аргументом: он игнорирует вызовы во время паузы. Он проходит первый тест, но вызывает функцию с <code>'a'</code> вместо <code>'ab'</code> и не сдвигает паузу. <code>afterEach</code> с <code>reset()</code> возвращает настоящие таймеры, иначе следующий файл или тест получит «замороженное» время.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

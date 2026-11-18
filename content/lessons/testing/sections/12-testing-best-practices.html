@@ -40,6 +40,44 @@ test('parsePrice: свойство — копейки считаются точ�
   }
 });</code></pre>
 <p>Почему здесь <code>Math.round</code>: <code>1.15 * 100</code> в JavaScript даёт <code>114.99999999999999</code>, а не 115 (проверено в Node.js 22). Тест свойства на тысяче случайных цен поймал бы такую ошибку, если убрать округление. Минус случайных входов — их трудно воспроизвести, поэтому в сообщение передаётся сам вход (<code>text</code>). fast-check к тому же умеет уменьшать найденный вход до минимального примера.</p>
+<article class="task" id="te-property" data-task="testing/te-property">
+<h4>Задача 22. Свойства сортировки на случайных данных <span class="lvl">★★★ с подвохом</span></h4>
+<p>Проверьте <code>sortByPrice</code> тестом свойств: на 500 случайных массивах результат упорядочен по цене, той же длины, состоит из тех же товаров, а исходный массив не изменён. Сделайте тест <b>воспроизводимым</b>: используйте генератор с фиксированным зерном (seed), а при падении печатайте входные данные.</p>
+<pre><code>// sort.mjs
+export function sortByPrice(products) {
+  return [...products].sort((a, b) =&gt; a.price - b.price);
+}</code></pre>
+<p class="why"><b>Зачем:</b> вручную выбранные примеры проверяют то, о чём вы подумали. Свойства на сотнях входов находят то, о чём не подумали: здесь дубли цен. Фиксированное зерно сохраняет FIRST: упавший тест падает снова, пока его не починят.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Простой генератор: <code>let s = seed; const rnd = () =&gt; (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;</code>. Цены берите из маленького диапазона, чтобы дубли встречались часто.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// sort.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { sortByPrice } from './sort.mjs';
+
+function createRandom(seed) {
+  let s = seed;
+  return () =&gt; (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+}
+
+test('свойства sortByPrice на 500 массивах', () =&gt; {
+  const rnd = createRandom(42);
+  for (let run = 0; run &lt; 500; run++) {
+    const input = Array.from({ length: Math.floor(rnd() * 8) }, (_, id) =&gt; ({ id, price: Math.floor(rnd() * 5) * 100 }));
+    const snapshot = JSON.stringify(input);
+    const out = sortByPrice(input);
+    const ctx = `вход: ${snapshot}`;
+
+    assert.equal(out.length, input.length, ctx);
+    for (let i = 1; i &lt; out.length; i++) assert.ok(out[i - 1].price &lt;= out[i].price, ctx);
+    assert.deepEqual(out.map((p) =&gt; p.id).sort(), input.map((p) =&gt; p.id).sort(), ctx);
+    assert.equal(JSON.stringify(input), snapshot, ctx);
+  }
+});</code></pre>
+<p>Четыре свойства не зависят от конкретного входа: упорядоченность, длина, тот же набор id, неизменность входа. Мутант, который выбрасывает товары с одинаковой ценой, проходит любую «сортировку» на уникальных ценах, но здесь падает на свойстве длины. В сообщении будет вход, на котором он упал. Цены кратны 100 из пяти значений: так дубли гарантированно появятся. <code>Math.random</code> не используем: упавший случай нельзя было бы повторить.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="testing-other-rules">Ещё несколько правил</h3>
 <ul>
 <li><strong>Подменяйте осторожно:</strong> заглушки (stub) и шпионы (spy), проверяющие наблюдаемый результат, надёжнее моков, которые проверяют внутренние вызовы (см. <a href="#testing-overmocking">«Подмены»</a>).</li>

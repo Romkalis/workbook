@@ -22,8 +22,71 @@ test('массив с элементом не пуст', () =&gt; {
   assert.equal(isEmpty([0]), false);
 });</code></pre>
 <p>Статья CircleCI из программы перечисляет плюсы TDD: требования понятны до реализации, ошибки находятся рано, дизайн складывается под тесты, а сами тесты служат документацией и позволяют уверенно менять код. Из минусов там упомянуто только, что TDD требует больше усилий в начале. Это однобоко. Из общих знаний: TDD плохо ложится на исследовательскую работу, когда интерфейс ещё неясен, на вёрстку и на прототипы, которые завтра выбросят. Там тесты пишут после того, как поведение устоялось.</p>
+<article class="task" id="te-tdd" data-task="testing/te-tdd">
+<h4>Задача 17. TDD: разбор параметра сортировки <span class="lvl">★★☆ практика</span></h4>
+<p>Сделайте по TDD функцию <code>parseSort(value)</code>: <code>'price-asc'</code> → <code>{ field: 'price', dir: 'asc' }</code>; <code>'title-desc'</code> → <code>{ field: 'title', dir: 'desc' }</code>; любое другое значение (<code>null</code>, <code>'price'</code>, <code>'cost-asc'</code>) → <code>null</code>. Начните с одного падающего теста, двигайтесь маленькими шагами.</p>
+<p class="why"><b>Зачем:</b> каждый новый тест в TDD — маленькое требование, и код растёт ровно настолько, насколько нужно. В конце у вас и функция, и её спецификация, а каждый случай «а что если…» уже записан.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Шаги: 1) <code>'price-asc'</code> (минимальный код может вернуть константу!), 2) <code>'title-desc'</code> заставит разбирать строку, 3) неизвестное поле, 4) нет направления, 5) <code>null</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// sort.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { parseSort } from './sort.mjs';
+
+test('price-asc', () =&gt; assert.deepEqual(parseSort('price-asc'), { field: 'price', dir: 'asc' }));
+test('title-desc', () =&gt; assert.deepEqual(parseSort('title-desc'), { field: 'title', dir: 'desc' }));
+test('неизвестное поле — null', () =&gt; assert.equal(parseSort('cost-asc'), null));
+test('без направления — null', () =&gt; assert.equal(parseSort('price'), null));
+test('лишняя часть — null', () =&gt; assert.equal(parseSort('price-asc-x'), null));
+test('null — null', () =&gt; assert.equal(parseSort(null), null));</code></pre>
+<pre><code>// sort.mjs
+const FIELDS = ['price', 'title'];
+const DIRS = ['asc', 'desc'];
+
+export function parseSort(value) {
+  if (typeof value !== 'string') return null;
+  const [field, dir, ...rest] = value.split('-');
+  if (rest.length &gt; 0 || !FIELDS.includes(field) || !DIRS.includes(dir)) return null;
+  return { field, dir };
+}</code></pre>
+<p>После первого теста «зелёная» реализация может быть <code>return { field: 'price', dir: 'asc' }</code>. Звучит глупо, но это честный шаг: второй тест заставляет её обобщить. Тест «лишняя часть» появился, когда на шаге рефакторинга стало видно, что деструктуризация молча отбросит хвост. Белые списки <code>FIELDS</code> и <code>DIRS</code> — это ещё и безопасность: значение из адреса страницы не попадёт в запрос как есть.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="testing-bdd">BDD: согласовать поведение на примерах</h3>
 <p>BDD помогает разработчикам, тестировщикам и людям со стороны продукта договориться о поведении. Сначала обсуждают конкретные случаи, затем формулируют их так, чтобы можно было проверить. Синтаксис Given/When/Then удобен, но сам по себе не делает процесс BDD.</p>
 <div class="note"><b>Пример сценария</b><p>Дано: корзина пуста. Когда: пользователь открывает оформление заказа. Тогда: кнопка подтверждения недоступна и есть объяснение, что нужно добавить товар.</p></div>
 <p>Этот сценарий — текстовое описание, не исполняемый файл Gherkin. Его можно автоматизировать разными инструментами. BDD и TDD совместимы: согласованный пользовательский пример направляет разработку, а TDD помогает шаг за шагом построить нужную логику. Названия describe/it не определяют методологию.</p>
+<article class="task" id="te-bdd" data-task="testing/te-bdd">
+<h4>Задача 18. Сценарий Given/When/Then в тестах <span class="lvl">★☆☆ разминка</span></h4>
+<p>Превратите сценарий из раздела в тесты для <code>checkoutState(cart)</code>. Функция возвращает <code>{ enabled, reason }</code>: для пустой корзины кнопка недоступна, а причина — «Добавьте товар в корзину»; для непустой — доступна, причины нет. Названия <code>describe</code>/<code>it</code> должны читаться как сценарий.</p>
+<pre><code>// checkout.mjs
+export function checkoutState(cart) {
+  if (cart.length === 0) return { enabled: false, reason: 'Добавьте товар в корзину' };
+  return { enabled: true, reason: null };
+}</code></pre>
+<p class="why"><b>Зачем:</b> сценарий, согласованный с продуктом, становится исполняемой проверкой. Изменят требование — упадёт тест с понятным всем названием, а не загадочный <code>test 12</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// checkout.test.mjs
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { checkoutState } from './checkout.mjs';
+
+describe('Оформление заказа', () =&gt; {
+  describe('Дано: корзина пуста. Когда: пользователь открывает оформление', () =&gt; {
+    it('Тогда: кнопка подтверждения недоступна и объяснено почему', () =&gt; {
+      assert.deepEqual(checkoutState([]), { enabled: false, reason: 'Добавьте товар в корзину' });
+    });
+  });
+
+  describe('Дано: в корзине есть товар', () =&gt; {
+    it('Тогда: кнопка доступна, объяснение не нужно', () =&gt; {
+      assert.deepEqual(checkoutState([{ id: 1, quantity: 1 }]), { enabled: true, reason: null });
+    });
+  });
+});</code></pre>
+<p>Важная часть сценария — <i>объяснение</i>. Мутант делает кнопку недоступной, но молча, и пользователь не понимает почему. Проверка <code>deepEqual</code> всего объекта ловит это. Сама функция ничего не знает о кнопке: она описывает состояние, а интерфейс решает, как его показать.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

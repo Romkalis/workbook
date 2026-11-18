@@ -18,6 +18,28 @@
 test.todo('скидка для постоянных клиентов'); // в отчёте: # TODO
 test.skip('оплата картой', () =&gt; { /* не выполнится */ }); // в отчёте: # SKIP</code></pre>
 <p>Встроенный runner Node.js 22 поддерживает обе формы; мы проверили отчёт: <code># todo 1</code>, <code># skipped 1</code>. Пропущенный тест не должен жить вечно: оставьте рядом причину и задачу, по которой его вернут.</p>
+<article class="task" id="te-todo-skip" data-task="testing/te-todo-skip">
+<h4>Задача 19. todo и skip с причиной <span class="lvl">★☆☆ разминка</span></h4>
+<p>В файле с тестами корзины запланируйте два сценария через <code>test.todo</code>. Один тест временно отключите через <code>test.skip</code>: в названии или комментарии оставьте причину и номер задачи. Запустите и найдите в отчёте строки <code># todo</code> и <code># skipped</code>.</p>
+<p class="why"><b>Зачем:</b> todo — видимый долг, который не забудется. skip без причины — забытый навсегда тест. Причина и ссылка на задачу превращают пропуск во временную меру.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// plan.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+test('пустая корзина — сумма 0', () =&gt; {
+  assert.equal([].reduce((s, i) =&gt; s + i, 0), 0);
+});
+
+test.todo('скидка для постоянных клиентов');
+test.todo('бесплатная доставка от 5 000 ₽');
+
+// Отключён до исправления тестового стенда оплаты, задача #42
+test.skip('оплата картой (ждёт #42)', () =&gt; {});</code></pre>
+<p>В отчёте Node появятся <code># todo 2</code> и <code># skipped 1</code>. Хороший обычай — раз в неделю искать по проекту <code>.skip(</code> и проверять, не пора ли вернуть такие тесты.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="testing-e2e-tools">Инструменты для E2E</h3>
 <p>Сквозной тест управляет настоящим браузером: открывает страницу, кликает, вводит текст, проверяет результат. Это делают специальные инструменты (из общих знаний):</p>
 <div class="tbl"><table><thead><tr><th scope="col">Инструмент</th><th scope="col">Что это</th></tr></thead><tbody>

@@ -14,6 +14,121 @@
 <p>Чаще всего путают I и R. Подсказка: <strong>Independence</strong> — про другие тесты (порядок, общее состояние), <strong>Repeatability</strong> — про окружение (на другой машине, завтра, без интернета результат тот же). «Coverage» (покрытие) в FIRST не входит.</p>
 <h3 id="testing-state">Общее состояние и очистка</h3>
 <p>Из общих знаний: создавайте новый объект для каждого теста. Если меняете глобальные часы, окружение или подменяете модуль, восстанавливайте их после проверки. beforeEach/afterEach помогают с повторяющейся подготовкой и очисткой, но не должны скрывать от читателя важные условия сценария.</p>
+<p>В <code>node:test</code> тесты группируют через <code>describe</code> и <code>it</code> (синоним <code>test</code>), а подготовку и очистку пишут в хуках <code>beforeEach</code> и <code>afterEach</code>. Хук выполняется перед каждым и после каждого теста группы, причём <code>afterEach</code> срабатывает и после упавшего теста:</p>
+<pre><code>import { describe, it, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+
+describe('корзина', () =&gt; {
+  let cart;
+  beforeEach(() =&gt; {
+    cart = [{ id: 1, quantity: 1 }]; // у каждого теста свежая корзина
+  });
+  afterEach(() =&gt; {
+    // здесь возвращают на место то, что тест менял глобально: часы, process.env
+  });
+
+  it('содержит один товар', () =&gt; {
+    assert.equal(cart.length, 1);
+  });
+});</code></pre>
+<p>Есть и <code>before</code>/<code>after</code>: они выполняются один раз на всю группу. Их используют для дорогой подготовки вроде запуска тестового сервера.</p>
 <p>Прохождение только при определённом порядке — признак зависимости. Случайное падение называют flaky: сначала ищите неуправляемое время, гонку, общие данные и нестабильную внешнюю службу. Повторный запуск может помочь расследованию, но сам по себе не исправляет причину.</p>
 <div class="warn"><b>Не подменяйте проверку логированием</b><p>console.log полезен при отладке, но тесту нужно утверждение, которое приводит к ошибке при неверном результате. «Посмотрел вывод — вроде правильно» не даёт автоматической обратной связи.</p></div>
+<article class="task" id="te-before-each" data-task="testing/te-before-each">
+<h4>Задача 4. Свои данные каждому тесту через beforeEach <span class="lvl">★★☆ практика</span></h4>
+<p>Тесты ниже зависят от порядка: второй ожидает, что первый уже добавил товар. Убедитесь сами: <code>node --test --test-name-pattern="второй"</code> запускает только второй тест, и он падает. Перепишите их с <code>describe</code> и <code>beforeEach</code> так, чтобы каждый тест получал свежую корзину и проходил сам по себе.</p>
+<pre><code>// starter.mjs
+const cart = new Cart();
+test('добавляет товар', () =&gt; {
+  cart.add({ id: 1, price: 100 });
+  assert.equal(cart.count(), 1);
+});
+test('второй товар увеличивает счётчик', () =&gt; {
+  cart.add({ id: 2, price: 50 });
+  assert.equal(cart.count(), 2);
+});</code></pre>
+<pre><code>// cart.mjs
+export class Cart {
+  #items = new Map();
+  add(item) {
+    this.#items.set(item.id, item);
+  }
+  remove(id) {
+    this.#items.delete(id);
+  }
+  count() {
+    return this.#items.size;
+  }
+}</code></pre>
+<p class="why"><b>Зачем:</b> Independent из FIRST: тест должен падать или проходить одинаково в наборе и в одиночку. Иначе запуск одного теста (<code>--test-name-pattern</code>) даёт ложное падение, а смена порядка — загадочные «мигающие» результаты.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// cart.test.mjs
+import { describe, it, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { Cart } from './cart.mjs';
+
+describe('Cart', () =&gt; {
+  let cart;
+
+  beforeEach(() =&gt; {
+    cart = new Cart();
+    cart.add({ id: 1, price: 100 });
+  });
+
+  it('добавленный товар учитывается', () =&gt; {
+    assert.equal(cart.count(), 1);
+  });
+
+  it('второй товар увеличивает счётчик', () =&gt; {
+    cart.add({ id: 2, price: 50 });
+    assert.equal(cart.count(), 2);
+  });
+
+  it('удалённый товар больше не учитывается', () =&gt; {
+    cart.remove(1);
+    assert.equal(cart.count(), 0);
+  });
+});</code></pre>
+<p><code>beforeEach</code> выполняется перед каждым <code>it</code>, поэтому у каждого теста новая корзина с одним товаром. Теперь каждый тест сам получает условие «в корзине есть товар», а не надеется на соседа. Проверка: <code>node --test --test-name-pattern="второй"</code> теперь проходит, а исходная версия при таком запуске падала (мы проверили: 1 из 1 упал). Обратите внимание на тест удаления в исходном наборе урока: «удалить из пустой корзины и получить 0» проходит и в одиночку. Зависимость от порядка видна не всегда, поэтому свежие данные готовят в каждом тесте заранее, а не после того, как что-то «замигало».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="te-env-restore" data-task="testing/te-env-restore">
+<h4>Задача 5. Вернуть окружение на место <span class="lvl">★★☆ практика</span></h4>
+<p>Функция читает валюту из <code>process.env.CURRENCY</code>. Напишите два теста: с <code>CURRENCY=USD</code> и без переменной (по умолчанию рубли). Тесты должны восстанавливать исходное значение переменной в <code>afterEach</code>, даже если упали.</p>
+<pre><code>// money.mjs
+export function currencySymbol() {
+  return process.env.CURRENCY === 'USD' ? '$' : '₽';
+}</code></pre>
+<p class="why"><b>Зачем:</b> тест, который поменял глобальное состояние и не вернул его, ломает соседей. Причём не сразу, а «иногда», в зависимости от порядка. <code>afterEach</code> срабатывает и после упавшего теста, а очистка в конце тела теста — нет.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// money.test.mjs
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { currencySymbol } from './money.mjs';
+
+describe('currencySymbol', () =&gt; {
+  let saved;
+  beforeEach(() =&gt; {
+    saved = process.env.CURRENCY;
+  });
+  afterEach(() =&gt; {
+    if (saved === undefined) delete process.env.CURRENCY;
+    else process.env.CURRENCY = saved;
+  });
+
+  it('USD → $', () =&gt; {
+    process.env.CURRENCY = 'USD';
+    assert.equal(currencySymbol(), '$');
+  });
+
+  it('без переменной → ₽', () =&gt; {
+    delete process.env.CURRENCY;
+    assert.equal(currencySymbol(), '₽');
+  });
+});</code></pre>
+<p>Тонкость: <code>process.env.CURRENCY = undefined</code> запишет строку <code>"undefined"</code>, поэтому отсутствие восстанавливаем через <code>delete</code>. Лучшее решение — передавать валюту параметром, как время в задачах выше. Тогда восстанавливать будет нечего. Но с глобальными настройками в чужом коде вы встретитесь, и этот приём пригодится.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>
