@@ -1,0 +1,150 @@
+<section id="fu-client">
+<h2>Слой API-клиента</h2>
+<p>Вызовы <code>fetch</code> не разбрасывают по обработчикам кнопок. Их собирают в один модуль — <b>API-клиент</b>: функции «получить товары», «посчитать корзину» с типизированным результатом. Остальной код не знает адресов, заголовков и формата ошибок сервера.</p>
+<pre><code>export interface Product {
+  id: string;
+  title: string;
+  price: number;
+}
+
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
+function isProduct(x: unknown): x is Product {
+  return (
+    typeof x === 'object' &amp;&amp; x !== null &amp;&amp;
+    'id' in x &amp;&amp; typeof x.id === 'string' &amp;&amp;
+    'title' in x &amp;&amp; typeof x.title === 'string' &amp;&amp;
+    'price' in x &amp;&amp; Number.isInteger(x.price)
+  );
+}
+
+export function createApi(baseUrl: string, fetchFn: typeof fetch = fetch) {
+  return {
+    async getProducts(search = '', signal?: AbortSignal): Promise&lt;Product[]&gt; {
+      const url = new URL('/api/products', baseUrl);
+      if (search) url.searchParams.set('search', search);
+      const res = await fetchFn(url, { signal });
+      if (!res.ok) throw new HttpError(res.status, `Сервер ответил ${res.status}`);
+      const data: unknown = await res.json();
+      if (!Array.isArray(data) || !data.every(isProduct)) throw new TypeError('Неожиданный ответ сервера');
+      return data;
+    },
+  };
+}</code></pre>
+<p>Четыре решения, которые стоит уметь объяснить:</p>
+<ul><li><b><code>new URL(path, base)</code></b> вместо склейки строк: не будет двойного или потерянного слэша, а параметры <code>searchParams</code> закодируются сами (пробелы, русские буквы).</li><li><b><code>res.ok</code></b>: <code>fetch</code> не бросает ошибку на 404 и 500, ответ сервера с ошибкой — тоже «успешный» ответ на уровне сети (<a href="/lessons/country-search#cs-fetch">подробнее</a>). Статус проверяем сами и превращаем в <code>HttpError</code>.</li><li><b>Ответ — <code>unknown</code>, пока не проверен.</b> Тип <code>Promise&lt;Product[]&gt;</code> без проверки был бы обещанием, которое никто не выполняет: сервер обновили, поле переименовали — и интерфейс падает в неожиданном месте с <code>undefined</code>. Проверка на входе даёт понятную ошибку сразу. Вручную писать такие проверки утомительно; в следующем уроке их заменит библиотека <a href="/lessons/zod">Zod</a>.</li><li><b><code>fetchFn</code> параметром.</b> В приложении это обычный <code>fetch</code>, в тестах — подмена, которая отвечает что угодно: успех, 500, кривой JSON. Это то же внедрение зависимости, что в <a href="/lessons/testing#testing-injection">уроке о тестировании</a>.</li></ul>
+<article class="task" id="fu-t-url" data-task="fetch-ui/fu-t-url">
+<h4>Задача 1. Адрес запроса без склейки строк <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>buildUrl(base, path, params)</code>: собирает адрес через <code>new URL</code>, добавляет непустые параметры (пустые строки, <code>undefined</code> и <code>null</code> пропускает). Должно работать при <code>base</code> со слэшем в конце и без.</p>
+<p class="why"><b>Зачем:</b> склейка <code><code>${base}/api?search=${q}</code></code> ломается на слэшах, пробелах, амперсандах и русских буквах. <code>URL</code> решает всё это и делает адрес таким, каким его ждёт сервер.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// url.ts
+export function buildUrl(base: string, path: string, params: Record&lt;string, string | number | null | undefined&gt; = {}): URL {
+  const url = new URL(path, base);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined &amp;&amp; value !== null &amp;&amp; value !== '') url.searchParams.set(key, String(value));
+  }
+  return url;
+}</code></pre>
+<p>Путь начинается со слэша (<code>'/api/products'</code>), поэтому он заменяет путь базы целиком. С базой <code>http://host/v1/</code> и путём <code>'api'</code> без слэша получился бы <code>/v1/api</code>. Это особенность <code>new URL</code>, и её стоит знать. Значение <code>0</code> сохраняется: это реальное число, а не «пусто».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="fu-t-error-text" data-task="fetch-ui/fu-t-error-text">
+<h4>Задача 2. Текст ошибки от сервера <span class="lvl">★★☆ практика</span></h4>
+<p>Сервер в случае ошибки отвечает JSON <code>{ error: "текст" }</code>, но прокси или хостинг могут вернуть HTML-страницу ошибки. Напишите <code>readErrorMessage(res)</code>: возвращает текст из поля <code>error</code>, если он есть, иначе «Сервер ответил &lt;статус&gt;». Функция не должна бросать ни при каком теле.</p>
+<p class="why"><b>Зачем:</b> пользователь должен увидеть понятную причину («Нет товара zz»), если сервер её сообщил. А разбор тела ошибки, который сам падает с <code>SyntaxError</code>, подменяет настоящую проблему новой.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// error-text.ts
+export async function readErrorMessage(res: Response): Promise&lt;string&gt; {
+  try {
+    const body: unknown = await res.json();
+    if (typeof body === 'object' &amp;&amp; body !== null &amp;&amp; 'error' in body &amp;&amp; typeof body.error === 'string') {
+      return body.error;
+    }
+  } catch {
+    // тело не JSON
+  }
+  return `Сервер ответил ${res.status}`;
+}</code></pre>
+<p>Тело ответа читается один раз: после <code>res.json()</code> вызвать <code>res.text()</code> уже нельзя. Если нужен и текст, и JSON, сначала читают <code>text()</code>, потом <code>JSON.parse</code>. Проверка <code>typeof body.error === 'string'</code> не даёт показать пользователю <code>[object Object]</code>, если сервер прислал объект ошибки.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="fu-t-get-json" data-task="fetch-ui/fu-t-get-json">
+<h4>Задача 3. Универсальный getJson с проверкой <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите обобщённую <code>getJson&lt;T&gt;(url, isT, fetchFn = fetch)</code>: делает GET, при статусе не 2xx бросает <code>HttpError</code>, а ответ проверяет переданным предикатом <code>isT</code> (не подошёл — <code>TypeError</code>). Тип результата — <code>Promise&lt;T&gt;</code>, без <code>as</code>.</p>
+<p class="why"><b>Зачем:</b> одна функция с правильной обработкой статуса и проверкой вместо копий в каждом запросе. Предикат параметром связывает проверку и тип: TypeScript выведет <code>T</code> из предиката, и обещанный тип не разойдётся с проверкой.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// get-json.ts
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
+export async function getJson&lt;T&gt;(url: string | URL, isT: (x: unknown) =&gt; x is T, fetchFn: typeof fetch = fetch): Promise&lt;T&gt; {
+  const res = await fetchFn(url);
+  if (!res.ok) throw new HttpError(res.status, `Сервер ответил ${res.status}`);
+  const data: unknown = await res.json();
+  if (!isT(data)) throw new TypeError(`Неожиданный ответ от ${String(url)}`);
+  return data;
+}</code></pre>
+<p>Тип <code>T</code> выводится из предиката: <code>getJson(url, isProductList)</code> вернёт <code>Promise&lt;Product[]&gt;</code>. После <code>if (!isT(data)) throw</code> компилятор сам сужает <code>data</code> до <code>T</code>, поэтому <code>as</code> не нужен. В сообщении ошибки есть адрес: в логе сразу видно, какой запрос вернул неожиданное.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="fu-t-timeout" data-task="fetch-ui/fu-t-timeout">
+<h4>Задача 4. Таймаут и отмена вместе <span class="lvl">★★☆ практика</span></h4>
+<p>Добавьте к запросу таймаут: <code>fetchWithTimeout(url, { signal, timeoutMs }, fetchFn)</code> отменяет запрос, если он идёт дольше <code>timeoutMs</code>, <b>или</b> если сработал внешний <code>signal</code>. Различите причины: таймаут — ошибка с именем <code>TimeoutError</code>, внешняя отмена — <code>AbortError</code>.</p>
+<p class="why"><b>Зачем:</b> сервер, который не отвечает, хуже сервера, который ответил ошибкой: интерфейс висит в «загрузке» вечно. Таймаут превращает зависание в понятную ошибку, а внешняя отмена остаётся для гонки запросов.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p><code>AbortSignal.timeout(ms)</code> и <code>AbortSignal.any([a, b])</code> разобраны в <a href="/lessons/country-search#cs-cancel">Country Search</a>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// timeout.ts
+export function fetchWithTimeout(
+  url: string | URL,
+  { signal, timeoutMs }: { signal?: AbortSignal; timeoutMs: number },
+  fetchFn: typeof fetch = fetch,
+): Promise&lt;Response&gt; {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return fetchFn(url, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+}</code></pre>
+<p><code>AbortSignal.any</code> срабатывает от первого из сигналов, а причина (<code>reason</code>) берётся от сработавшего. Поэтому <code>fetch</code> отклоняется с <code>TimeoutError</code> или <code>AbortError</code>, и вызывающий код различает «сервер не ответил» (показать ошибку) и «мы сами отменили» (молча проигнорировать). Тест имитирует <code>fetch</code>, который честно слушает сигнал и отклоняется его причиной, как настоящий.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="fu-t-step1" data-task="fetch-ui/fu-t-step1">
+<h4>Задача 5. Проект, шаг 1: API-клиент <span class="lvl">★★☆ практика</span></h4>
+<p>Шаг 1 проекта <code>shop-web</code>: реализуйте <code>getProducts</code> в <code>src/api.ts</code>. Тесты шага проверяют адрес с фильтрами, пропуск пустых фильтров, <code>HttpError</code> с кодом, <code>TypeError</code> на неожиданный ответ и передачу <code>signal</code>.</p>
+<p class="starter"><code>npx degit Romkalis/workbook/starters/shop-web/01-start shop-web-01-start</code> <a href="/starters/shop-web-01-start.zip" download>Скачать ZIP</a></p>
+<p class="why"><b>Зачем:</b> клиент — граница между приложением и сетью. Всё, что дальше по коду, работает с проверенными <code>Product[]</code> и понятными ошибками. Ошибки этого слоя дороже всего: их последствия расползаются по всему интерфейсу.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// src/api.ts
+async getProducts(filters: ProductFilters = {}, signal?: AbortSignal): Promise&lt;Product[]&gt; {
+  const url = new URL('/api/products', baseUrl);
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) url.searchParams.set(key, value);
+  }
+  const res = await fetchFn(url, { signal });
+  if (!res.ok) throw new HttpError(res.status, await readError(res));
+  const data: unknown = await res.json();
+  if (!Array.isArray(data) || !data.every(isProduct)) throw new TypeError('Неожиданный ответ сервера');
+  return data;
+},</code></pre>
+<p><code>readError</code> — функция из задачи «Текст ошибки от сервера», она лежит рядом в <code>api.ts</code> решения. <code>every(isProduct)</code> проверяет каждый элемент. Достаточно одного кривого товара, чтобы отклонить ответ целиком: частично верные данные хуже явной ошибки, потому что прячут проблему. Полный файл — в папке <code>02-start</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

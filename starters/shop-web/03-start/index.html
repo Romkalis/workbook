@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Магазин</title>
+  </head>
+  <body>
+    <header><h1>Магазин</h1> <span id="badge" hidden></span></header>
+    <main>
+      <form id="search" role="search">
+        <label>Поиск <input name="search" type="search" /></label>
+        <label>Категория
+          <select name="category">
+            <option value="">Все</option>
+            <option value="books">Книги</option>
+            <option value="games">Игры</option>
+            <option value="home">Для дома</option>
+          </select>
+        </label>
+      </form>
+      <p id="status" aria-live="polite"></p>
+      <section id="catalog"></section>
+      <aside id="cart"></aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

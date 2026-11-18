@@ -1,0 +1,56 @@
+<section id="fu-project">
+<h2>Проект shop-web</h2>
+<p>Фронтенд магазина за четыре шага. Каждый шаг — стартовая папка с кодом предыдущих шагов и красными тестами текущего. Скачать: <code>npx degit Romkalis/workbook/starters/shop-web/01-start shop-web</code> или ZIP из задачи.</p>
+<div class="tbl"><table><thead><tr><th>Шаг</th><th>Что делаете</th><th>Файл</th></tr></thead><tbody><tr><td>1</td><td>API-клиент: адрес с фильтрами, статус, проверка ответа</td><td>src/api.ts</td></tr><tr><td>2</td><td>Отрисовка четырёх состояний и «Повторить»</td><td>src/view/catalog.ts</td></tr><tr><td>3</td><td>Поиск с задержкой и отменой устаревших запросов</td><td>src/search.ts</td></tr><tr><td>4</td><td>Корзина с сохранением и расчёт на сервере</td><td>src/cart.ts, src/api.ts</td></tr></tbody></table></div>
+<p>Готовый <code>main.ts</code> в папке <code>05-done</code> собирает всё вместе: форма поиска, каталог, корзина, бейдж. Запустите <code>shop-api</code> и <code>shop-web</code> рядом и пройдите сценарий: поиск, добавление, выключите сервер — увидите ошибку и кнопку «Повторить», включите — нажмите её.</p>
+<article class="task" id="fu-t-integration" data-task="fetch-ui/fu-t-integration">
+<h4>Задача 17. Каталог целиком: тест от клика до экрана <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите интеграционный тест (jsdom) для связки из готового проекта, но в миниатюре: <code>mountCatalog(root, api)</code> загружает товары и рисует карточки, при ошибке показывает «Повторить», а клик по ней повторяет загрузку. API подменён объектом, который сначала падает, а потом отвечает.</p>
+<p class="why"><b>Зачем:</b> модульные тесты проверили клиент, состояния и отрисовку по отдельности. Интеграционный тест проверяет, что они правильно соединены: именно на стыках прячутся ошибки вроде «кнопка повтора вызывает не ту функцию».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// catalog.ts
+type Product = { id: string; title: string };
+type Api = { getProducts(): Promise&lt;Product[]&gt; };
+
+export function mountCatalog(root: HTMLElement, api: Api): Promise&lt;void&gt; {
+  async function load(): Promise&lt;void&gt; {
+    root.setAttribute('aria-busy', 'true');
+    root.replaceChildren(Object.assign(document.createElement('p'), { textContent: 'Загрузка…' }));
+    try {
+      const products = await api.getProducts();
+      root.replaceChildren(...products.map((p) =&gt; Object.assign(document.createElement('article'), { textContent: p.title })));
+    } catch (error) {
+      const retry = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Повторить' });
+      retry.addEventListener('click', () =&gt; void load());
+      root.replaceChildren(Object.assign(document.createElement('p'), { textContent: `Ошибка: ${(error as Error).message}` }), retry);
+    } finally {
+      root.removeAttribute('aria-busy');
+    }
+  }
+  return load();
+}</code></pre>
+<pre><code>// catalog.test.ts
+// @vitest-environment jsdom
+import { expect, it, vi } from 'vitest';
+import { mountCatalog } from './catalog.js';
+
+it('ошибка → Повторить → товары', async () =&gt; {
+  const getProducts = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('нет сети'))
+    .mockResolvedValueOnce([{ id: 'g1', title: 'Каркассон' }]);
+  const root = document.createElement('section');
+
+  await mountCatalog(root, { getProducts });
+  expect(root.textContent).toContain('Ошибка: нет сети');
+
+  root.querySelector('button')!.click();
+  await vi.waitFor(() =&gt; expect(root.querySelector('article')?.textContent).toBe('Каркассон'));
+  expect(getProducts).toHaveBeenCalledTimes(2);
+  expect(root.hasAttribute('aria-busy')).toBe(false);
+});</code></pre>
+<p><code>mockRejectedValueOnce</code> и <code>mockResolvedValueOnce</code> задают сценарий ответов по порядку: сначала сбой, потом успех. <code>vi.waitFor</code> повторяет проверку, пока она не пройдёт или не кончится время: клик запускает асинхронную загрузку, и тест ждёт её результата, а не фиксированную паузу. Это ровно правило <a href="/lessons/testing#testing-time">«ждите событие, а не время»</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

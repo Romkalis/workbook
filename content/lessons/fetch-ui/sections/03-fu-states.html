@@ -1,0 +1,120 @@
+<section id="fu-states">
+<h2>Четыре состояния данных</h2>
+<p>Пока данные загружаются, их нет. Загрузка может упасть. Данные могут прийти пустыми. Каждое из этих состояний пользователь должен увидеть, а не гадать, почему страница пустая. Описываем их размеченным объединением:</p>
+<pre><code>export type RemoteData&lt;T&gt; =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; message: string };</code></pre>
+<p>Почему не три поля <code>isLoading</code>, <code>error</code>, <code>data</code>: они допускают бессмысленные сочетания («загрузка и ошибка одновременно», «данные есть, но и ошибка есть»). Объединение разрешает только возможные состояния, а <code>switch</code> с проверкой <code>never</code> не даст забыть нарисовать одно из них. Это тот же приём, что в задаче про состояние каталога в <a href="/lessons/typescript-basic#tsb-state">TypeScript Basic</a>.</p>
+<div class="tbl"><table><thead><tr><th>Состояние</th><th>Что показать</th><th>Частая ошибка</th></tr></thead><tbody><tr><td>idle</td><td>ничего или подсказку</td><td>—</td></tr><tr><td>loading</td><td>заглушки формы карточек, <code>aria-busy</code></td><td>пустой экран, «прыжок» страницы при появлении данных</td></tr><tr><td>success, пусто</td><td>«Ничего не найдено», предложение сбросить фильтры</td><td>пустой экран, неотличимый от загрузки</td></tr><tr><td>success</td><td>карточки</td><td>—</td></tr><tr><td>error</td><td>понятный текст и кнопка «Повторить»</td><td>ошибка в консоли и пустой экран</td></tr></tbody></table></div>
+<p>Кнопка «Повторить» — дешёвая и очень ценная вещь: сеть на телефоне пропадает на секунду, и без неё пользователь перезагружает страницу, теряя введённые фильтры.</p>
+<article class="task" id="fu-t-render-state" data-task="fetch-ui/fu-t-render-state">
+<h4>Задача 6. switch по состоянию <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>statusMessage(state: RemoteData&lt;unknown[]&gt;)</code>: текст для строки статуса над списком. idle — пусто, loading — «Загрузка…», success — «Найдено N» или «Ничего не найдено», error — «Ошибка: …». В <code>default</code> — проверка полноты.</p>
+<p class="why"><b>Зачем:</b> строка статуса с <code>aria-live</code> объявляет программе чтения с экрана, что происходит. Это часть доступности, а не украшение. А <code>never</code> гарантирует, что новое состояние не останется без текста.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// status.ts
+export type RemoteData&lt;T&gt; =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; message: string };
+
+export function statusMessage(state: RemoteData&lt;unknown[]&gt;): string {
+  switch (state.status) {
+    case 'idle':
+      return '';
+    case 'loading':
+      return 'Загрузка…';
+    case 'success':
+      return state.data.length === 0 ? 'Ничего не найдено' : `Найдено: ${state.data.length}`;
+    case 'error':
+      return `Ошибка: ${state.message}`;
+    default: {
+      const unreachable: never = state;
+      return unreachable;
+    }
+  }
+}</code></pre>
+<p>В ветке <code>success</code> TypeScript знает про <code>data</code>, в <code>error</code> — про <code>message</code>, без единой проверки на <code>undefined</code>. Число выведено после двоеточия, «Найдено: 3», чтобы не склонять слово «товар» (как это делать, разобрано в задаче <a href="/lessons/dom-basics#db-t-live">«Объявить результат поиска»</a>).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="fu-t-load" data-task="fetch-ui/fu-t-load">
+<h4>Задача 7. Загрузить и пройти по состояниям <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>load(fetcher, onState)</code>: сообщает <code>loading</code>, вызывает асинхронный <code>fetcher()</code>, затем сообщает <code>success</code> с данными или <code>error</code> с текстом ошибки (<code>error.message</code> или «Неизвестная ошибка», если брошено не <code>Error</code>). Функция сама никогда не отклоняется.</p>
+<p class="why"><b>Зачем:</b> это мост между промисом и состояниями интерфейса. Написанный один раз, он гарантирует, что ни одна загрузка в приложении не забудет показать ошибку или снять индикатор.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// load.ts
+export type RemoteData&lt;T&gt; =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; message: string };
+
+export async function load&lt;T&gt;(fetcher: () =&gt; Promise&lt;T&gt;, onState: (s: RemoteData&lt;T&gt;) =&gt; void): Promise&lt;void&gt; {
+  onState({ status: 'loading' });
+  try {
+    onState({ status: 'success', data: await fetcher() });
+  } catch (error) {
+    onState({ status: 'error', message: error instanceof Error ? error.message : 'Неизвестная ошибка' });
+  }
+}</code></pre>
+<p><code>throw 'строка'</code> в JavaScript разрешён, поэтому в <code>catch</code> лежит <code>unknown</code>, и проверка <code>instanceof Error</code> обязательна. Функция «не отклоняется никогда»: вызывающему коду не нужен свой <code>try/catch</code>, а ошибка всё равно доходит до пользователя через состояние.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="fu-t-step2" data-task="fetch-ui/fu-t-step2">
+<h4>Задача 8. Проект, шаг 2: каталог по состояниям <span class="lvl">★★☆ практика</span></h4>
+<p>Шаг 2: <code>renderCatalog(root, state, onRetry)</code> рисует заглушки с <code>aria-busy</code> при загрузке, текст ошибки и кнопку «Повторить», «Ничего не найдено» и карточки. Карточки уже умеет делать <code>createCard</code> из <code>src/view/card.ts</code>.</p>
+<p class="starter"><code>npx degit Romkalis/workbook/starters/shop-web/02-start shop-web-02-start</code> <a href="/starters/shop-web-02-start.zip" download>Скачать ZIP</a></p>
+<p class="why"><b>Зачем:</b> в этом шаге вся таблица состояний из раздела превращается в код. После него пользователь никогда не увидит пустой экран без объяснения.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// src/view/catalog.ts
+switch (state.status) {
+  case 'loading': /* заглушки, aria-busy */ return;
+  case 'error': {
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.textContent = 'Повторить';
+    retry.addEventListener('click', onRetry);
+    root.replaceChildren(message(`Не удалось загрузить товары: ${state.message}`), retry);
+    return;
+  }
+  case 'success':
+    root.replaceChildren(...(state.data.length === 0 ? [message('Ничего не найдено')] : state.data.map(createCard)));
+    return;
+  // idle и проверка never — в полном файле
+}</code></pre>
+<p>Обработчик «Повторить» вешается на новую кнопку при каждой отрисовке ошибки. Это безопасно: старая кнопка удаляется вместе с обработчиком. <code>aria-busy</code> снимается в любом состоянии, кроме загрузки, в том числе при ошибке. Полный файл — в папке <code>03-start</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="fu-t-retry" data-task="fetch-ui/fu-t-retry">
+<h4>Задача 9. Повтор с паузой <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>withRetry(fn, { retries, delayMs }, shouldRetry)</code>: вызывает асинхронную <code>fn</code>, при ошибке повторяет до <code>retries</code> раз с паузой, которая удваивается (<code>delayMs</code>, <code>2×delayMs</code>, …). Повторяет только если <code>shouldRetry(error)</code> истинно. Например, для сетевых ошибок и 5xx, но не для 400 и не для отмены.</p>
+<p class="why"><b>Зачем:</b> кратковременный сбой сети не должен превращаться в ошибку для пользователя. Но повторять имеет смысл не всё: 400 («неверные данные») повторится так же, а отменённый запрос повторять нельзя вовсе. Решение «что повторять» — инженерное, и оно вынесено в параметр.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// retry.ts
+const sleep = (ms: number) =&gt; new Promise((r) =&gt; setTimeout(r, ms));
+
+export async function withRetry&lt;T&gt;(
+  fn: () =&gt; Promise&lt;T&gt;,
+  { retries, delayMs }: { retries: number; delayMs: number },
+  shouldRetry: (error: unknown) =&gt; boolean,
+): Promise&lt;T&gt; {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt &gt;= retries || !shouldRetry(error)) throw error;
+      await sleep(delayMs * 2 ** attempt);
+    }
+  }
+}</code></pre>
+<p>Удвоение паузы (экспоненциальная задержка) не даёт тысяче клиентов разом добивать упавший сервер одинаковыми частыми повторами. В реальных системах к паузе ещё добавляют случайный разброс (jitter), чтобы повторы не совпадали по времени (из общих знаний). После последней попытки бросается исходная ошибка, а не «попытки кончились»: в ней настоящая причина. Повторять POST, который меняет данные, опасно: сервер мог выполнить первый запрос, а сломался только ответ.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>
