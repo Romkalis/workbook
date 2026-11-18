@@ -22,4 +22,149 @@ server.listen(3001, () =&gt; console.log('http://localhost:3001'));</code></pre>
 </ul>
 <p>Проверка curl: <code>curl localhost:3001/</code> вернул «Привет от Node.js», а <code>/x</code> — <code>HTTP/1.1 404 Not Found</code>. Это тот же текстовый HTTP, что разобран в уроке <a href="/lessons/client-server#cs-http">о клиенте и сервере</a>, только теперь мы на стороне сервера.</p>
 <p>Писать на чистом <code>http</code> настоящий API неудобно: маршруты разбираются вручную через <code>if</code>, тело запроса приходит потоком кусков и его надо собирать и парсить самому, query string — разбирать через <code>new URL(req.url, 'http://localhost')</code>. Эту рутину берёт на себя Express.</p>
+<p>Как выглядит чтение тела вручную. Запрос — поток (stream): событие <code>data</code> приносит очередной кусок байтов (<code>Buffer</code>), событие <code>end</code> сообщает, что кусков больше не будет. Склеивать нужно байты, а декодировать в строку один раз в конце: русская буква может оказаться разрезанной между кусками.</p>
+<pre><code>function readJsonBody(req) {
+  return new Promise((resolve, reject) =&gt; {
+    const chunks = [];
+    req.on('data', (chunk) =&gt; chunks.push(chunk));
+    req.on('end', () =&gt; {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      } catch (error) {
+        reject(error); // битый JSON — ошибка клиента, ответ 400
+      }
+    });
+    req.on('error', reject);
+  });
+}</code></pre>
+<p>В настоящем сервере ещё ограничивают размер тела, иначе клиент может прислать гигабайт и занять всю память. <code>express.json()</code> делает всё это сам, по умолчанию с лимитом 100 КБ (из документации Express).</p>
+<article class="task" id="nb-t-http" data-task="node-basics/nb-t-http">
+<h4>Задача 19. Каталог на чистом http <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>createCatalogServer(products)</code> на <code>node:http</code> (без <code>listen</code>, вернуть сервер). <code>GET /api/products</code> отдаёт JSON со статусом 200. Тот же путь с другим методом — 405 и заголовок <code>Allow: GET</code>. Любой другой путь — 404 в JSON. Ответы с правильным <code>Content-Type</code>.</p>
+<p class="why"><b>Зачем:</b> до Express полезно один раз собрать ответ руками: статус, заголовки, тело, <code>end</code>. Тогда понятно, что именно делает за вас <code>res.json</code>. А 405 вместо 404 — честный ответ: путь есть, метод нет.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// server.mjs
+import http from 'node:http';
+
+function sendJson(res, status, data, headers = {}) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', ...headers });
+  res.end(JSON.stringify(data));
+}
+
+export function createCatalogServer(products) {
+  return http.createServer((req, res) =&gt; {
+    const { pathname } = new URL(req.url, 'http://localhost');
+    if (pathname === '/api/products') {
+      if (req.method !== 'GET') return sendJson(res, 405, { error: 'Метод не поддерживается' }, { Allow: 'GET' });
+      return sendJson(res, 200, products);
+    }
+    sendJson(res, 404, { error: 'Не найдено' });
+  });
+}</code></pre>
+<p>Помощник <code>sendJson</code> убирает повторение «статус + заголовок + stringify + end». Именно так появляются фреймворки. Путь берётся из <code>new URL(...).pathname</code>, а не из <code>req.url</code> напрямую: иначе <code>/api/products?x=1</code> не совпал бы со строкой. Сервер создаётся без <code>listen</code>: тест сам решает, на каком порту его поднять.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="nb-t-http-query" data-task="node-basics/nb-t-http-query">
+<h4>Задача 20. Фильтр из строки запроса <span class="lvl">★★☆ практика</span></h4>
+<p>Добавьте в сервер из прошлой задачи фильтры: <code>?category=books</code> и <code>?maxPrice=100000</code>. Если <code>maxPrice</code> не число — 400 с понятной ошибкой. Разбор параметров вынесите в чистую функцию <code>parseFilters(searchParams)</code>.</p>
+<p class="why"><b>Зачем:</b> query string — это строки от пользователя. Разбор и проверка в одном месте превращают их в надёжный объект фильтров, а сам маршрут остаётся коротким.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// filters.mjs
+export function parseFilters(params) {
+  const filters = {};
+  const category = params.get('category');
+  if (category) filters.category = category;
+  const maxPrice = params.get('maxPrice');
+  if (maxPrice !== null) {
+    const n = Number(maxPrice);
+    if (maxPrice.trim() === '' || !Number.isFinite(n)) throw new RangeError('maxPrice должен быть числом');
+    filters.maxPrice = n;
+  }
+  return filters;
+}
+
+export function applyFilters(products, f) {
+  return products.filter(
+    (p) =&gt; (!f.category || p.category === f.category) &amp;&amp; (f.maxPrice === undefined || p.price &lt;= f.maxPrice),
+  );
+}</code></pre>
+<pre><code>// server.mjs
+import http from 'node:http';
+import { parseFilters, applyFilters } from './filters.mjs';
+
+function sendJson(res, status, data) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(data));
+}
+
+export function createCatalogServer(products) {
+  return http.createServer((req, res) =&gt; {
+    const url = new URL(req.url, 'http://localhost');
+    if (url.pathname !== '/api/products') return sendJson(res, 404, { error: 'Не найдено' });
+    try {
+      sendJson(res, 200, applyFilters(products, parseFilters(url.searchParams)));
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+      sendJson(res, 400, { error: error.message });
+    }
+  });
+}</code></pre>
+<p><code>URLSearchParams.get</code> возвращает <code>null</code>, если параметра нет. Так отличаются «не передан» и «передан пустым»: <code>?maxPrice=</code> — это ошибка, а не «без ограничения». Отдельно проверяется <code>trim() === ''</code>, потому что <code>Number('')</code> равно 0, а это тихая ловушка. В <code>catch</code> обрабатывается только <code>RangeError</code> от разбора, остальное пробрасывается: не надо выдавать собственный баг за ошибку клиента.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="nb-t-http-body" data-task="node-basics/nb-t-http-body">
+<h4>Задача 21. Тело POST-запроса без Express <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>readJsonBody(req)</code>: собирает тело запроса из кусков и разбирает JSON. Если JSON битый — отклоняется ошибкой со <code>status = 400</code>. Если тело больше 1 МБ — со <code>status = 413</code>. Используйте её в маршруте <code>POST /api/echo</code>, который отвечает тем же объектом.</p>
+<p class="why"><b>Зачем:</b> так вы увидите, что делает <code>express.json()</code>: потоковое чтение, лимит размера, обработку ошибок. Лимит — это защита: без него клиент может отправить гигабайт и занять всю память сервера.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// body.mjs
+const LIMIT = 1024 * 1024;
+
+export function readJsonBody(req) {
+  return new Promise((resolve, reject) =&gt; {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) =&gt; {
+      size += chunk.length;
+      if (size &lt;= LIMIT) chunks.push(chunk); // сверх лимита не копим, только дочитываем
+    });
+    req.on('end', () =&gt; {
+      if (size &gt; LIMIT) {
+        return reject(Object.assign(new Error('Слишком большое тело'), { status: 413 }));
+      }
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      } catch {
+        reject(Object.assign(new Error('Некорректный JSON'), { status: 400 }));
+      }
+    });
+    req.on('error', reject);
+  });
+}</code></pre>
+<pre><code>// server.mjs
+import http from 'node:http';
+import { readJsonBody } from './body.mjs';
+
+export function createServer() {
+  return http.createServer(async (req, res) =&gt; {
+    if (req.method === 'POST' &amp;&amp; req.url === '/api/echo') {
+      try {
+        const data = await readJsonBody(req);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(data));
+      } catch (error) {
+        res.writeHead(error.status ?? 500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+    res.writeHead(404).end();
+  });
+}</code></pre>
+<p>Запрос — поток: событие <code>data</code> приносит кусок байтов (<code>Buffer</code>), <code>end</code> сообщает, что кусков больше не будет. Склеиваются именно байты (<code>Buffer.concat</code>), а потом декодируются один раз. Если декодировать каждый кусок отдельно, русская буква, разрезанная между кусками, превратится в мусор. Сверх лимита куски не сохраняются, поэтому память не растёт, а поток дочитывается до конца, чтобы клиент получил честный ответ 413. Можно и сразу оборвать соединение (<code>req.destroy()</code>): это экономит трафик, но клиент увидит обрыв вместо понятного статуса. Выбор зависит от того, кто ваши клиенты.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

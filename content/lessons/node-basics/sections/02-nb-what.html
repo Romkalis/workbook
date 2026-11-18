@@ -32,4 +32,18 @@ npm -v              # 10.9.8 — npm ставится вместе с Node.js</c
 <li><code>node -e "console.log(2 + 2)"</code> выполняет строку кода.</li>
 <li><code>node --watch app.js</code> перезапускает программу при изменении файлов (встроено с Node.js 18; раньше для этого ставили пакет nodemon).</li>
 </ul>
+<article class="task" id="nb-t-where" data-task="node-basics/nb-t-where">
+<h4>Задача 1. Где я запущен <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>where.mjs</code>, который печатает четыре строки: версию Node.js, платформу, папку, <b>из которой</b> запустили программу, и папку, <b>где лежит</b> сам файл. Запустите его из папки файла, а потом из родительской (<code>node имя-папки/where.mjs</code>) и сравните.</p>
+<p class="why"><b>Зачем:</b> разница между «откуда запустили» и «где лежит файл» — причина половины ошибок «файл не найден» в скриптах и на сервере. Лучше один раз увидеть её своими глазами.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// where.mjs
+console.log('Node.js:', process.version);
+console.log('Платформа:', process.platform);
+console.log('Запущен из:', process.cwd());
+console.log('Файл лежит в:', import.meta.dirname);</code></pre>
+<p>При запуске из родительской папки третья строка изменится, а четвёртая нет. <code>process.cwd()</code> зависит от терминала, <code>import.meta.dirname</code> — только от расположения файла. Поэтому пути к своим данным строят от второго (задача про пути ниже).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

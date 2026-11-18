@@ -5,6 +5,40 @@
 <figure class="dg"><div class="dg-title">Два запроса к серверу, которому нужна база данных</div><ol class="seqlist n5" aria-hidden="true"><li class="card lit" style="--i:0"><span class="hd">Запрос А</span><span class="ln">обработчик отправил запрос в базу и вышел — поток свободен</span></li><li class="card lit" style="--i:1"><span class="hd">Запрос Б</span><span class="ln">пока база думает над А, обработчик Б тоже отправил свой запрос</span></li><li class="card lit" style="--i:2"><span class="hd">База ответила для Б</span><span class="ln">колбэк Б встаёт в очередь, цикл событий его выполняет, ответ ушёл</span></li><li class="card lit" style="--i:3"><span class="hd">База ответила для А</span><span class="ln">то же для А</span></li><li class="card lit" style="--i:4"><span class="hd">Итог</span><span class="ln">один поток обслужил оба запроса, ни разу не простаивая в ожидании</span></li></ol><figcaption>Ожидание ввода-вывода происходит вне потока JavaScript. Поток занят только короткими кусками кода между ожиданиями, поэтому успевает обслужить много запросов.</figcaption></figure>
 <h3 id="nb-blocking">Как заблокировать сервер</h3>
 <p>Обратная сторона: если ваш код долго <i>считает</i>, ждут все. Цикл на миллиард итераций, синхронное чтение большого файла (<code>readFileSync</code>), тяжёлое шифрование в главном потоке — пока это выполняется, сервер не отвечает ни одному пользователю. Правило: не блокируйте цикл событий. Тяжёлые вычисления выносят в worker threads (дополнительные потоки Node.js) или отдельный сервис (из общих знаний).</p>
+<p>Если тяжёлую работу можно разбить на части, есть простой приём без дополнительных потоков: обработать порцию, отдать управление циклу событий через <code>setImmediate</code> и продолжить. Между порциями успеют выполниться таймеры и запросы других пользователей:</p>
+<pre><code>const yieldToLoop = () =&gt; new Promise((resolve) =&gt; setImmediate(resolve));
+
+async function sumInChunks(items, chunkSize = 10000) {
+  let sum = 0;
+  for (let i = 0; i &lt; items.length; i += chunkSize) {
+    for (let j = i; j &lt; Math.min(i + chunkSize, items.length); j++) sum += items[j];
+    await yieldToLoop(); // пауза: цикл событий обслуживает остальных
+  }
+  return sum;
+}</code></pre>
+<p>Именно <code>setImmediate</code>, а не <code>await Promise.resolve()</code>: промисы — микрозадачи, они выполняются раньше таймеров и ввода-вывода, и цикл событий так и не получил бы управление. Общее время подсчёта немного вырастет, зато сервер не замирает.</p>
+<article class="task" id="nb-t-chunks" data-task="node-basics/nb-t-chunks">
+<h4>Задача 17. Длинный подсчёт, который не вешает сервер <span class="lvl">★★★ с подвохом</span></h4>
+<p>Функция считает сумму по миллиону заказов одним циклом, и всё это время сервер никому не отвечает. Напишите <code>sumInChunks(items, chunkSize)</code>: она возвращает Promise с суммой и после каждой порции из <code>chunkSize</code> элементов отдаёт управление циклу событий через <code>setImmediate</code>. Докажите, что таймер, поставленный до начала подсчёта, срабатывает раньше конца подсчёта.</p>
+<p class="why"><b>Зачем:</b> одна тяжёлая синхронная операция останавливает обслуживание всех пользователей. Дробление работы — самый простой способ быть «вежливым» к циклу событий, пока вы не дошли до worker threads.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Обработайте порцию, затем <code>await new Promise((r) =&gt; setImmediate(r))</code>. Между порциями успеют выполниться таймеры и запросы.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// chunks.mjs
+const yieldToLoop = () =&gt; new Promise((resolve) =&gt; setImmediate(resolve));
+
+export async function sumInChunks(items, chunkSize = 10000) {
+  let sum = 0;
+  for (let i = 0; i &lt; items.length; i += chunkSize) {
+    const end = Math.min(i + chunkSize, items.length);
+    for (let j = i; j &lt; end; j++) sum += items[j];
+    await yieldToLoop();
+  }
+  return sum;
+}</code></pre>
+<p>Почему <code>setImmediate</code>, а не <code>Promise.resolve()</code>: промисы — микрозадачи, они выполняются до таймеров и ввода-вывода, и цикл событий так и не получил бы управление. <code>setImmediate</code> ставит продолжение в фазу цикла, после которой обрабатываются и новые события. Плата — общее время подсчёта чуть больше. Размер порции — компромисс между отзывчивостью и скоростью.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="nb-order">Порядок выполнения</h3>
 <pre><code>setTimeout(() =&gt; console.log('timeout'), 0);
 setImmediate(() =&gt; console.log('immediate'));
@@ -12,4 +46,26 @@ process.nextTick(() =&gt; console.log('nextTick'));
 Promise.resolve().then(() =&gt; console.log('promise'));
 console.log('sync');</code></pre>
 <p>В Node.js 22 вывелось: <code>sync</code>, <code>nextTick</code>, <code>promise</code>, <code>immediate</code>, <code>timeout</code>. Сначала весь синхронный код, затем очередь <code>process.nextTick</code>, затем микрозадачи промисов (колбэки <code>.then</code> и продолжения после <code>await</code>), и только потом фазы цикла событий с таймерами и <code>setImmediate</code>. Порядок последних двух в главном файле не гарантирован и может меняться от запуска к запуску — на него не полагаются. Подробности в статье <a href="https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick">«The Node.js Event Loop»</a>.</p>
+<div class="warn"><p><b>Этот порядок верен для CommonJS.</b> Пример выше запускался как файл <code>.js</code> без <code>"type": "module"</code>. Если сохранить тот же код как <code>order.mjs</code>, Node.js 22 выведет <code>sync</code>, <code>promise</code>, <code>nextTick</code>, … Промис оказался раньше <code>nextTick</code>, потому что тело ES-модуля само выполняется внутри асинхронной задачи, и накопленные промисы срабатывают до очереди <code>nextTick</code>. Внутри колбэков (таймера, чтения файла, запроса) порядок «сначала <code>nextTick</code>, потом промисы» одинаков в обеих системах. Вывод тот же, что и для таймеров: не стройте логику на тонкостях порядка очередей.</p></div>
+<article class="task" id="nb-t-order" data-task="node-basics/nb-t-order">
+<h4>Задача 18. Предскажите и проверьте порядок <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите файл <code>order.cjs</code> (CommonJS), который выводит буквы строго в порядке <code>A B C D E</code>. Каждую букву выведите из своего механизма: синхронный код, <code>process.nextTick</code>, промис, <code>setImmediate</code> внутри колбэка <code>fs.readFile</code> и <code>setTimeout</code> внутри того же колбэка. Порядок вызовов в файле — любой, порядок вывода — правильный.</p>
+<p class="why"><b>Зачем:</b> понимание очередей отвечает на практические вопросы: почему колбэк промиса уже выполнился, а таймер нет, или почему <code>nextTick</code> в цикле может заморить ввод-вывод. Задача заставляет предсказать порядок, а не подбирать его.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Внутри колбэка ввода-вывода (после чтения файла) <code>setImmediate</code> гарантированно выполняется раньше <code>setTimeout(..., 0)</code>. В главном файле этот порядок не гарантирован.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// order.cjs
+const { readFile } = require('node:fs');
+
+readFile(__filename, () =&gt; {
+  setTimeout(() =&gt; console.log('E'), 0);
+  setImmediate(() =&gt; console.log('D'));
+});
+Promise.resolve().then(() =&gt; console.log('C'));
+process.nextTick(() =&gt; console.log('B'));
+console.log('A');</code></pre>
+<p>A — синхронный код выполняется первым. B — очередь <code>nextTick</code> разбирается до промисов. C — микрозадача промиса. Чтение файла завершается позже, а внутри его колбэка цикл событий находится в фазе ввода-вывода: следующей идёт фаза <code>check</code> (<code>setImmediate</code>) и только потом снова таймеры. Поэтому D раньше E, и это гарантировано документацией Node.js о цикле событий.</p>
+<p>Почему файл <code>.cjs</code>: переименуйте его в <code>.mjs</code> (и замените <code>require</code> на <code>import</code>), и вывод станет <code>A C B D E</code>. Мы проверили это в Node.js 22. Тело ES-модуля само выполняется как асинхронная задача, и накопленные промисы срабатывают раньше очереди <code>nextTick</code>. Внутри колбэков порядок «nextTick, затем промис» одинаков в обеих системах модулей.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

@@ -60,6 +60,34 @@ app.listen(3002, () =&gt; console.log('http://localhost:3002'));</code></pre>
 <tr><td><code>DELETE /api/todos/1</code></td><td>204 без тела</td></tr>
 </tbody></table></div>
 <p>Это <a href="/lessons/restful-api">REST</a>-API из урока <a href="/lessons/client-server#cs-rest">о клиенте и сервере</a>: ресурс <code>/api/todos</code>, действие выражено методом, ответ — правильным кодом состояния.</p>
+<article class="task" id="nb-t-express" data-task="node-basics/nb-t-express">
+<h4>Задача 22. Тот же каталог на Express <span class="lvl">★☆☆ разминка</span></h4>
+<p>Перепишите каталог на Express: <code>createApp(products)</code> возвращает приложение с маршрутами <code>GET /api/products</code> (фильтр <code>?category=</code>) и <code>GET /api/products/:id</code> (404, если нет). Сравните объём кода с вариантом на <code>http</code>.</p>
+<p class="why"><b>Зачем:</b> сравнение показывает, за что отвечает фреймворк: разбор пути и параметров, <code>res.json</code>, маршрутизацию по методу. Логика (что отдать) осталась вашей, а «водопровод» ушёл.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.mjs
+import express from 'express';
+
+export function createApp(products) {
+  const app = express();
+
+  app.get('/api/products', (req, res) =&gt; {
+    const { category } = req.query;
+    res.json(category ? products.filter((p) =&gt; p.category === category) : products);
+  });
+
+  app.get('/api/products/:id', (req, res) =&gt; {
+    const product = products.find((p) =&gt; p.id === Number(req.params.id));
+    if (!product) return res.status(404).json({ error: 'Товар не найден' });
+    res.json(product);
+  });
+
+  return app;
+}</code></pre>
+<p><code>req.params.id</code> — строка, отсюда <code>Number</code>. Без него <code>'1' === 1</code> ложно, и ни один товар не найдётся. <code>return</code> перед ответом 404 обязателен, следующая задача как раз об этом. Приложение возвращается без <code>listen</code>, по тем же причинам, что и раньше.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="nb-req-res">req и res</h3>
 <p>Где брать данные из запроса (<a href="https://expressjs.com/en/guide/routing.html">гайд по маршрутизации</a>):</p>
 <ul>
@@ -70,6 +98,34 @@ app.listen(3002, () =&gt; console.log('http://localhost:3002'));</code></pre>
 </ul>
 <p>Как ответить: <code>res.json(obj)</code> (сам ставит <code>Content-Type: application/json</code>), <code>res.send('текст')</code>, <code>res.status(201)</code> (возвращает <code>res</code>, поэтому пишут цепочкой <code>res.status(201).json(...)</code>), <code>res.status(204).end()</code>, <code>res.redirect('/login')</code>, <code>res.cookie(...)</code>.</p>
 <p>На один запрос — один ответ. Частая ошибка: забыть <code>return</code> после <code>res.status(404).json(...)</code>; код пойдёт дальше, попытается ответить второй раз, и Express упадёт с «Cannot set headers after they are sent to the client».</p>
+<article class="task" id="nb-t-headers-sent" data-task="node-basics/nb-t-headers-sent">
+<h4>Задача 23. «Cannot set headers after they are sent» <span class="lvl">★☆☆ разминка</span></h4>
+<p>Маршрут ниже при несуществующем id роняет обработку с этой ошибкой в консоли. Найдите причину и исправьте. Затем переделайте маршрут, чтобы ошибка была невозможна в принципе, без <code>return</code> перед ответом.</p>
+<pre><code>app.get('/api/products/:id', (req, res) =&gt; {
+  const product = products.find((p) =&gt; p.id === Number(req.params.id));
+  if (!product) {
+    res.status(404).json({ error: 'Товар не найден' });
+  }
+  res.json(product);
+});</code></pre>
+<p class="why"><b>Зачем:</b> правило «один запрос — один ответ» нарушается молча и проявляется ошибкой в логах. Код, где все ветки явно заканчиваются ответом, читается и проверяется легче, чем код с «забытыми» продолжениями.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.mjs
+import express from 'express';
+
+export function createApp(products) {
+  const app = express();
+  app.get('/api/products/:id', (req, res) =&gt; {
+    const product = products.find((p) =&gt; p.id === Number(req.params.id));
+    if (product) res.json(product);
+    else res.status(404).json({ error: 'Товар не найден' });
+  });
+  return app;
+}</code></pre>
+<p>Причина: после ответа 404 код шёл дальше и вызывал <code>res.json(undefined)</code>, то есть второй ответ на тот же запрос. Короткое исправление — <code>return res.status(404)...</code>. Вариант с <code>if/else</code> делает ветки взаимоисключающими по структуре. Оба приемлемы, главное — держаться одного стиля во всём проекте.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="nb-middleware">Middleware</h3>
 <p><b>Middleware</b> («промежуточный обработчик», читается «мидлвэр») — функция <code>(req, res, next)</code>, через которую проходит запрос по пути к маршруту. Она может что-то сделать с запросом (разобрать тело, проверить токен, записать в лог) и либо ответить сама, либо вызвать <code>next()</code>, чтобы передать запрос дальше (<a href="https://expressjs.com/en/guide/using-middleware.html">гайд</a>).</p>
 <pre><code>app.use((req, res, next) =&gt; {
@@ -78,6 +134,66 @@ app.listen(3002, () =&gt; console.log('http://localhost:3002'));</code></pre>
 });</code></pre>
 <figure class="dg"><div class="dg-title">Путь запроса через Express</div><ol class="seqlist n5" aria-hidden="true"><li class="card lit" style="--i:0"><span class="hd">express.json()</span><span class="ln">разобрал тело → req.body, next()</span></li><li class="card lit" style="--i:1"><span class="hd">логгер</span><span class="ln">записал «POST /api/todos», next()</span></li><li class="card lit" style="--i:2"><span class="hd">проверка авторизации (в уроке о JWT)</span><span class="ln">нет токена → ответ 401, цепочка закончена; есть → next()</span></li><li class="card lit" style="--i:3"><span class="hd">маршрут POST /api/todos</span><span class="ln">создал задачу, ответил 201</span></li><li class="card lit" style="--i:4"><span class="hd">404 и обработчик ошибок</span><span class="ln">срабатывают, если никто не ответил или кто-то выбросил ошибку</span></li></ol><figcaption>Middleware выполняются в том порядке, в котором подключены через app.use. Каждая либо отвечает, либо вызывает next(). Если не сделать ни того, ни другого, запрос повиснет.</figcaption></figure>
 <p>Middleware можно подключить ко всему приложению (<code>app.use(fn)</code>), к пути (<code>app.use('/api', fn)</code>) или к одному маршруту (<code>app.get('/me', requireAuth, handler)</code>) — именно так в уроке о JWT защищён профиль. Готовые middleware: <code>express.json()</code>, <code>express.static('public')</code> (раздаёт файлы из папки), <code>cors()</code> из пакета <code>cors</code> (выставляет заголовки CORS), <code>cookie-parser</code>.</p>
+<p>Иногда middleware нужно сделать что-то <i>после</i> ответа: записать в лог статус и время обработки. В момент вызова <code>next()</code> ответ ещё не отправлен, поэтому подписываются на событие ответа <code>finish</code>. Оно срабатывает, когда ответ полностью отдан:</p>
+<pre><code>app.use((req, res, next) =&gt; {
+  const start = performance.now();
+  res.on('finish', () =&gt; {
+    console.log(req.method, req.originalUrl, res.statusCode, Math.round(performance.now() - start), 'мс');
+  });
+  next();
+});</code></pre>
+<article class="task" id="nb-t-timing" data-task="node-basics/nb-t-timing">
+<h4>Задача 24. Middleware: время ответа <span class="lvl">★★☆ практика</span></h4>
+<p>Упражнение из урока: middleware <code>timing(log)</code>, которое после отправки ответа вызывает <code>log</code> со строкой вида <code>GET /api/products 200 — 3 мс</code>. Функция <code>log</code> передаётся параметром (по умолчанию <code>console.log</code>), чтобы её можно было подменить в тесте.</p>
+<p class="why"><b>Зачем:</b> middleware — место для того, что нужно всем маршрутам: лог, время, заголовки. Время меряют по событию <code>finish</code>: в момент вызова <code>next()</code> ответ ещё не отправлен, и замер получится нулевым.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// timing.mjs
+export function timing(log = console.log) {
+  return (req, res, next) =&gt; {
+    const start = performance.now();
+    res.on('finish', () =&gt; {
+      const ms = Math.round(performance.now() - start);
+      log(`${req.method} ${req.originalUrl} ${res.statusCode} — ${ms} мс`);
+    });
+    next();
+  };
+}</code></pre>
+<p>Middleware сразу вызывает <code>next()</code>, не задерживая запрос, а запись делает позже, когда сработает <code>finish</code>. <code>req.originalUrl</code>, а не <code>req.url</code>: внутри роутера <code>req.url</code> уже без префикса. <code>performance.now()</code> точнее и надёжнее <code>Date.now()</code> для измерения длительности. Фабрика <code>timing(log)</code>, а не готовая функция, позволяет настроить поведение: тот же приём, что у <code>express.json(options)</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="nb-t-apikey" data-task="node-basics/nb-t-apikey">
+<h4>Задача 25. Middleware для одного маршрута <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>requireApiKey(expected)</code>: пропускает запрос, если заголовок <code>X-Api-Key</code> равен ключу, иначе отвечает 401. Подключите её только к <code>DELETE /api/products/:id</code>; чтение оставьте открытым.</p>
+<p class="why"><b>Зачем:</b> это та же схема, по которой в уроке о JWT защищают профиль: проверка как отдельная функция в цепочке маршрута. Маршрут удаления остаётся простым, а правило доступа видно в одной строке подключения.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.mjs
+import express from 'express';
+
+export function requireApiKey(expected) {
+  return (req, res, next) =&gt; {
+    if (req.get('X-Api-Key') !== expected) {
+      return res.status(401).json({ error: 'Нужен ключ API' });
+    }
+    next();
+  };
+}
+
+export function createApp(products, apiKey) {
+  const app = express();
+  app.get('/api/products', (req, res) =&gt; res.json(products));
+  app.delete('/api/products/:id', requireApiKey(apiKey), (req, res) =&gt; {
+    const index = products.findIndex((p) =&gt; p.id === Number(req.params.id));
+    if (index === -1) return res.status(404).json({ error: 'Товар не найден' });
+    products.splice(index, 1);
+    res.status(204).end();
+  });
+  return app;
+}</code></pre>
+<p>401 означает «не представились» (нет или неверный ключ), 403 — «представились, но нельзя». Ключ передаётся в фабрику, а не читается внутри из <code>process.env</code>: так middleware можно протестировать и переиспользовать. Учтите: ключ в заголовке подходит для общения сервера с сервером. Во фронтенде любой ключ виден пользователю, поэтому там нужна авторизация пользователей (урок о JWT).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="nb-errors">404 и обработка ошибок</h3>
 <pre><code>app.get('/api/boom', async () =&gt; {
   throw new Error('Что-то сломалось');
@@ -95,6 +211,39 @@ app.use((err, req, res, next) =&gt; {
 });</code></pre>
 <p>Обработчик ошибок Express узнаёт по четырём параметрам, даже если <code>next</code> не используется. Подключается он последним. Проверка: <code>/api/boom</code> вернул 500 с сообщением для клиента, а текст настоящей ошибки остался в консоли сервера; <code>/nope</code> вернул 404. Наружу не отдают стек и подробности — это граница ошибок из урока <a href="/lessons/error-handling#eh-boundary">об обработке ошибок</a> (<a href="https://expressjs.com/en/guide/error-handling.html">гайд Express</a>).</p>
 <div class="warn"><b>Express 4 и Express 5</b><p>В примере ошибка выброшена в <code>async</code>-обработчике и всё равно попала в обработчик ошибок. Это работает только в Express 5: он сам ловит отклонённые промисы. В Express 4, который всё ещё встречается в туториалах, такая ошибка повесила бы запрос; там нужно оборачивать код в <code>try...catch</code> и вызывать <code>next(error)</code>. Другие отличия 5-й версии — в <a href="https://expressjs.com/en/guide/migrating-5.html">руководстве по миграции</a>.</p></div>
+<article class="task" id="nb-t-errors" data-task="node-basics/nb-t-errors">
+<h4>Задача 26. Свои ошибки и общий обработчик <span class="lvl">★★☆ практика</span></h4>
+<p>Создайте класс <code>NotFoundError</code> (статус 404) и общий обработчик ошибок, который превращает её в JSON-ответ 404, а любую другую ошибку — в 500 с общим текстом без подробностей. Маршрут <code>GET /api/products/:id</code> асинхронный: он получает товар через <code>await repo.findById(id)</code> и бросает <code>NotFoundError</code>, если товара нет.</p>
+<p class="why"><b>Зачем:</b> маршруты перестают решать, как отформатировать ошибку: они только сообщают, что случилось. Формат ответа и правило «наружу не отдаём подробностей» живут в одном месте, и поменять их можно одной правкой.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.mjs
+import express from 'express';
+
+export class NotFoundError extends Error {
+  status = 404;
+}
+
+export function createApp(repo, log = console.error) {
+  const app = express();
+
+  app.get('/api/products/:id', async (req, res) =&gt; {
+    const product = await repo.findById(Number(req.params.id));
+    if (!product) throw new NotFoundError('Товар не найден');
+    res.json(product);
+  });
+
+  app.use((err, req, res, next) =&gt; {
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    log(err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  });
+
+  return app;
+}</code></pre>
+<p>Исключение из <code>async</code>-маршрута Express 5 сам передаёт обработчику с четырьмя параметрами. Неизвестная ошибка логируется (через подменяемый <code>log</code>), а клиент видит общий текст: сообщение вроде «connect ECONNREFUSED 10.0.0.5:5432» рассказало бы постороннему об устройстве системы. Обработчик подключён последним, после всех маршрутов.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="nb-router">Router: маршруты по файлам</h3>
 <p>Когда маршрутов много, их выносят в отдельные файлы через <code>express.Router()</code>:</p>
 <pre><code>// routes/todos.js
@@ -107,4 +256,35 @@ module.exports = router;
 // app.js
 app.use('/api/todos', require('./routes/todos'));</code></pre>
 <p>Пути внутри роутера пишутся относительно префикса: <code>router.get('/')</code> отвечает на <code>GET /api/todos</code>.</p>
+<article class="task" id="nb-t-router" data-task="node-basics/nb-t-router">
+<h4>Задача 27. Маршруты в отдельном файле <span class="lvl">★☆☆ разминка</span></h4>
+<p>Вынесите маршруты товаров в <code>routes/products.mjs</code> через <code>Router</code>, а в <code>app.mjs</code> подключите его под префиксом <code>/api/products</code>. Роутер должен получать данные параметром (фабрика), а не импортировать их.</p>
+<p class="why"><b>Зачем:</b> файл маршрутов отвечает на вопрос «какие URL есть у ресурса». Префикс задаётся в одном месте, поэтому переезд на <code>/api/v2/products</code> — одна строка. Данные параметром позволяют подставить в тесте другой набор.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// routes/products.mjs
+import { Router } from 'express';
+
+export function productsRouter(products) {
+  const router = Router();
+  router.get('/', (req, res) =&gt; res.json(products));
+  router.get('/:id', (req, res) =&gt; {
+    const product = products.find((p) =&gt; p.id === Number(req.params.id));
+    if (!product) return res.status(404).json({ error: 'Товар не найден' });
+    res.json(product);
+  });
+  return router;
+}</code></pre>
+<pre><code>// app.mjs
+import express from 'express';
+import { productsRouter } from './routes/products.mjs';
+
+export function createApp(products) {
+  const app = express();
+  app.use('/api/products', productsRouter(products));
+  return app;
+}</code></pre>
+<p>Внутри роутера пути без префикса: <code>'/'</code> и <code>'/:id'</code>. Роутер ничего не знает о том, куда его подключили, поэтому его легко перенести. Это шаг к структуре из раздела урока: <code>routes</code>, затем <code>controllers</code>, когда обработчики разрастутся.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>
