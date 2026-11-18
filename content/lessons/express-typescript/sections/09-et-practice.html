@@ -1,0 +1,26 @@
+<section id="et-practice">
+<h2>Практика, вопросы и словарь</h2>
+<h3 id="et-exercises">Упражнения</h3>
+<ol>
+<li>Добавьте <code>GET /api/categories</code>: уникальные категории из <code>PRODUCTS</code>. Типизируйте ответ как <code>Response&lt;string[]&gt;</code> и напишите тест.</li>
+<li>Добавьте параметр <code>sort=price-asc|price-desc</code>. Неизвестное значение должно давать 400. Подсказка: union-тип <code>'price-asc' | 'price-desc'</code> и функция-проверка.</li>
+<li>Сделайте так, чтобы <code>minPrice &gt; maxPrice</code> возвращал 400. Сначала напишите падающий тест (<a href="/lessons/testing#testing-tdd-cycle">TDD</a>).</li>
+<li>Напишите тест, который доказывает, что цена из тела запроса игнорируется: отправьте <code>price: 1</code> и проверьте сумму.</li>
+<li>Уберите <code>err.status ?? 500</code> из обработчика ошибок и посмотрите, какой тест упадёт. Верните строку.</li>
+</ol>
+<h3 id="et-questions">Вопросы</h3>
+<details class="q"><summary>Почему <code>req.body as QuoteBody</code> не защищает сервер?</summary><p><code>as</code> существует только для компилятора и исчезает при сборке. Во время работы в <code>req.body</code> лежит то, что прислал клиент, и никто это не проверил. Защищает только проверка во время выполнения: type guard или схема.</p></details>
+<details class="q"><summary>tsx запустил сервер, хотя в коде ошибка типов. Это баг?</summary><p>Нет. tsx отбрасывает типы и не проверяет их, ради скорости. Проверяет <code>tsc --noEmit</code>, поэтому его запускают отдельно: в CI или в хуке перед коммитом.</p></details>
+<details class="q"><summary>Зачем писать <code>.js</code> в импортах .ts-файлов?</summary><p>С <code>module: nodenext</code> TypeScript не переписывает пути при сборке. В <code>dist</code> окажутся файлы <code>.js</code>, и Node найдёт их по этим путям. Без расширения ES-модули в Node не работают.</p></details>
+<details class="q"><summary>Почему app и server — разные файлы?</summary><p>Чтобы тесты могли создать приложение без <code>listen</code> и не занимать порт. Заодно в <code>server.ts</code> собраны все зависимости от окружения.</p></details>
+<details class="q"><summary>Клиент прислал битый JSON. Какой статус правильный и откуда он берётся?</summary><p>400: ошибка на стороне клиента. Его ставит <code>express.json()</code> в поле <code>status</code> ошибки, а наш обработчик должен его уважать, а не превращать всё в 500.</p></details>
+<h3 id="et-glossary">Словарь</h3>
+<dl class="gloss">
+<dt>@types/*</dt><dd>Пакеты с описаниями типов для библиотек, написанных на JavaScript.</dd>
+<dt>tsx</dt><dd>Утилита, которая запускает TypeScript без отдельной сборки и перезапускает сервер при изменениях. Типы не проверяет.</dd>
+<dt>type stripping</dt><dd>Удаление аннотаций типов без проверки и без генерации кода. Так работает встроенная поддержка .ts в Node 22.18+.</dd>
+<dt>type guard</dt><dd>Функция, которая проверяет значение во время работы и сообщает компилятору его тип (<code>x is T</code>).</dd>
+<dt>supertest</dt><dd>Библиотека для HTTP-тестов приложения Express без ручного запуска сервера.</dd>
+<dt>origin</dt><dd>Схема, домен и порт адреса. <code>localhost:5173</code> и <code>localhost:3000</code> — разные origin.</dd>
+</dl>
+</section>

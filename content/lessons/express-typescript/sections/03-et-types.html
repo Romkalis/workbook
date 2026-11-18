@@ -1,0 +1,48 @@
+<section id="et-types">
+<h2>Типы запроса и ответа</h2>
+<p>Обработчик Express получает <code>req</code> и <code>res</code>. Если написать обработчик прямо внутри <code>app.get(...)</code>, TypeScript выведет их типы сам (контекстная типизация, <a href="/lessons/typescript-basic#ts-context">о ней здесь</a>). Но по умолчанию <code>req.body</code> имеет тип <code>any</code>, а <code>req.query</code> — «что угодно из строки запроса». Это надо уточнять.</p>
+<h3 id="et-request-generic">Четыре параметра Request</h3>
+<p><code>Request</code> — обобщённый тип (generic) с четырьмя параметрами по порядку:</p>
+<pre><code>Request&lt;Params, ResBody, ReqBody, Query&gt;
+//      :id      что     что пришло  ?search=...
+//               отвечаем в теле</code></pre>
+<p>Пример из нашего API: параметр пути <code>:id</code> и ответ — товар.</p>
+<pre><code>// src/routes/products.ts
+productsRouter.get('/:id', (req: Request&lt;{ id: string }&gt;, res: Response&lt;Product&gt;) =&gt; {
+  const product = PRODUCTS.find((p) =&gt; p.id === req.params.id);
+  if (!product) throw new HttpError(404, 'Товар не найден');
+  res.json(product);
+});</code></pre>
+<p><code>Response&lt;Product&gt;</code> — обещание компилятору: <code>res.json()</code> примет только <code>Product</code>. Попробуйте написать <code>res.json({ title: 1 })</code>, и редактор подчеркнёт ошибку. Это защищает от случайного изменения формы ответа, на которую рассчитывает фронтенд.</p>
+<h3 id="et-query">Строка запроса: всегда строки</h3>
+<p>В адресе <code>/api/products?minPrice=1000</code> значение <code>minPrice</code> приходит строкой <code>"1000"</code>, а не числом. HTTP передаёт текст, и Express ничего не угадывает. Поэтому тип <code>Query</code> честно описан строками, а перевод в число с проверкой — отдельная функция:</p>
+<pre><code>// src/routes/products.ts
+import { Router, type Request, type Response } from 'express';
+import { filterProducts, PRODUCTS, type Product, type ProductFilters } from '../domain/products.js';
+import { HttpError } from '../http-error.js';
+
+export const productsRouter = Router();
+
+type ProductsQuery = { search?: string; category?: string; minPrice?: string; maxPrice?: string };
+
+function toNumber(value: string | undefined, name: string): number | undefined {
+  if (value === undefined || value === '') return undefined;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n &lt; 0) throw new HttpError(400, `${name} должен быть целым числом ≥ 0`);
+  return n;
+}
+
+productsRouter.get('/', (req: Request&lt;{}, Product[], unknown, ProductsQuery&gt;, res: Response&lt;Product[]&gt;) =&gt; {
+  const filters: ProductFilters = {
+    search: req.query.search,
+    category: req.query.category,
+    minPrice: toNumber(req.query.minPrice, 'minPrice'),
+    maxPrice: toNumber(req.query.maxPrice, 'maxPrice'),
+  };
+  res.json(filterProducts(PRODUCTS, filters));
+});</code></pre>
+<div class="note"><p>Тип <code>ProductsQuery</code> со строками — это допущение, а не проверка. По адресу <code>?search=a&amp;search=b</code> Express отдаст массив. Для учебного API это допустимо, а в серьёзном проекте строку запроса проверяют так же, как тело (следующий раздел).</p></div>
+<p>Обратите внимание на <code>{}</code> в позиции <code>Params</code>: у маршрута <code>/</code> параметров пути нет. А <code>unknown</code> в позиции тела — у GET-запроса тела нет, и мы не обещаем, что оно есть.</p>
+<h3 id="et-money">Деньги — в целых копейках</h3>
+<p>В <code>Product</code> цена хранится в копейках: <code>150000</code> вместо <code>1500.00</code>. В JavaScript <code>0.1 + 0.2</code> равно <code>0.30000000000000004</code>, потому что дробные числа хранятся в двоичном виде приблизительно. Сумма корзины из десятка позиций может разойтись на копейку с тем, что посчитал фронтенд. С целыми числами такого нет, а рубли с копейками показывают только при выводе (<code>(price / 100).toFixed(2)</code>). Это из общих знаний, но на интервью такой вопрос задают часто.</p>
+</section>

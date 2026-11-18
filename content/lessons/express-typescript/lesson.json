@@ -1,0 +1,16 @@
+{
+  "slug": "express-typescript",
+  "title": "Express на TypeScript",
+  "stage": 3,
+  "track": "backend",
+  "order": 101,
+  "kicker": "Node.js · Express 5 · TypeScript · Vitest",
+  "heading": "Express на TypeScript: типизированный API, который можно тестировать",
+  "lead": "Продолжение урока «Основы Node.js и Express». Собираем небольшой API магазина на TypeScript: настройка tsconfig для Node, запуск через tsx и сборка через tsc, типы запроса и ответа, проверка входных данных, ошибки, разделение app и server, тесты через supertest, CORS и деплой. Весь код запущен в Node 22, Express 5.3, TypeScript 7.0 и Vitest 5.1.",
+  "chips": [
+    "~3 часа",
+    "9 разделов + источники",
+    "13 проверенных тестов",
+    "10 вопросов с объяснениями"
+  ]
+}

@@ -1,0 +1,127 @@
+<section id="et-test">
+<h2>Тесты: unit для логики, supertest для HTTP</h2>
+<h3 id="et-unit">Unit-тесты чистых функций</h3>
+<pre><code>// src/domain/cart.ts
+export interface CartLine {
+  productId: string;
+  price: number;
+  quantity: number;
+}
+
+export interface CartTotals {
+  subtotal: number;
+  discount: number;
+  total: number;
+}
+
+const PROMO_CODES: Readonly&lt;Record&lt;string, number&gt;&gt; = { SALE10: 10 };
+
+export function addToCart(cart: readonly CartLine[], item: Omit&lt;CartLine, 'quantity'&gt;): CartLine[] {
+  const existing = cart.find((line) =&gt; line.productId === item.productId);
+  if (!existing) return [...cart, { ...item, quantity: 1 }];
+  return cart.map((line) =&gt; (line === existing ? { ...line, quantity: line.quantity + 1 } : line));
+}
+
+export function calculateCart(cart: readonly CartLine[], promo?: string): CartTotals {
+  const subtotal = cart.reduce((sum, line) =&gt; sum + line.price * line.quantity, 0);
+  const percent = promo === undefined ? 0 : (PROMO_CODES[promo.trim().toUpperCase()] ?? 0);
+  const discount = Math.round((subtotal * percent) / 100);
+  return { subtotal, discount, total: subtotal - discount };
+}</code></pre>
+<pre><code>// tests/cart.test.ts
+import { describe, expect, it } from 'vitest';
+import { addToCart, calculateCart, type CartLine } from '../src/domain/cart.js';
+
+const book = { productId: 'b1', price: 150000 };
+
+describe('calculateCart', () =&gt; {
+  it('складывает цену × количество по всем строкам', () =&gt; {
+    const cart: CartLine[] = [{ ...book, quantity: 2 }, { productId: 'g1', price: 249000, quantity: 1 }];
+    expect(calculateCart(cart)).toEqual({ subtotal: 549000, discount: 0, total: 549000 });
+  });
+
+  it('пустая корзина даёт нули', () =&gt; {
+    expect(calculateCart([])).toEqual({ subtotal: 0, discount: 0, total: 0 });
+  });
+
+  it('SALE10 даёт 10%, регистр и пробелы не важны', () =&gt; {
+    expect(calculateCart([{ ...book, quantity: 1 }], ' sale10 ')).toEqual({ subtotal: 150000, discount: 15000, total: 135000 });
+  });
+
+  it('неизвестный промокод не даёт скидки', () =&gt; {
+    expect(calculateCart([{ ...book, quantity: 1 }], 'FREE').discount).toBe(0);
+  });
+
+  it('повторный расчёт не накапливает скидку', () =&gt; {
+    const cart = [{ ...book, quantity: 1 }];
+    calculateCart(cart, 'SALE10');
+    expect(calculateCart(cart, 'SALE10').total).toBe(135000);
+  });
+});
+
+describe('addToCart', () =&gt; {
+  it('повторное добавление увеличивает количество, а не добавляет строку', () =&gt; {
+    const once = addToCart([], book);
+    const twice = addToCart(once, book);
+    expect(twice).toEqual([{ ...book, quantity: 2 }]);
+    expect(once).toEqual([{ ...book, quantity: 1 }]);
+  });
+});</code></pre>
+<p>Каждый тест проверяет одно правило, и его название читается как требование. Сценарии выбраны по классам эквивалентности и границам (<a href="/lessons/testing#testing-boundaries">как их выбирать</a>): несколько строк, пустая корзина, верный код в другом регистре, неверный код, повторный расчёт.</p>
+<h3 id="et-supertest">HTTP-тесты через supertest</h3>
+<p><a href="https://github.com/ladjs/supertest">supertest</a> принимает приложение Express, сам поднимает его на временном порту, отправляет запрос и даёт проверить статус и тело. Это интеграционный тест: проверяется связка «маршрут + проверка + логика + обработчик ошибок» (<a href="/lessons/testing#testing-unit-integration-e2e">уровни тестов</a>).</p>
+<pre><code>// tests/api.test.ts
+import request from 'supertest';
+import { describe, expect, it } from 'vitest';
+import { createApp } from '../src/app.js';
+
+const app = createApp();
+
+describe('GET /api/products', () =&gt; {
+  it('фильтрует по поиску без учёта регистра', async () =&gt; {
+    const res = await request(app).get('/api/products').query({ search: 'КОД' });
+    expect(res.status).toBe(200);
+    expect(res.body.map((p: { id: string }) =&gt; p.id)).toEqual(['b1']);
+  });
+
+  it('отвечает 400 на нечисловую цену', async () =&gt; {
+    const res = await request(app).get('/api/products?minPrice=abc');
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'minPrice должен быть целым числом ≥ 0' });
+  });
+
+  it('отвечает 404 на неизвестный id', async () =&gt; {
+    const res = await request(app).get('/api/products/nope');
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /api/cart/quote', () =&gt; {
+  it('считает итог со скидкой', async () =&gt; {
+    const res = await request(app)
+      .post('/api/cart/quote')
+      .send({ items: [{ productId: 'b1', quantity: 2 }], promo: 'SALE10' });
+    expect(res.body).toEqual({ subtotal: 300000, discount: 30000, total: 270000 });
+  });
+
+  it('отвечает 400 на кривое тело', async () =&gt; {
+    const res = await request(app).post('/api/cart/quote').send({ items: [{ productId: 'b1', quantity: 0 }] });
+    expect(res.status).toBe(400);
+  });
+
+  it('отвечает 400 на битый JSON', async () =&gt; {
+    const res = await request(app).post('/api/cart/quote').set('Content-Type', 'application/json').send('{oops');
+    expect(res.status).toBe(400);
+  });
+});
+
+it('неизвестный маршрут — 404 в JSON', async () =&gt; {
+  const res = await request(app).get('/api/nope');
+  expect(res.status).toBe(404);
+  expect(res.body).toEqual({ error: 'Маршрут не найден' });
+});</code></pre>
+<p>Результат запуска:</p>
+<pre><code> Test Files  2 passed (2)
+      Tests  13 passed (13)</code></pre>
+<div class="note"><p>Сначала тестируйте ошибки: 400, 404, битый JSON. Счастливый путь вы и так проверите руками в браузере, а неверные данные руками отправляют редко. Именно там прячутся ответы 500 вместо 400.</p></div>
+</section>

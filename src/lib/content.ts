@@ -61,17 +61,34 @@ export function getLesson(slug: string): Lesson | undefined {
   return getLessons().find((l) => l.slug === slug);
 }
 
-/** Уроки, сгруппированные по этапам (Stage) для общего оглавления. */
-export function getStages(): { stage: number; lessons: Lesson[] }[] {
-  const map = new Map<number, Lesson[]>();
-  for (const l of getLessons()) map.set(l.stage, [...(map.get(l.stage) ?? []), l]);
-  return [...map.entries()].sort((a, b) => a[0] - b[0]).map(([stage, lessons]) => ({ stage, lessons }));
+/** Названия отдельных разделов (track). Они идут после всех этапов. */
+const TRACK_TITLES: Record<string, string> = { backend: 'Backend' };
+
+/** Уроки, сгруппированные по этапам (Stage) и отдельным разделам для общего оглавления. */
+export function getStages(): { key: string; title: string; lessons: Lesson[] }[] {
+  const stages = new Map<number, Lesson[]>();
+  const tracks = new Map<string, Lesson[]>();
+  for (const l of getLessons()) {
+    if (l.track) tracks.set(l.track, [...(tracks.get(l.track) ?? []), l]);
+    else stages.set(l.stage, [...(stages.get(l.stage) ?? []), l]);
+  }
+  return [
+    ...[...stages.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([stage, lessons]) => ({ key: `stage-${stage}`, title: `Stage ${stage}`, lessons })),
+    ...[...tracks.entries()].map(([track, lessons]) => ({
+      key: `track-${track}`,
+      title: TRACK_TITLES[track] ?? track,
+      lessons,
+    })),
+  ];
 }
 
 /** Структура общего оглавления: этапы → уроки → разделы → подтемы. Тест вставляется перед источниками. */
 export function getNav(): NavStage[] {
-  return getStages().map(({ stage, lessons }) => ({
-    stage,
+  return getStages().map(({ key, title, lessons }) => ({
+    key,
+    title,
     lessons: lessons.map((l) => {
       const items = l.sections.map((s) => ({
         id: s.id,

@@ -1,0 +1,47 @@
+<section id="et-validate">
+<h2>Проверка входных данных</h2>
+<p>Главное правило сервера: <b>всё, что пришло по сети, — <code>unknown</code></b>. Аннотация <code>req.body as QuoteBody</code> только отключает проверку компилятора. Она ничего не проверяет во время работы, это разобрано в <a href="/lessons/typescript-basic#ts-type-assertions">разделе про <code>as</code></a>.</p>
+<h3 id="et-type-guard">Type guard для тела запроса</h3>
+<p>Функция с возвращаемым типом <code>body is QuoteBody</code> называется type guard (охранник типа, <a href="/lessons/typescript-advanced#advanced-validation">подробно в TypeScript Advanced</a>). Она проверяет значение во время выполнения, а компилятор после <code>if</code> считает тело проверенным:</p>
+<pre><code>// src/routes/cart.ts
+import { Router, type Request, type Response } from 'express';
+import { calculateCart, type CartLine, type CartTotals } from '../domain/cart.js';
+import { PRODUCTS } from '../domain/products.js';
+import { HttpError } from '../http-error.js';
+
+export const cartRouter = Router();
+
+interface QuoteBody {
+  items: { productId: string; quantity: number }[];
+  promo?: string;
+}
+
+function isQuoteBody(body: unknown): body is QuoteBody {
+  if (typeof body !== 'object' || body === null || !('items' in body) || !Array.isArray(body.items)) return false;
+  if ('promo' in body &amp;&amp; typeof body.promo !== 'string') return false;
+  return body.items.every(
+    (i: unknown) =&gt;
+      typeof i === 'object' &amp;&amp; i !== null &amp;&amp;
+      'productId' in i &amp;&amp; typeof i.productId === 'string' &amp;&amp;
+      'quantity' in i &amp;&amp; Number.isInteger(i.quantity) &amp;&amp; (i.quantity as number) &gt;= 1,
+  );
+}
+
+cartRouter.post('/quote', (req: Request&lt;{}, CartTotals, unknown&gt;, res: Response&lt;CartTotals&gt;) =&gt; {
+  if (!isQuoteBody(req.body)) throw new HttpError(400, 'Неверное тело запроса');
+  const lines: CartLine[] = req.body.items.map(({ productId, quantity }) =&gt; {
+    const product = PRODUCTS.find((p) =&gt; p.id === productId);
+    if (!product) throw new HttpError(400, `Нет товара ${productId}`);
+    return { productId, price: product.price, quantity };
+  });
+  res.json(calculateCart(lines, req.body.promo));
+});</code></pre>
+<p>Что здесь важно:</p>
+<ul>
+<li><b>Цена берётся с сервера, а не от клиента.</b> Клиент присылает только <code>productId</code> и <code>quantity</code>. Если бы сервер принимал цену из запроса, любой мог бы купить что угодно за копейку, отправив запрос из Postman.</li>
+<li><code>quantity</code> — целое число от 1. Ноль, минус и дробь отсекаются сразу.</li>
+<li>Если товара нет, это 400 (клиент прислал неверные данные), а не 500 (сломался сервер).</li>
+</ul>
+<h3 id="et-zod">А как в больших проектах</h3>
+<p>Писать такие проверки вручную утомительно, и они разрастаются. В реальных проектах обычно берут библиотеку схем, например <a href="https://zod.dev/">Zod</a>: описываете схему один раз, получаете и проверку, и тип через <code>z.infer</code>. Это из общих знаний, в уроке Zod не используется: для трёх маршрутов хватит ручной проверки, а лишняя зависимость — ещё одна вещь, которую надо объяснить на интервью. Если API разрастётся, это хороший кандидат на «что бы я улучшил».</p>
+</section>

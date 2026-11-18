@@ -1,0 +1,26 @@
+<section id="tp-about">
+<h2>«О нас» и навигация</h2>
+<p>Страница «О нас» открывается первой. Это требование задания, и её же вы покажете в начале интервью. Что на ней должно быть:</p>
+<ul>
+<li>Одной-двумя фразами: что делает приложение и для кого.</li>
+<li>Участники: имя или GitHub-логин (лучше ссылкой на профиль) и вклад каждого конкретными словами: «каталог, фильтры и сортировка; настройка CI», а не «фронтенд».</li>
+<li>По желанию: ссылки на репозиторий и доску.</li>
+</ul>
+<p>Навигация на хеше: адрес <code>…/#/cart</code> не уходит на сервер, браузер просто генерирует событие <code>hashchange</code>. Решение «какой экран показать» — чистая функция:</p>
+<pre><code>// src/route.ts
+export type Route = 'about' | 'catalog' | 'cart';
+
+const ROUTES: readonly Route[] = ['about', 'catalog', 'cart'];
+
+/** '#/cart' → 'cart'. Пустой или неизвестный адрес ведёт на «О нас». */
+export function parseRoute(hash: string): Route {
+  const name = hash.replace(/^#\/?/, '');
+  return ROUTES.find((r) =&gt; r === name) ?? 'about';
+}</code></pre>
+<pre><code>// main.ts — набросок, в браузере не запускался
+const screens = { about: renderAbout, catalog: renderCatalog, cart: renderCart };
+const show = () =&gt; screens[parseRoute(location.hash)](document.querySelector('main')!);
+window.addEventListener('hashchange', show);
+show();</code></pre>
+<p>Пустой и неизвестный адрес ведут на «О нас». Так выполняется требование «открывается при загрузке», и опечатка в адресе не даёт пустую страницу. Ссылки меню — обычные <code>&lt;a href="#/catalog"&gt;</code> внутри <code>&lt;nav&gt;</code>: работают с клавиатуры и кнопкой «назад» без лишнего кода.</p>
+</section>

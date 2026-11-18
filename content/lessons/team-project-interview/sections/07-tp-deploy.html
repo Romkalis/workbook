@@ -1,0 +1,11 @@
+<section id="tp-deploy">
+<h2>Деплой</h2>
+<p>Два варианта из гайда, оба бесплатные.</p>
+<div class="tbl"><table><thead><tr><th></th><th>GitHub Pages</th><th>Netlify</th></tr></thead><tbody>
+<tr><td>Настройка</td><td>Settings → Pages → GitHub Actions + workflow из <a href="https://vite.dev/guide/static-deploy.html#github-pages">руководства Vite</a></td><td>подключить репозиторий, команда <code>npm run build</code>, папка <code>dist</code></td></tr>
+<tr><td>Подводный камень</td><td>сайт живёт по адресу <code>/имя-репозитория/</code>, нужен <code>base: '/team-store/'</code> в <code>vite.config.ts</code>, иначе пустая страница и 404 на скрипты</td><td>почти нет</td></tr>
+<tr><td>Бонус для пары</td><td>—</td><td>Deploy Preview: у каждого PR своя ссылка, ревьюер смотрит результат без клонирования</td></tr>
+</tbody></table></div>
+<p>Для работы в паре Netlify удобнее: ревьюер открывает превью прямо из PR. Если нужен GitHub Pages, первым делом задеплойте пустой каркас и проверьте <code>base</code>.</p>
+<div class="warn"><p>Проверяйте опубликованную версию в режиме инкогнито. Так вы увидите её глазами проверяющего: без своего localStorage, без входа в аккаунты и без кэша.</p></div>
+</section>

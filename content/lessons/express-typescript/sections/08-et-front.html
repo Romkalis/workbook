@@ -1,0 +1,30 @@
+<section id="et-front">
+<h2>Подключаем фронтенд и публикуем</h2>
+<h3 id="et-cors">CORS</h3>
+<p>Фронтенд на Vite работает на <code>http://localhost:5173</code>, API — на <code>:3000</code>. Это разные источники (origin), и браузер не отдаст странице ответ, пока сервер не разрешит это заголовком <code>Access-Control-Allow-Origin</code>. Механизм разобран в уроке <a href="/lessons/client-server">«Клиент-серверное взаимодействие»</a>. Пакет <code>cors</code> ставит этот заголовок, а на предварительный запрос <code>OPTIONS</code> отвечает 204. Проверено через curl:</p>
+<pre><code>$ curl -si -H 'Origin: http://localhost:5173' localhost:3123/api/health
+Access-Control-Allow-Origin: http://localhost:5173</code></pre>
+<div class="warn"><p>CORS защищает пользователей браузера, а не ваш сервер. Запрос из curl или Postman с чужим <code>Origin</code> всё равно доходит до сервера и получает ответ: мы проверили, что сервер отвечает, просто с заголовком для <code>localhost:5173</code>, и браузер чужой странице этот ответ не отдаст. Проверять права пользователя всё равно нужно на сервере (<a href="/lessons/jwt-auth">JWT-авторизация</a>).</p></div>
+<p>Запрос с фронтенда:</p>
+<pre><code>const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+
+export async function fetchQuote(items: { productId: string; quantity: number }[], promo?: string) {
+  const res = await fetch(`${API_URL}/api/cart/quote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items, promo }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error);
+  return (await res.json()) as { subtotal: number; discount: number; total: number };
+}</code></pre>
+<p>Без заголовка <code>Content-Type: application/json</code> <code>express.json()</code> не тронет тело, и <code>req.body</code> окажется <code>undefined</code>. Сервер честно ответит 400. Это самая частая причина вопроса «почему сервер не видит мои данные». Почему <code>fetch</code> не бросает ошибку при 400 и зачем проверять <code>res.ok</code>, разобрано в <a href="/lessons/country-search#cs-fetch">Country Search</a>. Сам этот клиентский код в браузере не запускался; тот же запрос проверен через supertest.</p>
+<h3 id="et-deploy">Деплой</h3>
+<p>GitHub Pages и Netlify в базовом варианте отдают только статические файлы, Node-сервер они не запускают. Для API нужен хостинг с Node: Render, Railway, Fly.io и подобные (из общих знаний, условия бесплатных тарифов меняются, проверяйте на сайте). Общая схема почти везде одна:</p>
+<ol>
+<li>Команда сборки: <code>npm ci &amp;&amp; npm run build</code>. <code>typescript</code> лежит в devDependencies, а некоторые хостинги их не ставят при <code>NODE_ENV=production</code>. Если сборка пишет «tsc: not found», дело в этом.</li>
+<li>Команда запуска: <code>npm start</code>, то есть <code>node dist/server.js</code>. Не <code>tsx</code>: он нужен только для разработки.</li>
+<li>Переменные окружения: <code>CLIENT_ORIGIN</code> — адрес опубликованного фронтенда. <code>PORT</code> хостинг обычно задаёт сам, поэтому сервер читает его из <code>process.env</code>, а не жёстко пишет 3000.</li>
+<li>На фронтенде <code>VITE_API_URL</code> — адрес API. Переменные с префиксом <code>VITE_</code> попадают в код при сборке, поэтому секретов там быть не должно.</li>
+</ol>
+<div class="note"><p>Бесплатные серверы часто засыпают без запросов, и первый запрос после паузы идёт десятки секунд. Перед записью интервью откройте <code>/api/health</code>, чтобы разбудить сервер. Или храните данные прямо во фронтенде, как разрешает задание, и не зависьте от этого.</p></div>
+</section>

@@ -1,0 +1,32 @@
+<section id="et-structure">
+<h2>Структура: app отдельно от server</h2>
+<pre><code>src/
+  domain/        чистая логика без Express: товары, корзина
+    products.ts
+    cart.ts
+  routes/        HTTP-слой: разбирает запрос, вызывает domain, отвечает
+    products.ts
+    cart.ts
+  http-error.ts
+  app.ts         createApp(): собирает приложение, но НЕ слушает порт
+  server.ts      читает env и вызывает listen
+tests/
+  cart.test.ts   unit-тесты domain
+  api.test.ts    тесты HTTP через supertest</code></pre>
+<pre><code>// src/server.ts
+import { createApp } from './app.js';
+
+const port = Number(process.env.PORT ?? 3000);
+const app = createApp(process.env.CLIENT_ORIGIN);
+
+app.listen(port, () =&gt; {
+  console.log(`API: http://localhost:${port}`);
+});</code></pre>
+<h3 id="et-why-split">Почему так</h3>
+<ul>
+<li><b>Тесты не занимают порт.</b> Тест импортирует <code>createApp()</code> и отдаёт его supertest. Если бы <code>app.ts</code> сам вызывал <code>listen(3000)</code>, два тестовых файла поспорили бы за порт, а запущенный <code>npm run dev</code> ломал бы тесты.</li>
+<li><b>Логика не знает про HTTP.</b> <code>calculateCart</code> принимает массив и возвращает объект. Её можно тестировать без сервера и даже скопировать во фронтенд, чтобы показывать сумму мгновенно. Сервер остаётся источником истины.</li>
+<li><b>Настройки через окружение.</b> Порт и адрес фронтенда берутся из <code>process.env</code> (<a href="/lessons/node-basics#nb-env">о переменных окружения</a>), потому что на хостинге они другие.</li>
+</ul>
+<p>Это тот же принцип единственной ответственности из <a href="/lessons/clean-code">Clean Code</a>, применённый к папкам.</p>
+</section>
