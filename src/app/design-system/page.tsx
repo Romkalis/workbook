@@ -42,6 +42,15 @@ const SAMPLE = `
   <figcaption>Подпись к схеме: полное объяснение продублировано текстом.</figcaption>
 </figure>
 <dl class="gloss"><dt>Термин</dt><dd>Определение термина для глоссария.</dd></dl>
+<article class="task" id="ds-task">
+  <h4>Задача 1. Название задачи <span class="lvl">★☆☆ разминка</span></h4>
+  <p>Условие: что написать и какой результат ожидается. В уроке у задачи есть data-task="урок/id", и кнопка ниже сохраняет отметку в браузере.</p>
+  <p class="why"><b>Зачем:</b> какой навык тренирует задача и где он пригодится.</p>
+  <p class="starter"><code>npx degit Romkalis/workbook/starters/shop/01-start my-shop</code> <a href="#ds-task">Скачать ZIP</a></p>
+  <details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Направление, а не ответ.</p></div></details>
+  <details class="q spoiler"><summary>Решение и разбор</summary><div class="a"><pre><code>const answer = 42;</code></pre><p>Почему решение именно такое.</p></div></details>
+  <button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 `;
 
 export default function DesignSystemPage() {

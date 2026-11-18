@@ -40,7 +40,8 @@ function loadLesson(slug: string): Lesson {
   const files = fs.readdirSync(path.join(dir, 'sections')).filter((f) => f.endsWith('.html')).sort();
   const sections = files.map((f) => parseSection(fs.readFileSync(path.join(dir, 'sections', f), 'utf-8')));
   const quiz = readJson<QuizItem[]>(path.join(dir, 'quiz.json'));
-  return { ...meta, sections, quiz };
+  const tasks = sections.flatMap((s) => [...s.html.matchAll(/data-task="([^"]+)"/g)].map((m) => m[1]));
+  return { ...meta, sections, quiz, tasks };
 }
 
 let cache: Lesson[] | null = null;

@@ -371,3 +371,18 @@
 .prose .cells > .gap { border-style: dashed; color: var(--muted); }
 .prose .lvls { display: grid; gap: var(--sp-2); }
 .prose .lvls .cells { justify-content: center; margin: 0; }
+
+/* Задача на написание кода: article.task. Образец на /design-system. */
+.prose .task { position: relative; max-width: 78ch; margin: 20px 0 24px; padding: 16px 16px 14px; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--r-md); }
+.prose .task[data-done] { border-left-color: var(--muted); }
+.prose .task > h4 { margin: 0 0 8px; font-size: 16.5px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.prose .task .lvl { font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--accent); white-space: nowrap; }
+.prose .task[data-done] > h4::after { content: "✓ решено"; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.prose .task .why { color: var(--muted); font-size: 15px; }
+.prose .task details.q { background: var(--bg); }
+.prose .task pre { margin-bottom: 12px; }
+.prose .task .starter { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 0 0 12px; font-size: 14.5px; }
+.prose .task .starter code { overflow-wrap: anywhere; }
+.prose .task-done { margin-top: 6px; padding: 6px 14px; font: inherit; font-size: 14.5px; color: var(--accent); background: transparent; border: 1px solid var(--accent); border-radius: var(--r-pill); cursor: pointer; }
+.prose .task-done[aria-pressed="true"] { color: var(--bg); background: var(--accent); }
+.prose .task-done:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
