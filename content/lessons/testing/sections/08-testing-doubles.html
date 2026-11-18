@@ -14,8 +14,32 @@ rate = 0.1;
 console.log(priceWithTax(100) === first); // false — аргумент тот же, ответ другой
 console.log(priceWithTaxPure(100, 0.2) === priceWithTaxPure(100, 0.2)); // true</code></pre>
 <p>Отсюда практический совет: выносите расчёты в чистые функции, а работу с сетью, временем и DOM оставляйте в тонком внешнем слое. Тогда большую часть логики покроют простые unit-тесты, а подмены понадобятся только на краях. Пример выполнен как тест в Node.js 22.</p>
+<article class="task" id="te-pure" data-task="testing/te-pure">
+<h4>Задача 12. Сделайте функцию чистой <span class="lvl">★☆☆ разминка</span></h4>
+<p>Функция ниже читает внешнюю переменную, и её результат меняется «сам». Перепишите её в чистую: ставка налога — параметр. Напишите тест, который был бы невозможен для исходной версии без изменения глобальной переменной.</p>
+<pre><code>let rate = 0.2;
+export const priceWithTax = (price) =&gt; Math.round(price * (1 + rate));</code></pre>
+<p class="why"><b>Зачем:</b> чистой функции не нужны подмены, очистка и порядок тестов: подготовили аргументы, вызвали, сравнили. Чем больше логики в чистых функциях, тем дешевле весь набор тестов.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// tax.mjs
+export const priceWithTax = (price, taxRate) =&gt; Math.round(price * (1 + taxRate));</code></pre>
+<pre><code>// tax.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { priceWithTax } from './tax.mjs';
+
+test('разные ставки в соседних тестах не мешают друг другу', () =&gt; {
+  assert.equal(priceWithTax(1000, 0.2), 1200);
+  assert.equal(priceWithTax(1000, 0.1), 1100);
+  assert.equal(priceWithTax(1000, 0), 1000);
+});</code></pre>
+<p>Где тогда хранить ставку? Там, где она известна: в настройках приложения, которые читает тонкий внешний слой и передаёт в функцию. Для исходной версии такой тест потребовал бы менять <code>rate</code>, а значит, и восстанавливать его потом. Ровно эту боль мы разбирали в задаче про окружение.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="testing-injection">Передайте зависимость явно</h3>
 <p>Вместо настоящей отправки письма передадим функцию send. Это делает тест быстрым и позволяет проверить публично значимый эффект: кому отправлено уведомление. Почтовый сервер этот тест не проверяет.</p>
+<p>Массив <code>calls</code> ниже — самодельный шпион. В <code>node:test</code> есть готовый: <code>mock.fn(реализация)</code> возвращает функцию, которая выполняет реализацию и записывает каждый вызов. Число вызовов — <code>fn.mock.callCount()</code>, аргументы вызова — <code>fn.mock.calls[i].arguments</code>. Аналоги — <code>jest.fn()</code> и <code>vi.fn()</code>.</p>
 <pre><code>import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -32,7 +56,165 @@ test('отправляет одно подтверждение нужному п
     { to: 'student@example.com', subject: 'Заказ принят' }
   ]);
 });</code></pre>
+<article class="task" id="te-spy" data-task="testing/te-spy">
+<h4>Задача 13. Шпион: письмо отправлено один раз <span class="lvl">★★☆ практика</span></h4>
+<p>Функция <code>confirmOrder(order, send)</code> отправляет письмо, только если заказ оплачен. Используя <code>mock.fn()</code> из <code>node:test</code>, проверьте: для оплаченного заказа <code>send</code> вызвана ровно один раз с нужным адресом и темой; для неоплаченного не вызвана вовсе.</p>
+<pre><code>// confirm.mjs
+export async function confirmOrder(order, send) {
+  if (order.status !== 'paid') return false;
+  await send({ to: order.email, subject: `Заказ №${order.id} оплачен` });
+  return true;
+}</code></pre>
+<p class="why"><b>Зачем:</b> здесь взаимодействие и есть контракт: письмо о неоплаченном заказе — реальная ошибка, которую увидит покупатель. Шпион записывает вызовы, и тест проверяет, что именно ушло наружу, без настоящего почтового сервера.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// confirm.test.mjs
+import { test, mock } from 'node:test';
+import assert from 'node:assert/strict';
+import { confirmOrder } from './confirm.mjs';
+
+test('оплаченный заказ: одно письмо нужному получателю', async () =&gt; {
+  const send = mock.fn(async () =&gt; {});
+  await confirmOrder({ id: 7, email: 'buyer@example.com', status: 'paid' }, send);
+  assert.equal(send.mock.callCount(), 1);
+  assert.deepEqual(send.mock.calls[0].arguments, [{ to: 'buyer@example.com', subject: 'Заказ №7 оплачен' }]);
+});
+
+test('неоплаченный заказ: письма нет', async () =&gt; {
+  const send = mock.fn(async () =&gt; {});
+  const result = await confirmOrder({ id: 8, email: 'buyer@example.com', status: 'new' }, send);
+  assert.equal(result, false);
+  assert.equal(send.mock.callCount(), 0);
+});</code></pre>
+<p><code>mock.fn(impl)</code> создаёт функцию, которая выполняет <code>impl</code> и записывает каждый вызов в <code>.mock.calls</code>. Мутант отправляет письмо до проверки статуса, но возвращает правильный <code>false</code>. Тест, который смотрит только на результат, его бы пропустил, а проверка «вызовов 0» ловит. Это тот случай, когда проверять взаимодействие правильно.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="te-stub" data-task="testing/te-stub">
+<h4>Задача 14. Заглушка: сервер ответил ошибкой <span class="lvl">★★☆ практика</span></h4>
+<p><code>submitOrder(order, api)</code> отправляет заказ и возвращает <code>{ ok: true, id }</code> или, если <code>api.post</code> отклонился, <code>{ ok: false, message: 'Не удалось оформить заказ, попробуйте ещё раз' }</code>. Напишите тесты для обоих исходов с объектами-заглушками вместо <code>api</code>.</p>
+<pre><code>// submit.mjs
+export async function submitOrder(order, api) {
+  try {
+    const { id } = await api.post('/orders', order);
+    return { ok: true, id };
+  } catch {
+    return { ok: false, message: 'Не удалось оформить заказ, попробуйте ещё раз' };
+  }
+}</code></pre>
+<p class="why"><b>Зачем:</b> воспроизвести настоящую ошибку сервера по запросу трудно, а заглушка делает это одной строкой. Ветку ошибки чаще всего не проверяют, и именно в ней пользователь видит белый экран.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// submit.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { submitOrder } from './submit.mjs';
+
+test('успех: возвращает id заказа', async () =&gt; {
+  const api = { post: async () =&gt; ({ id: 42 }) };
+  assert.deepEqual(await submitOrder({ items: [] }, api), { ok: true, id: 42 });
+});
+
+test('сервер упал: понятное сообщение вместо исключения', async () =&gt; {
+  const api = { post: async () =&gt; { throw new Error('500'); } };
+  assert.deepEqual(await submitOrder({ items: [] }, api), {
+    ok: false,
+    message: 'Не удалось оформить заказ, попробуйте ещё раз',
+  });
+});</code></pre>
+<p>Заглушке не нужен <code>mock.fn</code>: обычный объект с методом нужной формы. Нам не важно, как её вызвали, важно, что она вернула, поэтому это stub, а не spy. Мутант без <code>try/catch</code> пропускает исключение наружу, и второй тест падает.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="te-fake" data-task="testing/te-fake">
+<h4>Задача 15. Fake: хранилище в памяти <span class="lvl">★★☆ практика</span></h4>
+<p><code>registerUser(repo, email)</code> регистрирует пользователя, если такого email ещё нет (без учёта регистра), иначе бросает <code>Error('Email занят')</code>. Напишите fake-репозиторий на <code>Map</code> с методами <code>findByEmail</code> и <code>save</code> и тесты: регистрация, повтор, повтор в другом регистре.</p>
+<pre><code>// register.mjs
+export async function registerUser(repo, email) {
+  const normalized = email.trim().toLowerCase();
+  if (await repo.findByEmail(normalized)) throw new Error('Email занят');
+  return repo.save({ email: normalized });
+}</code></pre>
+<p class="why"><b>Зачем:</b> fake — это настоящая, только упрощённая реализация. Она помнит состояние между вызовами, поэтому проверяет сценарий «сохранили — потом нашли», который заглушка с заранее заданным ответом не воспроизведёт.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// register.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { registerUser } from './register.mjs';
+
+function createFakeRepo() {
+  const users = new Map();
+  let nextId = 1;
+  return {
+    async findByEmail(email) {
+      return users.get(email) ?? null;
+    },
+    async save(user) {
+      const saved = { id: nextId++, ...user };
+      users.set(user.email, saved);
+      return saved;
+    },
+  };
+}
+
+test('регистрирует нового пользователя', async () =&gt; {
+  const user = await registerUser(createFakeRepo(), 'Anna@Example.com');
+  assert.deepEqual(user, { id: 1, email: 'anna@example.com' });
+});
+
+test('повторный email отклоняется', async () =&gt; {
+  const repo = createFakeRepo();
+  await registerUser(repo, 'anna@example.com');
+  await assert.rejects(() =&gt; registerUser(repo, 'anna@example.com'), /Email занят/);
+});
+
+test('повтор в другом регистре тоже отклоняется', async () =&gt; {
+  const repo = createFakeRepo();
+  await registerUser(repo, 'anna@example.com');
+  await assert.rejects(() =&gt; registerUser(repo, ' ANNA@example.com '), /Email занят/);
+});</code></pre>
+<p>Каждый тест создаёт свой репозиторий через фабрику, так что данные не пересекаются. Мутант без нормализации пускает <code>ANNA@example.com</code> как нового пользователя, и ловит его последний тест. Подсказка на будущее: на сервере тот же fake пригодится, чтобы тестировать маршруты без настоящей базы.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="testing-overmocking">Где подмена перестаёт помогать</h3>
 <p>У подмен две типичные ошибки. Первая — подменить саму проверяемую функцию. Тогда тест проверяет только то, что подмена вернула заданный вами ответ, а настоящий код не выполняется вовсе. Вторая — проверять каждый внутренний вызов: «сначала вызвали <code>format</code>, потом <code>round</code>». Такой тест упадёт, как только вы перепишете код по-другому, даже если результат остался верным. Подменяйте только внешнее (сеть, время, базу) и проверяйте результат, а не порядок шагов внутри.</p>
 <p>Подменяйте внешнюю границу, когда её реальная работа не является целью теста. Взаимодействие проверяйте, когда оно само часть контракта: например, не отправить письмо дважды. Совместимость с настоящим сервисом проверяйте отдельно интеграционным тестом или тестом контракта.</p>
+<article class="task" id="te-overmock" data-task="testing/te-overmock">
+<h4>Задача 16. От проверки шагов к проверке результата <span class="lvl">★★☆ практика</span></h4>
+<p>Тест ниже проверяет, в каком порядке функция вызывает свои внутренние помощники. Он упадёт при любом рефакторинге, даже если результат верен. Перепишите его так, чтобы он проверял только результат: строку цены.</p>
+<pre><code>// starter.mjs
+test('formatPrice', () =&gt; {
+  const calls = [];
+  const helpers = {
+    toRubles: (k) =&gt; { calls.push('toRubles'); return k / 100; },
+    fix: (r) =&gt; { calls.push('fix'); return r.toFixed(2); },
+  };
+  formatPrice(150050, helpers);
+  assert.deepEqual(calls, ['toRubles', 'fix']);
+});</code></pre>
+<pre><code>// price.mjs
+export function formatPrice(kopecks) {
+  const rubles = Math.trunc(kopecks / 100);
+  const rest = String(kopecks % 100).padStart(2, '0');
+  return `${rubles}.${rest} ₽`;
+}</code></pre>
+<p class="why"><b>Зачем:</b> тест — это договор о поведении, а не о реализации. Проверка внутренних шагов мешает улучшать код: функцию переписали без деления на дробные рубли, результат тот же, а тест красный. В итоге команда перестаёт доверять тестам.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// price.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { formatPrice } from './price.mjs';
+
+for (const [kopecks, expected] of [
+  [150050, '1500.50 ₽'],
+  [5, '0.05 ₽'],
+  [100000, '1000.00 ₽'],
+]) {
+  test(`${kopecks} копеек → ${expected}`, () =&gt; {
+    assert.equal(formatPrice(kopecks), expected);
+  });
+}</code></pre>
+<p>Реализация в <code>given</code> уже переписана без помощников: она работает с целыми числами. Старый тест к ней уже не применить: функция не принимает помощников, хотя результат прежний. Новый тест проходит. Мутант с наивным делением даёт <code>1500.5 ₽</code> и <code>0.05 ₽</code>: тест 150050 его ловит, хотя 0.05 случайно совпал бы. Поэтому в таблице несколько разных случаев.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

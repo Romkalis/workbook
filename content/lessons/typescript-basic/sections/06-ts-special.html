@@ -11,11 +11,84 @@ const raw: unknown = JSON.parse(&#x27;{&quot;title&quot;:&quot;Учебник&qu
 console.log(readTitle(raw));
 try { readTitle({ title: 5 }); }
 catch { console.log(&quot;Некорректные данные отклонены&quot;); }
-</code></pre><p><code>JSON.parse</code> обычно возвращает any. Явно сохранив результат как unknown, мы обязуемся проверить форму. Предикат <code>value is Student</code> может оформить такую проверку в переиспользуемую функцию, но его реализация должна действительно проверять нужные поля: компилятор доверяет написанному предикату.</p><h3 id="ts-never-void">Невозможный результат и игнорируемый результат</h3><p><code>never</code> не содержит ни одного значения: функция всегда бросает исключение или не заканчивает выполнение, либо ветка логически недостижима. <code>void</code> в контракте колбэка означает, что вызывающий код не использует результат. <code>undefined</code> — конкретное значение, это другая идея.</p><pre><code>function fail(message: string): never { throw new Error(message); }
+</code></pre><p><code>JSON.parse</code> обычно возвращает any. Явно сохранив результат как unknown, мы обязуемся проверить форму.</p>
+<p><b>Предикат типа</b> оформляет такую проверку в переиспользуемую функцию. Вместо <code>boolean</code> в результате пишут <code>value is Student</code>: «если функция вернула <code>true</code>, значение — <code>Student</code>». После вызова в <code>if</code> компилятор сужает тип так же, как после <code>typeof</code>:</p>
+<pre><code>interface Student { name: string; score: number }
+
+function isStudent(value: unknown): value is Student {
+  return (
+    typeof value === "object" &amp;&amp; value !== null &amp;&amp;
+    "name" in value &amp;&amp; typeof value.name === "string" &amp;&amp;
+    "score" in value &amp;&amp; typeof value.score === "number"
+  );
+}
+
+const data: unknown = JSON.parse('[{"name":"Маша","score":95},{"name":"Лев"}]');
+if (Array.isArray(data)) {
+  const students = data.filter(isStudent); // Student[]
+  console.log(students.length); // 1
+}</code></pre>
+<p>Предикат удобен и в <code>filter</code>: результат сразу получает тип <code>Student[]</code>. Но компилятор <b>не проверяет тело</b> предиката: если забыть проверить <code>score</code>, функция всё равно «пообещает» <code>Student</code>, и ошибка всплывёт позже. Поэтому предикат пишут один раз, внимательно и с тестами на неверные данные.</p><article class="task" id="tsb-unknown" data-task="typescript-basic/tsb-unknown">
+<h4>Задача 17. Разбор товара из unknown <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>parseProduct(value: unknown): Product</code>, где <code>Product = { id: number; title: string; price: number }</code>. Если форма не подходит, бросьте <code>Error</code>. Не используйте <code>any</code>, <code>as</code> и <code>!</code>. Затем вынесите проверку в предикат <code>isProduct(value): value is Product</code> и перепишите <code>parseProduct</code> через него.</p>
+<p class="why"><b>Зачем:</b> данные из <code>JSON.parse</code>, <code>fetch</code> и <code>localStorage</code> — это <code>unknown</code>, что бы ни было написано в типах. Функция-разбор на входе — единственное место, где «чужое» становится «своим». Предикат делает такую проверку переиспользуемой, например в <code>filter</code>.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Порядок проверок: объект и не <code>null</code> → есть ли поля (<code>in</code>) → тип каждого поля. Цене стоит проверить и <code>Number.isFinite</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type Product = { id: number; title: string; price: number };
+
+export function isProduct(value: unknown): value is Product {
+  return (
+    typeof value === 'object' &amp;&amp;
+    value !== null &amp;&amp;
+    'id' in value &amp;&amp; typeof value.id === 'number' &amp;&amp;
+    'title' in value &amp;&amp; typeof value.title === 'string' &amp;&amp;
+    'price' in value &amp;&amp; typeof value.price === 'number' &amp;&amp; Number.isFinite(value.price)
+  );
+}
+
+export function parseProduct(value: unknown): Product {
+  if (!isProduct(value)) throw new Error('Неверный формат товара');
+  return value;
+}
+
+const raw: unknown = JSON.parse('[{"id":1,"title":"A","price":100},{"id":"2"}]');
+const valid = Array.isArray(raw) ? raw.filter(isProduct) : []; // Product[]
+console.log(valid.length); // 1</code></pre>
+<p>После <code>'id' in value</code> TypeScript разрешает читать <code>value.id</code> (тип <code>unknown</code>), а <code>typeof</code> сужает его дальше. Предикат <code>value is Product</code> сообщает компилятору: если функция вернула <code>true</code>, значение — <code>Product</code>. Компилятор <b>верит</b> предикату на слово: забудете проверить <code>price</code> — тип соврёт. Поэтому предикат пишут один раз, аккуратно и с тестами. Бонус: <code>raw.filter(isProduct)</code> возвращает уже <code>Product[]</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-never-void">Невозможный результат и игнорируемый результат</h3><p><code>never</code> не содержит ни одного значения: функция всегда бросает исключение или не заканчивает выполнение, либо ветка логически недостижима. <code>void</code> в контракте колбэка означает, что вызывающий код не использует результат. <code>undefined</code> — конкретное значение, это другая идея.</p><pre><code>function fail(message: string): never { throw new Error(message); }
 const items: string[] = [];
 const save: (text: string) =&gt; void = text =&gt; items.push(text);
 save(&quot;TS&quot;);
 console.log(items.length); // 1
 try { fail(&quot;Нет урока&quot;); } catch { console.log(&quot;Ошибка обработана&quot;); }
 </code></pre><p><code>push</code> возвращает число, но функция подходит колбэку с результатом void: контракт позволяет проигнорировать число. Из этого не следует, что функция с явной аннотацией <code>function f(): void</code> может возвращать любое значение.</p>
+<article class="task" id="tsb-assert-never" data-task="typescript-basic/tsb-assert-never">
+<h4>Задача 18. Помощник assertNever и тип колбэка <span class="lvl">★☆☆ разминка</span></h4>
+<p>1) Вынесите проверку полноты в функцию <code>assertNever(value: never): never</code>, которая бросает ошибку с текстом значения. 2) Опишите тип колбэка <code>OnQuantityChange</code>: принимает id товара и новое количество, результат вызывающий код не использует.</p>
+<p class="why"><b>Зачем:</b> одна и та же конструкция в каждом <code>switch</code> — повод сделать функцию. А тип колбэка с <code>void</code> честно говорит: «верни что хочешь, я это не читаю». Это расширяет круг подходящих обработчиков.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function assertNever(value: never): never {
+  throw new Error(`Необработанный вариант: ${JSON.stringify(value)}`);
+}
+
+export type OnQuantityChange = (productId: number, quantity: number) =&gt; void;
+
+const log: number[] = [];
+export const onChange: OnQuantityChange = (id, qty) =&gt; log.push(id * 100 + qty); // push возвращает число — это нормально
+
+type Status = 'idle' | 'done';
+export function label(status: Status): string {
+  switch (status) {
+    case 'idle': return 'ждём';
+    case 'done': return 'готово';
+    default: return assertNever(status);
+  }
+}</code></pre>
+<p><code>never</code> в параметре работает как сигнализация из прошлых задач, а <code>never</code> в результате говорит: функция не возвращается, она только бросает. Почему она всё-таки бросает, раз до неё «нельзя дойти»: данные из сети могут нарушить типы, и тогда лучше громкая ошибка, чем молчаливый <code>undefined</code>. Обработчик с <code>push</code> возвращает число, но тип с <code>void</code> его принимает: результат просто игнорируется.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

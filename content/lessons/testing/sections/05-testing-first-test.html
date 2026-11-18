@@ -30,6 +30,9 @@ test('пустая корзина: итог равен нулю', () =&gt; {
 <p>Если убрать умножение на quantity, первый тест должен упасть. Это полезная мысленная проверка силы утверждения. Для понятных коротких тестов подписывать каждую строку AAA необязательно.</p>
 <h3 id="testing-assertions">Равенство, структура и исключение</h3>
 <p>В node:assert/strict <code>equal</code> сравнивает примитивные значения или идентичность объектов. Для структуры массива или объекта используйте <code>deepEqual</code>. Синхронное исключение проверяйте через <code>throws(() =&gt; действие())</code>: важно передать функцию, а не вызвать её до проверки.</p>
+<p>Вторым аргументом <code>throws</code> можно передать не только класс ошибки, но и регулярное выражение для текста или объект с ожидаемыми полями. Это нужно, когда функция бросает один тип ошибки по разным причинам:</p>
+<pre><code>assert.throws(() =&gt; parseQuantity('0'), /целое количество/);
+assert.throws(() =&gt; parseQuantity('0'), { name: 'RangeError', message: 'Нужно целое количество от 1' });</code></pre>
 <pre><code>import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -46,4 +49,34 @@ test('строка количества превращается в объект
 test('нулевое количество отклоняется', () =&gt; {
   assert.throws(() =&gt; parseQuantity('0'), RangeError);
 });</code></pre><p>Вход этой функции — строка. Допустимость значений вроде «1e2» или «0x10» зависит от требований: Number понимает их как числа. Если разрешены только десятичные цифры, одного преобразования Number недостаточно.</p>
+<article class="task" id="te-deep-equal" data-task="testing/te-deep-equal">
+<h4>Задача 6. equal или deepEqual <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите тесты для <code>toCartLine(product, quantity)</code>: результат — новый объект строки корзины с нужными полями; это <b>не тот же объект</b>, что товар; сам товар не изменился.</p>
+<pre><code>// line.mjs
+export function toCartLine(product, quantity) {
+  return { id: product.id, title: product.title, price: product.price, quantity };
+}</code></pre>
+<p class="why"><b>Зачем:</b> <code>equal</code> отвечает «это тот же объект?», а <code>deepEqual</code> — «одинаковое ли содержимое?». В одном тесте нужны оба вопроса: «правильные ли поля» и «не испортили ли исходник».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// line.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { toCartLine } from './line.mjs';
+
+const product = () =&gt; ({ id: 1, title: 'Чистый код', price: 150000 });
+
+test('строка содержит поля товара и количество', () =&gt; {
+  assert.deepEqual(toCartLine(product(), 2), { id: 1, title: 'Чистый код', price: 150000, quantity: 2 });
+});
+
+test('строка — новый объект, товар не меняется', () =&gt; {
+  const p = product();
+  const line = toCartLine(p, 2);
+  assert.notEqual(line, p);
+  assert.deepEqual(p, { id: 1, title: 'Чистый код', price: 150000 });
+});</code></pre>
+<p>Товар создаётся функцией <code>product()</code> для каждого теста: тест-мутант, который портит товар, не должен испортить данные соседнему тесту. Мутант, который дописывает <code>quantity</code> в сам товар и возвращает его, проходит первый тест (содержимое совпадает!) и падает на втором.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

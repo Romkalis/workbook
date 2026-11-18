@@ -19,10 +19,92 @@ assertEqual(
   'наушники и две лампы',
 );</code></pre>
 <p>Здесь есть два важных слова. <strong>actual</strong> — фактический результат, то, что вернула функция. <strong>expected</strong> — ожидаемый, то, что должно было получиться. Эти слова встретятся в любом тестовом инструменте.</p>
+<article class="task" id="ti-first" data-task="testing-intro/ti-first">
+<h4>Задача 1. Первый тест без библиотек <span class="lvl">★☆☆ разминка</span></h4>
+<p>Функция ниже считает скидку. Напишите файл <code>discount.check.js</code> без библиотек: три вызова <code>assertEqual</code> из раздела выше. Случаи: сумма меньше порога, ровно на пороге, больше порога. Запустите его через <code>node discount.check.js</code>.</p>
+<pre><code>// discount.js
+// Скидка 10% при сумме от 20 000 копеек, иначе 0
+function calculateDiscount(subtotal) {
+  return subtotal &gt;= 20000 ? Math.round(subtotal * 0.1) : 0;
+}
+module.exports = { calculateDiscount };</code></pre>
+<p class="why"><b>Зачем:</b> даже самый простой тест — это код, который вы запускаете вместо ручной проверки. Написав его руками, вы увидите, что делает любой тестовый фреймворк, и не будете считать его магией.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Самые полезные значения — по обе стороны от порога: <code>19999</code> и <code>20000</code>. Ошибки чаще всего живут на границах.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// discount.check.js
+const { calculateDiscount } = require('./discount');
+
+function assertEqual(actual, expected, name) {
+  if (actual === expected) console.log(`✓ ${name}`);
+  else console.log(`✗ ${name}: ожидали ${expected}, получили ${actual}`);
+}
+
+assertEqual(calculateDiscount(19999), 0, 'меньше порога — без скидки');
+assertEqual(calculateDiscount(20000), 2000, 'ровно на пороге — скидка есть');
+assertEqual(calculateDiscount(35000), 3500, 'больше порога — 10%');</code></pre>
+<p>Порог проверен с двух сторон: если кто-то заменит <code>&gt;=</code> на <code>&gt;</code>, второй случай это покажет. Ожидаемые числа посчитаны руками, а не той же формулой: иначе тест повторил бы ошибку кода. Недостатки самодельного варианта видны уже здесь: упавший тест не меняет код выхода программы, и CI его не заметит. Это одна из причин взять фреймворк.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ti-exit-code" data-task="testing-intro/ti-exit-code">
+<h4>Задача 2. Падение, которое видит CI <span class="lvl">★★☆ практика</span></h4>
+<p>Доработайте <code>assertEqual</code> из прошлой задачи: при провале она по-прежнему печатает строку с ✗ и ставит <code>process.exitCode = 1</code>. Тогда команда завершится с ошибкой, но остальные проверки всё равно выполнятся.</p>
+<p class="why"><b>Зачем:</b> CI и git-хуки понимают только код выхода программы: 0 — успех, всё остальное — провал. Тест, который печатает «✗», но выходит с 0, для автоматики считается пройденным.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Не бросайте исключение: оно остановит файл на первой ошибке. <code>process.exitCode</code> задаёт код, с которым Node завершится сам, когда всё выполнит.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// assert.js
+function assertEqual(actual, expected, name) {
+  if (actual === expected) {
+    console.log(`✓ ${name}`);
+    return;
+  }
+  console.log(`✗ ${name}: ожидали ${expected}, получили ${actual}`);
+  process.exitCode = 1;
+}
+module.exports = { assertEqual };</code></pre>
+<p><code>process.exitCode</code>, а не <code>process.exit(1)</code>: второй вариант прервёт программу сразу, и вы не узнаете о других провалах. Именно так ведёт себя Jest: выполняет всё, показывает все ошибки и в конце выходит с кодом 1. Проверьте в терминале: <code>node file.js; echo $?</code> (в PowerShell — <code>$LASTEXITCODE</code>).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="ti-assert-objects">Почему === не хватает</h3>
 <pre><code>const cart = [{ id: 1, quantity: 2 }];
 console.log(cart === [{ id: 1, quantity: 2 }]); // false!</code></pre>
 <p>Массивы и объекты в JavaScript сравниваются по <em>ссылке</em>: <code>===</code> отвечает на вопрос «это один и тот же объект в памяти?», а не «у них одинаковое содержимое?». Два разных массива с одинаковыми элементами не равны (см. <a href="/lessons/fp-basics#fp-value-reference">значения и ссылки</a>). Значит, для объектов нужно сравнивать содержимое по всем полям — <strong>глубокое сравнение</strong>. Писать его самому долго, и это первая причина взять готовый инструмент.</p>
+<article class="task" id="ti-deep" data-task="testing-intro/ti-deep">
+<h4>Задача 3. Своё сравнение массивов <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>arraysEqual(a, b)</code> для массивов примитивов: длины совпадают и все элементы попарно равны (<code>===</code>). Покажите, что <code>arraysEqual([1, 2], [1, 2])</code> — <code>true</code>, хотя <code>[1, 2] === [1, 2]</code> — <code>false</code>.</p>
+<p class="why"><b>Зачем:</b> понимать разницу между «тот же объект» и «то же содержимое» нужно не только в тестах. На этом же построены зависимости <code>useEffect</code> в React и сравнение состояния. Написав сравнение сами, вы поймёте, что делает <code>toEqual</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// arrays-equal.js
+function arraysEqual(a, b) {
+  if (a.length !== b.length) return false;
+  return a.every((item, i) =&gt; item === b[i]);
+}
+module.exports = { arraysEqual };</code></pre>
+<p>Проверка длины идёт первой: без неё <code>[1, 2]</code> и <code>[1, 2, 3]</code> оказались бы «равными», ведь <code>every</code> проходит только по первому массиву. Функция работает лишь на один уровень: для вложенных массивов и объектов нужна рекурсия по всем полям. Именно это и делает <code>toEqual</code> в Jest, поэтому писать такое руками каждый раз не стоит.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ti-json-trap" data-task="testing-intro/ti-json-trap">
+<h4>Задача 4. Ловушка JSON.stringify <span class="lvl">★★☆ практика</span></h4>
+<p>Популярный «быстрый» способ сравнить объекты: <code>JSON.stringify(a) === JSON.stringify(b)</code>. Напишите два теста на Jest. Первый показывает, что для <code>{ id: 1, qty: 2 }</code> и <code>{ qty: 2, id: 1 }</code> такое сравнение даёт <code>false</code>, а <code>toEqual</code> считает их равными. Второй показывает, что поле со значением <code>undefined</code> исчезает при сериализации.</p>
+<p class="why"><b>Зачем:</b> самодельное «глубокое сравнение» через JSON ломается на порядке ключей, <code>undefined</code>, датах и <code>NaN</code>. Тесты, построенные на нём, падают без причины или, что хуже, проходят там, где должны упасть.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// json.test.js
+test('порядок ключей ломает сравнение через JSON', () =&gt; {
+  const a = { id: 1, qty: 2 };
+  const b = { qty: 2, id: 1 };
+  expect(JSON.stringify(a) === JSON.stringify(b)).toBe(false);
+  expect(a).toEqual(b);
+});
+
+test('undefined-поле исчезает при JSON.stringify', () =&gt; {
+  expect(JSON.stringify({ id: 1, note: undefined })).toBe('{"id":1}');
+});</code></pre>
+<p>Строка JSON хранит ключи в порядке их добавления, поэтому два одинаковых по смыслу объекта дают разные строки. Поле со значением <code>undefined</code> вообще пропадает. Матчер <code>toEqual</code> тоже его игнорирует, а <code>toStrictEqual</code> различает. Вывод: для сравнения содержимого используйте матчеры фреймворка, они продуманы под эти случаи.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="ti-why-framework">Зачем нужен тестовый фреймворк</h3>
 <p>Наш самодельный вариант быстро упрётся в ограничения. <strong>Тестовый фреймворк</strong> (Jest, Vitest, встроенный в Node <code>node:test</code>) берёт на себя всё скучное:</p>
 <ul>

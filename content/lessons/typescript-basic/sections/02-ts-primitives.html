@@ -13,7 +13,26 @@ if (false) {
   // @ts-expect-error: boolean не принимает строку
   finished = &quot;false&quot;;
 }
-</code></pre><p><code>bigint</code> — целые произвольной точности, <code>symbol</code> — уникальные идентификаторы. Для литералов bigint нужен подходящий target, здесь ES2020. <code>null</code> и <code>undefined</code> при строгой проверке не подставляются произвольно вместо строки или числа. Если отсутствие допустимо, добавьте его явно через объединение: <code>string | null</code>.</p><h3 id="ts-arrays-tuples">Массив — повторяющиеся элементы, кортеж — известные позиции</h3><pre><code>const scores: number[] = [80, 95];
+</code></pre><p><code>bigint</code> — целые произвольной точности, <code>symbol</code> — уникальные идентификаторы. Для литералов bigint нужен подходящий target, здесь ES2020. <code>null</code> и <code>undefined</code> при строгой проверке не подставляются произвольно вместо строки или числа. Если отсутствие допустимо, добавьте его явно через объединение: <code>string | null</code>.</p><article class="task" id="tsb-primitives" data-task="typescript-basic/tsb-primitives">
+<h4>Задача 4. Товар из примитивов <span class="lvl">★☆☆ разминка</span></h4>
+<p>Объявите переменные для одного товара с явными типами: название, цена в копейках, есть ли на складе, скидка в процентах, <b>которой может не быть</b>. Напишите функцию <code>finalPrice(price, discount)</code>: без скидки возвращает цену, со скидкой — цену минус процент, округлённую до целых копеек.</p>
+<p class="why"><b>Зачем:</b> «значения может не быть» — отдельный случай, и он должен быть виден в типе. Иначе кто-то передаст <code>0</code> там, где имелось в виду «скидки нет», или забудет обработать <code>null</code>.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Тип скидки: <code>number | null</code>. Проверяйте именно <code>=== null</code>: скидка 0% — это число, а не отсутствие.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export const title: string = 'Каркассон';
+export const price: number = 249000;
+export const inStock: boolean = true;
+export const discount: number | null = null;
+
+export function finalPrice(price: number, discount: number | null): number {
+  if (discount === null) return price;
+  return Math.round(price * (1 - discount / 100));
+}</code></pre>
+<p>При <code>strict</code> TypeScript не позволит передать <code>null</code> туда, где ждут <code>number</code>, поэтому отсутствие записано явно через union. Проверка <code>=== null</code>, а не <code>if (!discount)</code>: последняя спутала бы «скидки нет» и «скидка 0». Строго говоря, с нулём результат совпадёт, но привычка различать «нет значения» и «пустое значение» спасёт в других местах. Типы <code>string</code>, <code>number</code>, <code>boolean</code> пишутся со строчной буквы.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-arrays-tuples">Массив — повторяющиеся элементы, кортеж — известные позиции</h3><pre><code>const scores: number[] = [80, 95];
 const names: Array&lt;string&gt; = [&quot;Анна&quot;, &quot;Лев&quot;];
 const pair: [string, number] = [&quot;Анна&quot;, 95];
 const point: readonly [number, number] = [10, 20];
@@ -25,4 +44,37 @@ if (false) {
   point[0] = 5;
 }
 </code></pre><p><code>number[]</code> и <code>Array&lt;number&gt;</code> равнозначны. В кортеже <code>[string, number]</code> первый элемент — строка, второй — число; порядок важен. <code>readonly</code> запрещает запись только на этапе проверки: редактор подчеркнёт <code>scores[0] = 5</code>. После компиляции типов не остаётся, и в работающей программе массив можно изменить, как обычно. Ещё одна ловушка: для массива <code>number[]</code> TypeScript считает, что <code>scores[100]</code> — это <code>number</code>, хотя на деле там <code>undefined</code>. Флаг <code>noUncheckedIndexedAccess</code> в tsconfig исправляет это: тип становится <code>number | undefined</code>, и компилятор заставит проверить значение.</p><details class="q"><summary>Когда нужен кортеж вместо массива?</summary><div class="a"><p>Когда позиции имеют разный смысл и известный порядок: например, координаты или пара «имя, балл». Для списка учеников нужен массив объектов.</p></div></details>
+<article class="task" id="tsb-tuple" data-task="typescript-basic/tsb-tuple">
+<h4>Задача 5. Диапазон цен кортежем <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>priceRange(prices: number[])</code>: возвращает кортеж <code>[минимум, максимум]</code> или <code>null</code>, если массив пуст. Аннотируйте результат.</p>
+<p class="why"><b>Зачем:</b> кортеж нужен, когда позиции имеют смысл: первая — минимум, вторая — максимум. Тип <code>number[]</code> позволил бы вернуть массив из трёх или нуля элементов, и вызывающий код не знал бы, что получил.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p><code>Math.min(...prices)</code> для пустого массива вернёт <code>Infinity</code>, поэтому пустой случай обработайте первым.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function priceRange(prices: number[]): [number, number] | null {
+  if (prices.length === 0) return null;
+  return [Math.min(...prices), Math.max(...prices)];
+}</code></pre>
+<p>Тип <code>[number, number] | null</code> говорит всё: либо ровно два числа в известном порядке, либо явное «нечего показать». Деструктуризация <code>const [min, max] = range</code> после проверки на <code>null</code> даст два <code>number</code>. Почему <code>null</code>, а не <code>[0, 0]</code>: ноль — реальная цена, и подменять им «нет данных» значит соврать интерфейсу.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="tsb-readonly" data-task="typescript-basic/tsb-readonly">
+<h4>Задача 6. Обещание не менять массив <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>total(prices)</code>, которая складывает цены. Параметр сделайте <code>readonly number[]</code>. Внутри функции напишите строку <code>prices.push(0)</code> с <code>// @ts-expect-error</code>, чтобы убедиться: запись запрещена.</p>
+<p class="why"><b>Зачем:</b> <code>readonly</code> в параметре — обещание вызывающему: «я не испорчу твой массив». Многие баги — это функция, которая «по пути» отсортировала или дополнила чужие данные. Такой тип ещё и принимает обычные массивы, так что ограничение ничего не стоит.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function total(prices: readonly number[]): number {
+  if (false) {
+    // @ts-expect-error: readonly-массив нельзя менять
+    prices.push(0);
+  }
+  return prices.reduce((sum, p) =&gt; sum + p, 0);
+}
+
+const mutable = [100, 200];
+console.log(total(mutable)); // обычный массив подходит</code></pre>
+<p>Методы, которые меняют массив (<code>push</code>, <code>sort</code>, <code>splice</code>), у <code>readonly number[]</code> отсутствуют, а <code>map</code>, <code>filter</code>, <code>reduce</code> остаются. Если сортировка всё же нужна, придётся сделать копию <code>[...prices].sort()</code>, и это правильно. Обратное не работает: в функцию, которая ждёт <code>number[]</code>, readonly-массив передать нельзя, ведь она вправе его менять.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

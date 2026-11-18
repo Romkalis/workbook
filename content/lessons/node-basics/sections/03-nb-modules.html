@@ -15,6 +15,32 @@ const path = require('node:path');
 console.log(sum(2, 3));            // 5
 console.log(path.basename(__filename)); // cjs.js</code></pre>
 <p><code>require</code> загружает файл синхронно, выполняет его один раз и кеширует: второй <code>require</code> того же файла вернёт тот же объект. Расширение <code>.js</code> можно не писать. Внутри модуля доступны <code>__filename</code> (полный путь к файлу) и <code>__dirname</code> (папка файла).</p>
+<article class="task" id="nb-t-cjs" data-task="node-basics/nb-t-cjs">
+<h4>Задача 2. Модуль CommonJS и кеш require <span class="lvl">★☆☆ разминка</span></h4>
+<p>Создайте <code>counter.cjs</code>: внутри переменная <code>count</code> и экспорт функций <code>increment()</code> и <code>value()</code>. В <code>main.cjs</code> подключите модуль дважды под разными именами (<code>a</code> и <code>b</code>), вызовите <code>a.increment()</code> и выведите <code>b.value()</code>. Объясните результат.</p>
+<p class="why"><b>Зачем:</b> кеш модулей — основа того, как в Node.js живут «одиночки»: подключение к базе, конфигурация, логгер. Модуль выполняется один раз, и все, кто его подключил, видят одно и то же состояние.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// counter.cjs
+let count = 0;
+module.exports = {
+  increment() {
+    count += 1;
+  },
+  value() {
+    return count;
+  },
+};</code></pre>
+<pre><code>// main.cjs
+const a = require('./counter.cjs');
+const b = require('./counter.cjs');
+
+a.increment();
+console.log(b.value()); // 1
+console.log(a === b); // true</code></pre>
+<p>Второй <code>require</code> не выполняет файл заново, а возвращает тот же объект из кеша, поэтому <code>b.value()</code> равно 1, а <code>a === b</code>. Расширение <code>.cjs</code> делает файл CommonJS-модулем независимо от <code>"type"</code> в <code>package.json</code>. В проекте с <code>"type": "module"</code> это единственный способ написать <code>require</code> в файле.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="nb-esm">ES-модули: import и export</h3>
 <p>Стандарт языка, тот же, что в браузере (<a href="https://learn.javascript.ru/modules-intro">learn.javascript.ru</a>, <a href="https://nodejs.org/api/esm.html">документация Node.js</a>):</p>
 <pre><code>// math.mjs
@@ -37,4 +63,52 @@ console.log(import.meta.dirname);     // папка текущего файла<
 <li>Смешивать <code>require</code> и <code>import</code> в одном файле нельзя.</li>
 </ul>
 <p>Встроенные модули принято подключать с префиксом <code>node:</code> — <code>'node:fs'</code>, <code>'node:path'</code>. Так сразу видно, что это часть Node.js, а не пакет из npm с похожим именем.</p>
+<article class="task" id="nb-t-esm" data-task="node-basics/nb-t-esm">
+<h4>Задача 3. Перевод на ES-модули <span class="lvl">★☆☆ разминка</span></h4>
+<p>Перепишите модуль цен на ES-модули: <code>price.mjs</code> экспортирует по умолчанию <code>formatPrice(kopecks)</code> (строка <code>"1500.00 ₽"</code>) и именованную константу <code>CURRENCY = '₽'</code>. В <code>main.mjs</code> импортируйте оба и выведите цену и путь к папке файла.</p>
+<pre><code>const CURRENCY = '₽';
+function formatPrice(kopecks) {
+  return `${(kopecks / 100).toFixed(2)} ${CURRENCY}`;
+}
+module.exports = { formatPrice, CURRENCY };
+console.log(__dirname);</code></pre>
+<p class="why"><b>Зачем:</b> новый код в Node.js и весь код в браузере пишут на ES-модулях: одна система модулей для фронтенда и бэкенда, статический анализ импортов, top-level await. Переводить старые файлы придётся часто.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// price.mjs
+export const CURRENCY = '₽';
+
+export default function formatPrice(kopecks) {
+  return `${(kopecks / 100).toFixed(2)} ${CURRENCY}`;
+}</code></pre>
+<pre><code>// main.mjs
+import formatPrice, { CURRENCY } from './price.mjs';
+
+console.log(formatPrice(150000), CURRENCY);
+console.log(import.meta.dirname);</code></pre>
+<p>Путь пишется полностью, с расширением: <code>'./price.mjs'</code>. В ESM нет <code>__dirname</code>, его заменяет <code>import.meta.dirname</code>. Импорт по умолчанию можно назвать как угодно, именованный — только именем экспорта (или через <code>as</code>).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="nb-t-tla" data-task="node-basics/nb-t-tla">
+<h4>Задача 4. await на верхнем уровне <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>show-products.mjs</code>: он читает <code>products.json</code> (лежит рядом с файлом) через <code>fs/promises</code> с <code>await</code> прямо на верхнем уровне файла, без обёртки-функции, и печатает число товаров.</p>
+<pre><code>// products.json
+[
+  { "id": 1, "title": "Чистый код", "category": "books", "price": 150000 },
+  { "id": 2, "title": "Каркассон", "category": "games", "price": 249000 },
+  { "id": 3, "title": "Грокаем алгоритмы", "category": "books", "price": 99000 }
+]</code></pre>
+<p class="why"><b>Зачем:</b> в скриптах и при старте сервера (прочитать конфиг, подключиться к базе) top-level await избавляет от обёрток <code>async function main()</code> и делает порядок шагов очевидным. Работает только в ES-модулях.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// show-products.mjs
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+
+const file = path.join(import.meta.dirname, 'products.json');
+const products = JSON.parse(await readFile(file, 'utf8'));
+console.log(`Товаров: ${products.length}`);</code></pre>
+<p>Путь собран от <code>import.meta.dirname</code>, поэтому скрипт работает из любой папки. В CommonJS такой код был бы синтаксической ошибкой: <code>await</code> вне функции там запрещён.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

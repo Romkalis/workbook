@@ -7,6 +7,23 @@ npm pkg set type=module
 npm i express cors
 npm i -D typescript tsx vitest supertest @types/express @types/cors @types/supertest @types/node</code></pre>
 <p>Две группы пакетов. В <code>dependencies</code> то, что нужно серверу в работе: Express и <code>cors</code>. В <code>devDependencies</code> то, что нужно только разработчику: компилятор, тесты и пакеты <code>@types/*</code>. Сам Express написан на JavaScript, а его типы лежат отдельно в репозитории <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">DefinitelyTyped</a>. Без <code>@types/express</code> TypeScript скажет, что не знает, что такое <code>express</code>. Строка <code>type=module</code> включает ES-модули (<code>import</code>/<code>export</code>) для файлов <code>.js</code>.</p>
+<article class="task" id="et-t-setup" data-task="express-typescript/et-t-setup">
+<h4>Задача 1. Пустой проект на TypeScript <span class="lvl">★☆☆ разминка</span></h4>
+<p>Соберите проект из раздела с нуля: зависимости, <code>tsconfig.json</code>, скрипты. В <code>src/server.ts</code> — Express с одним маршрутом <code>GET /api/health</code>. Проверьте все три способа запуска: <code>npm run dev</code>, <code>npm run typecheck</code>, <code>npm run build &amp;&amp; npm start</code>.</p>
+<p class="why"><b>Зачем:</b> настройку один раз нужно сделать руками, чтобы понимать, что в ней что. Иначе любая ошибка вроде «Cannot find module» или «tsc: not found» превращается в угадайку.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// src/server.ts
+import express from 'express';
+
+const app = express();
+app.get('/api/health', (_req, res) =&gt; {
+  res.json({ ok: true });
+});
+app.listen(3000, () =&gt; console.log('http://localhost:3000/api/health'));</code></pre>
+<p>Если что-то не запускается, проверьте по порядку. <code>"type": "module"</code> в <code>package.json</code> — иначе Node примет <code>dist/server.js</code> за CommonJS. <code>@types/express</code> в devDependencies — иначе <code>tsc</code> не знает модуль. <code>rootDir</code>/<code>outDir</code> — иначе <code>npm start</code> не найдёт <code>dist/server.js</code>. Параметр <code>_req</code> с подчёркиванием — соглашение «параметр нужен по позиции, но не используется». Готовый проект для следующих задач — в стартовой папке шага 1.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="et-tsconfig">tsconfig.json для Node</h3>
 <pre><code>// tsconfig.json
 {
@@ -35,6 +52,21 @@ npm i -D typescript tsx vitest supertest @types/express @types/cors @types/super
 <p>Самое неожиданное место для новичка:</p>
 <pre><code>import { HttpError } from '../http-error.js'; // файл на диске — http-error.ts</code></pre>
 <p>При <code>nodenext</code> TypeScript требует относительные импорты с расширением и <b>не переписывает</b> их при сборке. После <code>tsc</code> в <code>dist/</code> лежит <code>http-error.js</code>, и Node найдёт его ровно по этой строке. Если написать <code>'../http-error'</code> без расширения, <code>tsc</code> выдаст ошибку: в ES-модулях Node не подставляет расширения сам.</p>
+<article class="task" id="et-t-js-ext" data-task="express-typescript/et-t-js-ext">
+<h4>Задача 2. Сломайте импорт и прочитайте ошибку <span class="lvl">★☆☆ разминка</span></h4>
+<p>В стартовом проекте шага 1 уберите <code>.js</code> из импорта в <code>src/server.ts</code> (<code>'./app'</code> вместо <code>'./app.js'</code>) и запустите <code>npm run typecheck</code>. Прочитайте ошибку, верните расширение. Затем попробуйте <code>'./app.ts'</code> и снова прочитайте ошибку.</p>
+<p class="starter"><code>npx degit Romkalis/workbook/starters/shop-api/01-start shop-api-01-start</code> <a href="/starters/shop-api-01-start.zip" download>Скачать ZIP</a></p>
+<p class="why"><b>Зачем:</b> эта ошибка встретится в каждом новом проекте на Node с ESM. Если один раз связать текст ошибки с причиной, в следующий раз исправление займёт секунды.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// ошибки.txt
+'./app'    → TS2835: Relative import paths need explicit file extensions in ECMAScript imports
+             when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './app.js'?
+'./app.ts' → TS5097: An import path can only end with a '.ts' extension
+             when 'allowImportingTsExtensions' is enabled.</code></pre>
+<p>Компилятор сам подсказывает правильный вариант: «Did you mean './app.js'?». Расширение <code>.ts</code> запрещено, потому что после сборки рядом будут лежать <code>.js</code>, и такой импорт сломался бы в <code>dist</code>. Флаг <code>allowImportingTsExtensions</code> нужен только тем, кто запускает <code>.ts</code> напрямую, без сборки. Тексты ошибок проверены на TypeScript 7.0.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="et-scripts">Как запускать: tsx, tsc и сам Node</h3>
 <pre><code>npm pkg set scripts.dev="tsx watch src/server.ts"
 npm pkg set scripts.build="tsc"
@@ -48,4 +80,21 @@ npm pkg set scripts.test="vitest run"</code></pre>
 </tbody></table></div>
 <div class="warn"><p>tsx запустит сервер даже с ошибкой типов: он типы просто вырезает. Поэтому <code>typecheck</code> должен быть в CI или pre-commit хуке (<a href="/lessons/linters-formatters#lf-husky-setup">Husky</a>), иначе TypeScript превращается в комментарии.</p></div>
 <p>А сам Node умеет запускать <code>.ts</code>? Начиная с Node 22.18 включено «отбрасывание типов» (type stripping), в нашем Node 22.23 <code>process.features.typescript</code> равно <code>"strip"</code>. Но команда <code>node src/server.ts</code> на этом проекте падает с <code>ERR_MODULE_NOT_FOUND</code>: Node ищет буквально <code>app.js</code>, а рядом лежит <code>app.ts</code>. Для нативного запуска импорты нужно писать с <code>.ts</code> и включать в tsconfig <code>rewriteRelativeImportExtensions</code>. Кроме того, Node не поддерживает синтаксис, который требует генерации кода: <code>enum</code> и свойства-параметры конструктора (<code>constructor(readonly status: number)</code>). Для учебного проекта tsx проще. Подробности в <a href="https://nodejs.org/api/typescript.html">документации Node: Modules: TypeScript</a>.</p>
+<article class="task" id="et-t-check-script" data-task="express-typescript/et-t-check-script">
+<h4>Задача 3. Одна команда «всё проверить» <span class="lvl">★☆☆ разминка</span></h4>
+<p>Добавьте в проект скрипт <code>check</code>, который запускает проверку типов и тесты и падает, если упало хоть что-то. Убедитесь, что при ошибке типов тесты даже не запускаются.</p>
+<p class="why"><b>Зачем:</b> перед коммитом и в CI нужна одна команда, а не список из трёх, который кто-то забудет. Порядок «быстрая проверка → медленная» — это fail fast на уровне проекта.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// package.json
+{
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck &amp;&amp; npm test"
+  }
+}</code></pre>
+<p><code>&amp;&amp;</code> запускает вторую команду, только если первая завершилась с кодом 0. Поэтому при ошибке типов тесты не стартуют, а общий код выхода ненулевой. Именно эту команду удобно повесить в pre-commit хук (<a href="/lessons/linters-formatters#lf-husky-setup">Husky</a>) и в CI. Вспомните, что tsx типы не проверяет: без <code>typecheck</code> ошибки типов дожили бы до продакшена.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

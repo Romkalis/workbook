@@ -64,6 +64,8 @@ export interface QuizItem {
 export interface Lesson extends LessonMeta {
   sections: Section[];
   quiz: QuizItem[];
+  /** Идентификаторы задач урока (data-task), по порядку в тексте */
+  tasks: string[];
 }
 
 /** Запись поискового индекса: один раздел или одна подтема */

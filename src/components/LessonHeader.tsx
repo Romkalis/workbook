@@ -1,7 +1,8 @@
 import type { LessonMeta } from '@/lib/types';
+import { TaskProgress } from './TaskProgress';
 import styles from './LessonHeader.module.css';
 
-export function LessonHeader({ lesson }: { lesson: LessonMeta }) {
+export function LessonHeader({ lesson }: { lesson: LessonMeta & { tasks: string[] } }) {
   return (
     <header className={styles.header}>
       <p className={styles.kicker}>{lesson.kicker}</p>
@@ -12,6 +13,7 @@ export function LessonHeader({ lesson }: { lesson: LessonMeta }) {
           <li key={chip}>{chip}</li>
         ))}
       </ul>
+      <TaskProgress tasks={lesson.tasks} />
     </header>
   );
 }

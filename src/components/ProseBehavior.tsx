@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { rehydrateProgress, useProgress } from '@/store/progress';
 import { Lightbox, type LightboxImage } from './Lightbox';
 
 /** Показывает слайд с номером index в презентации .deck и обновляет счётчик и кнопки. */
@@ -17,11 +18,29 @@ function showSlide(deck: HTMLElement, index: number) {
   });
 }
 
-/** Оживляет HTML-контент лекций: увеличение скриншотов, кнопка «Раскрыть все ответы» и презентации .deck.
+/** Оживляет HTML-контент лекций: увеличение скриншотов, кнопка «Раскрыть все ответы», презентации .deck
+    и кнопки «Решено» у задач (article.task[data-task]).
     Контент приходит готовой разметкой, поэтому события ловим одним обработчиком на обёртке. */
 export function ProseBehavior({ children }: { children: ReactNode }) {
   const [image, setImage] = useState<LightboxImage | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const done = useProgress((s) => s.done);
+  const toggleTask = useProgress((s) => s.toggle);
+
+  useEffect(rehydrateProgress, []);
+
+  // Отметки «решено» живут в сторе, а разметка задач — в HTML урока. Синхронизируем атрибуты и подписи.
+  useEffect(() => {
+    root.current?.querySelectorAll<HTMLElement>('.task[data-task]').forEach((task) => {
+      const isDone = Boolean(done[task.dataset.task ?? '']);
+      task.toggleAttribute('data-done', isDone);
+      const button = task.querySelector<HTMLButtonElement>('[data-task-done]');
+      if (button) {
+        button.setAttribute('aria-pressed', String(isDone));
+        button.textContent = isDone ? 'Решено ✓' : 'Отметить решённой';
+      }
+    });
+  });
 
   // Без JS слайды идут списком; после гидрации оставляем на экране по одному.
   // Без массива зависимостей: при переходе между уроками компонент не перемонтируется, а разметка новая.
@@ -48,10 +67,17 @@ export function ProseBehavior({ children }: { children: ReactNode }) {
       return;
     }
 
+    const doneButton = target.closest<HTMLElement>('[data-task-done]');
+    const task = doneButton?.closest<HTMLElement>('.task[data-task]');
+    if (task?.dataset.task) {
+      toggleTask(task.dataset.task);
+      return;
+    }
+
     const toggle = target.closest<HTMLElement>('[data-toggle-answers]');
     if (toggle) {
       const open = toggle.dataset.open !== 'true';
-      toggle.closest('section')?.querySelectorAll<HTMLDetailsElement>('details.q').forEach((d) => {
+      toggle.closest('section')?.querySelectorAll<HTMLDetailsElement>('details.q:not(.spoiler)').forEach((d) => {
         d.open = open;
       });
       toggle.dataset.open = String(open);

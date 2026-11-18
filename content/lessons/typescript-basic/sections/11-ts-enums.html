@@ -12,4 +12,21 @@ function statusText(phase: Phase): string {
 }
 console.log(statusText(&quot;done&quot;));
 </code></pre><p>Объект нужен при выполнении, если требуется <code>Phase.Done</code> или перебор вариантов; union подходит, если нужен только контракт. <code>const enum</code> обычно встраивает значения в места использования и не создаёт обычного объекта enum. У него есть ограничения при сборке некоторыми инструментами, поэтому для первых упражнений проще обычный enum или объект <code>as const</code>. Учтите: в новых проектах иногда включают настройку <code>erasableSyntaxOnly</code>. Она разрешает только такой TypeScript, который можно превратить в JavaScript простым удалением типов. Enum так не превратить (он создаёт объект), поэтому с этой настройкой он запрещён.</p>
+<article class="task" id="tsb-enum" data-task="typescript-basic/tsb-enum">
+<h4>Задача 32. enum → объект as const <span class="lvl">★☆☆ разминка</span></h4>
+<p>Перепишите <code>enum OrderStatus { New = 'new', Paid = 'paid', Shipped = 'shipped' }</code> на объект <code>as const</code> и тип с тем же именем. Напишите <code>canCancel(status)</code>: отменить можно только новый или оплаченный заказ. Убедитесь, что строку <code>'paid'</code> можно передать напрямую.</p>
+<p class="why"><b>Зачем:</b> union строк существует только в типах и стирается, а объект остаётся там, где нужен перебор или константа. Такой код совместим с <code>erasableSyntaxOnly</code> и запуском TypeScript в Node без сборки. Со строковым enum передать <code>'paid'</code> напрямую нельзя, только <code>OrderStatus.Paid</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export const OrderStatus = { New: 'new', Paid: 'paid', Shipped: 'shipped' } as const;
+export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus]; // 'new' | 'paid' | 'shipped'
+
+export function canCancel(status: OrderStatus): boolean {
+  return status === OrderStatus.New || status === OrderStatus.Paid;
+}
+
+console.log(canCancel('paid'), Object.values(OrderStatus));</code></pre>
+<p>Одно имя <code>OrderStatus</code> живёт в двух мирах: как значение (объект) и как тип (union). Так можно, потому что типы и значения хранятся в разных пространствах имён. Перебор <code>Object.values(OrderStatus)</code> по-прежнему доступен, например для выпадающего списка.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

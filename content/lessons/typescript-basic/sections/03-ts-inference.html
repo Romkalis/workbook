@@ -14,9 +14,58 @@ if (false) {
   // @ts-expect-error: произвольная строка шире Mode
   describe(mode);
 }
-</code></pre><p>Литеральный тип разрешает одно значение, например <code>"read"</code> или <code>200</code>. Union литералов описывает ограниченный набор состояний. <code>const</code> запрещает переназначить переменную, но свойства её объекта могут изменяться, поэтому <code>settings.mode</code> расширяется до string.</p><h3 id="ts-context">Контекстная типизация</h3><pre><code>const lengths = [&quot;type&quot;, &quot;interface&quot;].map(word =&gt; word.length);
+</code></pre><p>Литеральный тип разрешает одно значение, например <code>"read"</code> или <code>200</code>. Union литералов описывает ограниченный набор состояний. <code>const</code> запрещает переназначить переменную, но свойства её объекта могут изменяться, поэтому <code>settings.mode</code> расширяется до string.</p><article class="task" id="tsb-widening" data-task="typescript-basic/tsb-widening">
+<h4>Задача 7. Почему "asc" не подошёл <span class="lvl">★☆☆ разминка</span></h4>
+<p>Код ниже не компилируется. Объясните почему и исправьте <b>двумя способами</b>: через <code>const</code> и через аннотацию переменной.</p>
+<pre><code>type SortOrder = 'asc' | 'desc';
+function sortPrices(prices: number[], order: SortOrder): number[] {
+  return [...prices].sort((a, b) =&gt; (order === 'asc' ? a - b : b - a));
+}
+let order = 'asc';
+sortPrices([3, 1, 2], order); // ошибка</code></pre>
+<p class="why"><b>Зачем:</b> расширение литералов встречается каждый день: значение из <code>let</code> или поля объекта «теряет» точный тип. Понимая причину, вы чините это за секунду, а не через <code>as</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type SortOrder = 'asc' | 'desc';
+export function sortPrices(prices: number[], order: SortOrder): number[] {
+  return [...prices].sort((a, b) =&gt; (order === 'asc' ? a - b : b - a));
+}
+
+// способ 1: const сохраняет литерал 'asc'
+const fixedOrder = 'asc';
+sortPrices([3, 1, 2], fixedOrder);
+
+// способ 2: аннотация разрешает менять, но только на допустимые значения
+let order: SortOrder = 'asc';
+order = 'desc';
+sortPrices([3, 1, 2], order);</code></pre>
+<p><code>let order = 'asc'</code> выводится как <code>string</code>: переменную можно переназначить на любую строку, поэтому TypeScript расширяет тип. <code>string</code> шире <code>SortOrder</code>, и вызов отклоняется. Если значение не меняется, берите <code>const</code>. Если меняется (переключатель сортировки), аннотируйте <code>SortOrder</code>: тогда опечатка <code>order = 'dsc'</code> тоже будет ошибкой. Решение <code>order as SortOrder</code> хуже: оно пропустит и <code>'dsc'</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-context">Контекстная типизация</h3><pre><code>const lengths = [&quot;type&quot;, &quot;interface&quot;].map(word =&gt; word.length);
 const values = [1, &quot;two&quot;]; // (string | number)[]
 console.log(lengths, values);
 // word получил string из типа массива, а результат map — number[]
 </code></pre><p>В колбэке не нужно снова писать тип <code>word</code>: его даёт сигнатура <code>map</code>. Если вывести желаемое ограничение нельзя, укажите его: <code>let result: string | undefined</code>. При чтении чужого кода начните с параметров и возвращаемого типа, затем проследите ветвления и посмотрите подсказку редактора в каждой ветке.</p>
+<article class="task" id="tsb-context" data-task="typescript-basic/tsb-context">
+<h4>Задача 8. Уберите лишние аннотации <span class="lvl">★☆☆ разминка</span></h4>
+<p>В коде ниже аннотирован каждый шаг. Оставьте аннотации только там, где они задают контракт (параметры и результат экспортируемой функции), остальные уберите. Код должен по-прежнему проходить <code>strict</code>.</p>
+<pre><code>export function expensiveTitles(products: { title: string; price: number }[]): string[] {
+  const limit: number = 100000;
+  const expensive: { title: string; price: number }[] = products.filter(
+    (p: { title: string; price: number }): boolean =&gt; p.price &gt; limit,
+  );
+  const titles: string[] = expensive.map((p: { title: string; price: number }): string =&gt; p.title);
+  return titles;
+}</code></pre>
+<p class="why"><b>Зачем:</b> лишние аннотации — это шум, который надо поддерживать: поменяли тип товара — правьте пять мест. Вывод типов надёжен внутри функции, а явный тип нужен на границе, где он работает как документация и защита.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function expensiveTitles(products: { title: string; price: number }[]): string[] {
+  const limit = 100000;
+  return products.filter((p) =&gt; p.price &gt; limit).map((p) =&gt; p.title);
+}</code></pre>
+<p><code>limit</code> выводится как <code>number</code>, <code>p</code> в колбэке получает тип из массива (контекстная типизация), результаты <code>filter</code> и <code>map</code> выводятся сами. Остались только параметр и результат: их видит тот, кто вызывает функцию. Наведите курсор на <code>p</code> в редакторе: тип тот же, что был написан вручную.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

@@ -12,6 +12,41 @@ export class HttpError extends Error {
   }
 }</code></pre>
 <p>Ошибка несёт HTTP-статус. Маршрут не думает, как отформатировать ответ: он бросает <code>new HttpError(404, 'Товар не найден')</code>, а всё остальное делает общий обработчик. Приём «свой класс ошибки» подробно разобран в уроке <a href="/lessons/error-handling">Обработка ошибок</a>.</p>
+<article class="task" id="et-t-conflict" data-task="express-typescript/et-t-conflict">
+<h4>Задача 10. Свой класс ошибки: 409 <span class="lvl">★☆☆ разминка</span></h4>
+<p>Добавьте к <code>HttpError</code> наследника <code>ConflictError</code> (статус 409, сообщение задаётся). Используйте его в функции <code>addCategory(store, name)</code>: повтор существующей категории без учёта регистра — конфликт.</p>
+<pre><code>// http-error.ts
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}</code></pre>
+<p class="why"><b>Зачем:</b> именованные ошибки читаются как предложения: <code>throw new ConflictError('Категория уже есть')</code> понятнее, чем <code>new HttpError(409, ...)</code>, и меньше шанс перепутать коды. А общий обработчик продолжает работать, потому что наследник — тоже <code>HttpError</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// conflict.ts
+import { HttpError } from './http-error.js';
+
+export class ConflictError extends HttpError {
+  constructor(message: string) {
+    super(409, message);
+    this.name = 'ConflictError';
+  }
+}
+
+export function addCategory(store: Set&lt;string&gt;, name: string): string {
+  const normalized = name.trim().toLowerCase();
+  if (store.has(normalized)) throw new ConflictError(`Категория «${normalized}» уже есть`);
+  store.add(normalized);
+  return normalized;
+}</code></pre>
+<p>409 Conflict — «запрос корректный, но противоречит текущему состоянию». Не 400: с данными всё в порядке, просто такая категория уже есть. Обработчик ошибок из урока проверяет <code>err instanceof HttpError</code>, и <code>ConflictError</code> проходит эту проверку без единой правки обработчика. Это принцип открытости/закрытости из ООП на практике.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="et-error-handler">Сборка приложения</h3>
 <pre><code>// src/app.ts
 import express, { type ErrorRequestHandler } from 'express';
@@ -50,6 +85,106 @@ export function createApp(allowedOrigin = 'http://localhost:5173') {
 </ol>
 <p>Ветка <code>err.status ?? 500</code> нужна для ошибок, которые создал не наш код. Когда <code>express.json()</code> получает битый JSON, он бросает ошибку со <code>status: 400</code>. Без этой ветки клиент получил бы 500, будто упал сервер. Это проверено тестом в разделе о тестах.</p>
 <div class="warn"><p>Для 5xx клиенту уходит общий текст, а подробности — в лог (<code>console.error</code>). Текст внутренней ошибки может раскрыть путь к файлам, запрос к базе или ключ. Это из общих знаний, но правило стоит запомнить сразу.</p></div>
+<article class="task" id="et-t-step2" data-task="express-typescript/et-t-step2">
+<h4>Задача 11. Проект, шаг 2: товар по id и обработчик ошибок <span class="lvl">★★☆ практика</span></h4>
+<p>Шаг 2 сквозного проекта: маршрут товара по id, 404 через <code>HttpError</code>, 404 для неизвестных маршрутов и общий обработчик ошибок. Класс <code>HttpError</code> уже лежит в <code>src/http-error.ts</code>.</p>
+<p class="starter"><code>npx degit Romkalis/workbook/starters/shop-api/02-start shop-api-02-start</code> <a href="/starters/shop-api-02-start.zip" download>Скачать ZIP</a></p>
+<p class="why"><b>Зачем:</b> после этого шага каждый следующий маршрут сообщает об ошибке одной строкой <code>throw</code>, а формат ответа и правило «подробности 5xx не наружу» живут в одном месте.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// src/app.ts
+app.use((_req, _res, next) =&gt; next(new HttpError(404, 'Маршрут не найден')));
+
+const onError: ErrorRequestHandler = (err, _req, res, _next) =&gt; {
+  const status = err instanceof HttpError ? err.status : (err.status ?? 500);
+  if (status &gt;= 500) console.error(err);
+  res.status(status).json({ error: status &gt;= 500 ? 'Внутренняя ошибка сервера' : err.message });
+};
+app.use(onError);</code></pre>
+<p>Маршрут товара по id удобно сразу вынести в <code>src/routes/products.ts</code> через <code>Router</code>: в шаге 3 туда же добавятся фильтры. Тест «битый JSON — 400» проходит даже до шага: стандартный обработчик Express тоже смотрит на <code>err.status</code>. После шага ответ становится JSON в едином формате.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="et-t-validation-error" data-task="express-typescript/et-t-validation-error">
+<h4>Задача 12. Ошибка проверки с подробностями <span class="lvl">★★☆ практика</span></h4>
+<p>Сделайте <code>ValidationError extends HttpError</code> (статус 400) с полем <code>details: string[]</code>. Доработайте обработчик ошибок: для неё ответ <code>{ error, details }</code>, для остальных — как раньше. Проверьте маршрутом, который бросает <code>ValidationError</code>.</p>
+<p class="why"><b>Зачем:</b> формат ответа об ошибке — часть API. Если одни маршруты отдают <code>details</code>, а другие строку, фронтенд обрастает условиями. Единый обработчик гарантирует один формат.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { type ErrorRequestHandler } from 'express';
+
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export class ValidationError extends HttpError {
+  constructor(readonly details: string[]) {
+    super(400, 'Неверные данные');
+  }
+}
+
+export function createApp() {
+  const app = express();
+  app.use(express.json());
+  app.post('/api/check', (req, res) =&gt; {
+    const errors: string[] = [];
+    if (typeof req.body?.email !== 'string' || !req.body.email.includes('@')) errors.push('email: нужен адрес почты');
+    if (errors.length) throw new ValidationError(errors);
+    res.json({ ok: true });
+  });
+
+  const onError: ErrorRequestHandler = (err, _req, res, _next) =&gt; {
+    if (err instanceof ValidationError) return res.status(400).json({ error: err.message, details: err.details });
+    const status = err instanceof HttpError ? err.status : (err.status ?? 500);
+    res.status(status).json({ error: status &gt;= 500 ? 'Внутренняя ошибка сервера' : err.message });
+  };
+  app.use(onError);
+  return app;
+}</code></pre>
+<p>Проверка <code>ValidationError</code> стоит <b>перед</b> общей проверкой <code>HttpError</code>: наследник тоже <code>instanceof HttpError</code>, и в обратном порядке ветка с <code>details</code> никогда бы не сработала. Порядок от частного к общему — то же правило, что для <code>catch</code> в других языках.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="et-async">Express 5 и async-обработчики</h3>
 <p>В Express 4 исключение внутри <code>async</code>-обработчика терялось: промис отклонялся, а запрос висел, пока не истечёт время ожидания. Приходилось оборачивать каждый обработчик в <code>try/catch</code> с <code>next(err)</code>. В Express 5 отклонённый промис сам уходит в обработчик ошибок. Мы проверили: <code>app.get('/a', async () =&gt; { throw new Error('boom') })</code> отвечает 500 через наш обработчик. Если в интернете видите <code>express-async-errors</code> или обёртки <code>asyncHandler</code>, скорее всего, материал написан под Express 4.</p>
+<article class="task" id="et-t-async" data-task="express-typescript/et-t-async">
+<h4>Задача 13. Асинхронный репозиторий без try/catch <span class="lvl">★☆☆ разминка</span></h4>
+<p>Сделайте маршрут <code>GET /api/products/:id</code> асинхронным: товар берётся из <code>await repo.findById(id)</code>. Ни одного <code>try/catch</code> в маршруте. Проверьте, что отказ репозитория даёт 500 с общим текстом, а отсутствие товара — 404.</p>
+<p class="why"><b>Зачем:</b> в Express 5 отклонённый промис сам уходит в обработчик ошибок. Маршрут описывает только счастливый путь и бизнес-ошибки, а инфраструктурные сбои обрабатываются централизованно.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { type ErrorRequestHandler } from 'express';
+
+export interface Product {
+  id: string;
+  title: string;
+}
+export interface ProductRepo {
+  findById(id: string): Promise&lt;Product | null&gt;;
+}
+
+class NotFound extends Error {}
+
+export function createApp(repo: ProductRepo) {
+  const app = express();
+  app.get('/api/products/:id', async (req, res) =&gt; {
+    const product = await repo.findById(req.params.id);
+    if (!product) throw new NotFound('Товар не найден');
+    res.json(product);
+  });
+  const onError: ErrorRequestHandler = (err, _req, res, _next) =&gt; {
+    if (err instanceof NotFound) return res.status(404).json({ error: err.message });
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  };
+  app.use(onError);
+  return app;
+}</code></pre>
+<p>Тип <code>ProductRepo</code> описывает, что маршруту нужно от хранилища, и ничего больше. Сегодня это массив, завтра Mongo или PostgreSQL, а маршрут не меняется. Это и есть следующая задача.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

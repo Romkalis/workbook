@@ -11,4 +11,41 @@
 <h3 id="ti-pyramid">Пирамида тестов</h3>
 <figure class="dg"><div class="dg-title">Пирамида: снизу больше, сверху меньше</div><ol class="seqlist n3" aria-hidden="true"><li class="card lit" style="--i:0">Вершина: немного E2E-тестов на главные сценарии пользователя.</li><li class="card lit" style="--i:1">Середина: интеграционные тесты на связки модулей.</li><li class="card lit" style="--i:2">Основание: много быстрых модульных тестов на логику.</li></ol><figcaption>Тестовая пирамида советует писать больше всего быстрых и дешёвых модульных тестов, меньше интеграционных и совсем немного медленных E2E. Чем выше уровень, тем ближе тест к реальному пользователю, но тем дольше он идёт и тем труднее понять, почему он упал.</figcaption></figure>
 <p>Почему так? Модульный тест упал — вы сразу знаете, какая функция сломана. E2E-тест упал — виновата может быть любая из сотни частей, а сам тест выполняется секунды или минуты. Поэтому основную логику проверяют модульными тестами, а E2E оставляют для самых важных путей: регистрация, оплата. Подробнее — <a href="/lessons/testing#testing-pyramid">пирамида</a> и <a href="/lessons/testing#testing-unit-integration-e2e">уровни тестов</a> в основном уроке.</p>
+<article class="task" id="ti-extract" data-task="testing-intro/ti-extract">
+<h4>Задача 18. Вытащите логику из обработчика <span class="lvl">★★☆ практика</span></h4>
+<p>Обработчик ниже смешивает работу с DOM и расчёт. Вынесите расчёт в чистую функцию <code>calcLine(price, quantityText)</code>: она возвращает сумму строки или <code>null</code> при неверном количестве. Напишите на неё модульные тесты. Обработчик после этого только читает поля, вызывает функцию и пишет результат.</p>
+<pre><code>input.addEventListener('input', () =&gt; {
+  const qty = Number(input.value);
+  if (!Number.isInteger(qty) || qty &lt; 1) {
+    total.textContent = '—';
+    return;
+  }
+  total.textContent = String(Number(input.dataset.price) * qty);
+});</code></pre>
+<p class="why"><b>Зачем:</b> пирамида тестов держится на основании: много быстрых модульных тестов. Это возможно, только если логика не прибита к DOM. Чистую функцию проверяет тест за миллисекунды, а для обработчика нужен браузер или его эмуляция.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// line.js
+function calcLine(price, quantityText) {
+  const qty = Number(quantityText);
+  if (!Number.isInteger(qty) || qty &lt; 1) return null;
+  return price * qty;
+}
+module.exports = { calcLine };
+
+// В браузере:
+// input.addEventListener('input', () =&gt; {
+//   const sum = calcLine(Number(input.dataset.price), input.value);
+//   total.textContent = sum === null ? '—' : String(sum);
+// });</code></pre>
+<pre><code>// line.test.js
+const { calcLine } = require('./line');
+
+test('цена × количество', () =&gt; expect(calcLine(250, '4')).toBe(1000));
+test.each(['', '0', '-1', '2.5', 'abc'])('неверное количество %j даёт null', (q) =&gt; {
+  expect(calcLine(250, q)).toBeNull();
+});</code></pre>
+<p>Функция не знает про <code>input</code> и <code>textContent</code>: на вход значения, на выход результат. Обработчик стал «тонким», и тестировать в нём почти нечего. Его проверят один-два интеграционных или E2E-теста, а все правила (пустая строка, ноль, дробь) покрыты быстрыми модульными. Решение вернуть <code>null</code>, а не <code>'—'</code>: как показать ошибку, решает интерфейс, а функция только сообщает, что количество неверное.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

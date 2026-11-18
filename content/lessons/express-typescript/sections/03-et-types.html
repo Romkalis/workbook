@@ -14,6 +14,80 @@ productsRouter.get('/:id', (req: Request&lt;{ id: string }&gt;, res: Response&lt
   res.json(product);
 });</code></pre>
 <p><code>Response&lt;Product&gt;</code> — обещание компилятору: <code>res.json()</code> примет только <code>Product</code>. Попробуйте написать <code>res.json({ title: 1 })</code>, и редактор подчеркнёт ошибку. Это защищает от случайного изменения формы ответа, на которую рассчитывает фронтенд.</p>
+<article class="task" id="et-t-step1" data-task="express-typescript/et-t-step1">
+<h4>Задача 4. Проект, шаг 1: список товаров <span class="lvl">★☆☆ разминка</span></h4>
+<p>Начните сквозной проект: в стартовой папке маршрута <code>GET /api/products</code> ещё нет, и тест шага красный. Добавьте маршрут, типизируйте ответ, добейтесь зелёных <code>npm test</code> и <code>npm run typecheck</code>.</p>
+<p class="starter"><code>npx degit Romkalis/workbook/starters/shop-api/01-start shop-api-01-start</code> <a href="/starters/shop-api-01-start.zip" download>Скачать ZIP</a></p>
+<p class="why"><b>Зачем:</b> маленький первый шаг с готовым тестом проверяет, что весь конвейер работает: зависимости, TypeScript, Vitest, supertest. Дальше каждый шаг добавляет одну возможность и свой красный тест, как в TDD.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// src/app.ts
+import express, { type Response } from 'express';
+import { PRODUCTS, type Product } from './data/products.js';
+
+export function createApp() {
+  const app = express();
+  app.use(express.json());
+
+  app.get('/api/health', (_req, res) =&gt; {
+    res.json({ ok: true });
+  });
+
+  app.get('/api/products', (_req, res: Response&lt;readonly Product[]&gt;) =&gt; {
+    res.json(PRODUCTS);
+  });
+
+  return app;
+}</code></pre>
+<p><code>Response&lt;readonly Product[]&gt;</code>: массив <code>PRODUCTS</code> объявлен как <code>readonly</code>, и тип ответа это честно повторяет. Попробуйте ответить <code>res.json({ items: PRODUCTS })</code>: компилятор подчеркнёт ошибку, ведь форма ответа — договор с фронтендом. Импорт <code>type Product</code> исчезнет после сборки, а <code>PRODUCTS</code> останется.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="et-t-patch" data-task="express-typescript/et-t-patch">
+<h4>Задача 5. Типизированный PATCH <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите маршрут <code>PATCH /api/products/:id</code>, который меняет цену и/или название. Типизируйте все позиции <code>Request</code>: параметры пути, тело ответа (товар или <code>{ error }</code>), тело запроса (<code>unknown</code> до проверки). Неверное тело — 400, нет товара — 404, иначе 200 с обновлённым товаром. Данные храните в <code>Map</code>, переданном в фабрику.</p>
+<p class="why"><b>Зачем:</b> <code>Request&lt;Params, ResBody, ReqBody, Query&gt;</code> описывает весь контракт маршрута в одной строке. Тело запроса — <code>unknown</code>, потому что это обещание проверить данные, а не поверить им.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { type Request, type Response } from 'express';
+
+export interface Product {
+  id: string;
+  title: string;
+  price: number;
+}
+type ErrorBody = { error: string };
+type ProductPatch = Partial&lt;Pick&lt;Product, 'title' | 'price'&gt;&gt;;
+
+function isProductPatch(body: unknown): body is ProductPatch {
+  if (typeof body !== 'object' || body === null) return false;
+  const keys = Object.keys(body);
+  if (keys.length === 0 || keys.some((k) =&gt; k !== 'title' &amp;&amp; k !== 'price')) return false;
+  if ('title' in body &amp;&amp; (typeof body.title !== 'string' || body.title.trim() === '')) return false;
+  if ('price' in body &amp;&amp; !(typeof body.price === 'number' &amp;&amp; Number.isInteger(body.price) &amp;&amp; body.price &gt;= 0)) return false;
+  return true;
+}
+
+export function createApp(store: Map&lt;string, Product&gt;) {
+  const app = express();
+  app.use(express.json());
+
+  app.patch(
+    '/api/products/:id',
+    (req: Request&lt;{ id: string }, Product | ErrorBody, unknown&gt;, res: Response&lt;Product | ErrorBody&gt;) =&gt; {
+      if (!isProductPatch(req.body)) return res.status(400).json({ error: 'Неверное тело запроса' });
+      const current = store.get(req.params.id);
+      if (!current) return res.status(404).json({ error: 'Товар не найден' });
+      const updated: Product = { ...current, ...req.body };
+      store.set(updated.id, updated);
+      res.json(updated);
+    },
+  );
+  return app;
+}</code></pre>
+<p>Тип патча собран из <code>Product</code>, а не написан заново: появится поле <code>description</code>, и добавить его в разрешённые — одна правка. Пустой объект и лишние ключи (например, <code>id</code>) отклоняются, чтобы клиент не мог «случайно» поменять идентификатор. Проверка тела идёт до поиска товара. Какой из двух ответов (400 или 404) отдать первым — вопрос договорённости, главное, что поведение одинаково для всех маршрутов.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="et-query">Строка запроса: всегда строки</h3>
 <p>В адресе <code>/api/products?minPrice=1000</code> значение <code>minPrice</code> приходит строкой <code>"1000"</code>, а не числом. HTTP передаёт текст, и Express ничего не угадывает. Поэтому тип <code>Query</code> честно описан строками, а перевод в число с проверкой — отдельная функция:</p>
 <pre><code>// src/routes/products.ts
@@ -43,6 +117,87 @@ productsRouter.get('/', (req: Request&lt;{}, Product[], unknown, ProductsQuery&g
 });</code></pre>
 <div class="note"><p>Тип <code>ProductsQuery</code> со строками — это допущение, а не проверка. По адресу <code>?search=a&amp;search=b</code> Express отдаст массив. Для учебного API это допустимо, а в серьёзном проекте строку запроса проверяют так же, как тело (следующий раздел).</p></div>
 <p>Обратите внимание на <code>{}</code> в позиции <code>Params</code>: у маршрута <code>/</code> параметров пути нет. А <code>unknown</code> в позиции тела — у GET-запроса тела нет, и мы не обещаем, что оно есть.</p>
+<article class="task" id="et-t-sort" data-task="express-typescript/et-t-sort">
+<h4>Задача 6. Параметр сортировки как union <span class="lvl">★★☆ практика</span></h4>
+<p>Добавьте к списку товаров параметр <code>sort</code> со значениями <code>price-asc</code>, <code>price-desc</code>, <code>title</code>. Тип — union литералов, проверка — предикат <code>isSort(value): value is Sort</code> на основе массива <code>as const</code>. Неизвестное значение — 400 с перечнем допустимых.</p>
+<p class="why"><b>Зачем:</b> строка из адреса превращается в узкий тип после проверки. Дальше <code>switch</code> по ней проверяется компилятором на полноту, а новое значение сортировки добавляется в одном месте, в массиве.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// sort.ts
+export const SORTS = ['price-asc', 'price-desc', 'title'] as const;
+export type Sort = (typeof SORTS)[number];
+
+export function isSort(value: string): value is Sort {
+  return (SORTS as readonly string[]).includes(value);
+}
+
+export function sortProducts&lt;T extends { price: number; title: string }&gt;(items: readonly T[], sort: Sort): T[] {
+  const copy = [...items];
+  switch (sort) {
+    case 'price-asc':
+      return copy.sort((a, b) =&gt; a.price - b.price);
+    case 'price-desc':
+      return copy.sort((a, b) =&gt; b.price - a.price);
+    case 'title':
+      return copy.sort((a, b) =&gt; a.title.localeCompare(b.title, 'ru'));
+    default: {
+      const unreachable: never = sort;
+      return unreachable;
+    }
+  }
+}</code></pre>
+<pre><code>// app.ts
+import express, { type Request } from 'express';
+import { isSort, sortProducts, SORTS } from './sort.js';
+
+const PRODUCTS = [
+  { id: 'b1', title: 'Чистый код', price: 150000 },
+  { id: 'b2', title: 'Грокаем алгоритмы', price: 99000 },
+];
+
+export function createApp() {
+  const app = express();
+  app.get('/api/products', (req: Request&lt;{}, unknown, unknown, { sort?: string }&gt;, res) =&gt; {
+    const { sort } = req.query;
+    if (sort === undefined) return res.json(PRODUCTS);
+    if (!isSort(sort)) return res.status(400).json({ error: `sort: одно из ${SORTS.join(', ')}` });
+    res.json(sortProducts(PRODUCTS, sort));
+  });
+  return app;
+}</code></pre>
+<p>Тот же приём, что с категориями в задачах TypeScript Basic: массив <code>as const</code> — источник правды и для проверки, и для текста ошибки, и для типа. <code>localeCompare(..., 'ru')</code> сортирует русские названия по алфавиту, а не по кодам символов. Сообщение 400 перечисляет допустимые значения: клиенту не надо идти в документацию.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="et-t-step3" data-task="express-typescript/et-t-step3">
+<h4>Задача 7. Проект, шаг 3: фильтры <span class="lvl">★★☆ практика</span></h4>
+<p>Шаг 3 сквозного проекта: фильтры <code>search</code>, <code>category</code>, <code>minPrice</code>, <code>maxPrice</code>. Логика — в чистой функции <code>filterProducts</code> (<code>src/domain/products.ts</code>), разбор строк запроса — в маршруте. Нечисловая, дробная или отрицательная цена — 400.</p>
+<p class="starter"><code>npx degit Romkalis/workbook/starters/shop-api/03-start shop-api-03-start</code> <a href="/starters/shop-api-03-start.zip" download>Скачать ZIP</a></p>
+<p class="why"><b>Зачем:</b> разделение «разбор HTTP» и «правило фильтрации» даёт два вида тестов: быстрые unit-тесты функции и несколько HTTP-тестов маршрута. А <code>filterProducts</code> потом можно взять и во фронтенд.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// src/domain/products.ts
+import type { Product } from '../data/products.js';
+
+export interface ProductFilters {
+  search?: string;
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+}
+
+export function filterProducts(products: readonly Product[], f: ProductFilters): Product[] {
+  const query = f.search?.trim().toLowerCase() ?? '';
+  return products.filter(
+    (p) =&gt;
+      (query === '' || p.title.toLowerCase().includes(query)) &amp;&amp;
+      (f.category === undefined || p.category === f.category) &amp;&amp;
+      (f.minPrice === undefined || p.price &gt;= f.minPrice) &amp;&amp;
+      (f.maxPrice === undefined || p.price &lt;= f.maxPrice),
+  );
+}</code></pre>
+<p>Разбор цены (<code>toPrice</code> в маршруте) бросает <code>HttpError(400)</code>, а общий обработчик из шага 2 превращает её в ответ. Маршрут остаётся коротким. Полный код маршрута — в разделе урока и в папке следующего шага.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="et-money">Деньги — в целых копейках</h3>
 <p>В <code>Product</code> цена хранится в копейках: <code>150000</code> вместо <code>1500.00</code>. В JavaScript <code>0.1 + 0.2</code> равно <code>0.30000000000000004</code>, потому что дробные числа хранятся в двоичном виде приблизительно. Сумма корзины из десятка позиций может разойтись на копейку с тем, что посчитал фронтенд. С целыми числами такого нет, а рубли с копейками показывают только при выводе (<code>(price / 100).toFixed(2)</code>). Это из общих знаний, но на интервью такой вопрос задают часто.</p>
 </section>

@@ -68,6 +68,51 @@ describe('addToCart', () =&gt; {
   });
 });</code></pre>
 <p>Каждый тест проверяет одно правило, и его название читается как требование. Сценарии выбраны по классам эквивалентности и границам (<a href="/lessons/testing#testing-boundaries">как их выбирать</a>): несколько строк, пустая корзина, верный код в другом регистре, неверный код, повторный расчёт.</p>
+<article class="task" id="et-t-unit-cart" data-task="express-typescript/et-t-unit-cart">
+<h4>Задача 15. Unit-тесты расчёта корзины <span class="lvl">★☆☆ разминка</span></h4>
+<p>Не подглядывая в <code>tests/cart.test.ts</code> из урока, напишите свои unit-тесты для <code>calculateCart</code>: минимум пять сценариев (обычный, пустая корзина, промокод в другом регистре, неизвестный промокод, округление). Проверьте их мутантом: замените <code>Math.round</code> на <code>Math.floor</code> — хотя бы один тест должен упасть.</p>
+<pre><code>// cart.ts
+export interface CartLine {
+  productId: string;
+  price: number;
+  quantity: number;
+}
+
+const PROMO_CODES: Readonly&lt;Record&lt;string, number&gt;&gt; = { SALE10: 10 };
+
+export function calculateCart(cart: readonly CartLine[], promo?: string) {
+  const subtotal = cart.reduce((sum, line) =&gt; sum + line.price * line.quantity, 0);
+  const percent = promo === undefined ? 0 : (PROMO_CODES[promo.trim().toUpperCase()] ?? 0);
+  const discount = Math.round((subtotal * percent) / 100);
+  return { subtotal, discount, total: subtotal - discount };
+}</code></pre>
+<p class="why"><b>Зачем:</b> тест на округление — тот самый, что разбирается в <a href="/lessons/team-project-interview#tp-live-fail">разборе live coding</a>. Если вы напишете его сами, на интервью это будет не заученный ответ, а свой опыт.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// cart.test.ts
+import { describe, expect, it } from 'vitest';
+import { calculateCart } from './cart.js';
+
+describe('calculateCart', () =&gt; {
+  it('сумма с количеством', () =&gt; {
+    expect(calculateCart([{ productId: 'a', price: 100, quantity: 3 }])).toEqual({ subtotal: 300, discount: 0, total: 300 });
+  });
+  it('пустая корзина', () =&gt; {
+    expect(calculateCart([])).toEqual({ subtotal: 0, discount: 0, total: 0 });
+  });
+  it('промокод без учёта регистра и пробелов', () =&gt; {
+    expect(calculateCart([{ productId: 'a', price: 1000, quantity: 1 }], ' sale10 ').discount).toBe(100);
+  });
+  it('неизвестный промокод', () =&gt; {
+    expect(calculateCart([{ productId: 'a', price: 1000, quantity: 1 }], 'FREE').discount).toBe(0);
+  });
+  it('скидка округляется математически: 9 999,9 → 10 000', () =&gt; {
+    expect(calculateCart([{ productId: 'a', price: 99999, quantity: 1 }], 'SALE10').discount).toBe(10000);
+  });
+});</code></pre>
+<p>Мутант с <code>Math.floor</code> ловит только тест на округление: на «круглых» суммах <code>round</code> и <code>floor</code> совпадают. Поэтому такой тест не лишний, даже если кажется мелочью. Название теста фиксирует <i>решение</i> (математическое округление). Если бизнес решит иначе, тест покажет, где это правило живёт.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="et-supertest">HTTP-тесты через supertest</h3>
 <p><a href="https://github.com/ladjs/supertest">supertest</a> принимает приложение Express, сам поднимает его на временном порту, отправляет запрос и даёт проверить статус и тело. Это интеграционный тест: проверяется связка «маршрут + проверка + логика + обработчик ошибок» (<a href="/lessons/testing#testing-unit-integration-e2e">уровни тестов</a>).</p>
 <pre><code>// tests/api.test.ts
@@ -124,4 +169,59 @@ it('неизвестный маршрут — 404 в JSON', async () =&gt; {
 <pre><code> Test Files  2 passed (2)
       Tests  13 passed (13)</code></pre>
 <div class="note"><p>Сначала тестируйте ошибки: 400, 404, битый JSON. Счастливый путь вы и так проверите руками в браузере, а неверные данные руками отправляют редко. Именно там прячутся ответы 500 вместо 400.</p></div>
+<article class="task" id="et-t-supertest" data-task="express-typescript/et-t-supertest">
+<h4>Задача 16. HTTP-тесты ошибок <span class="lvl">★★☆ практика</span></h4>
+<p>Для маршрута создания товара из задачи «Создание товара с проверкой тела» напишите HTTP-тесты на supertest. Пустое тело, тело-массив, отсутствие заголовка <code>Content-Type</code> и битый JSON дают 400, а не 500. Если какой-то тест упадёт, исправьте обработку в приложении, а не тест.</p>
+<pre><code>// app.ts
+import express, { type ErrorRequestHandler } from 'express';
+
+export function createApp() {
+  const app = express();
+  app.use(express.json());
+  app.post('/api/products', (req, res) =&gt; {
+    const { title, price } = req.body ?? {};
+    if (typeof title !== 'string' || title.trim() === '' || !Number.isInteger(price) || price &lt; 0) {
+      return res.status(400).json({ error: 'Неверные данные' });
+    }
+    res.status(201).json({ id: '1', title: title.trim(), price });
+  });
+  const onError: ErrorRequestHandler = (err, _req, res, _next) =&gt; {
+    const status = err.status ?? 500;
+    res.status(status).json({ error: status &gt;= 500 ? 'Внутренняя ошибка сервера' : err.message });
+  };
+  app.use(onError);
+  return app;
+}</code></pre>
+<p class="why"><b>Зачем:</b> счастливый путь вы проверите руками в браузере, а кривые запросы руками отправляют редко. Именно там прячутся ответы 500, после которых клиент думает, что упал сервер.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.test.ts
+import request from 'supertest';
+import { describe, expect, it } from 'vitest';
+import { createApp } from './app.js';
+
+const post = () =&gt; request(createApp()).post('/api/products');
+
+describe('POST /api/products: кривые запросы', () =&gt; {
+  it('без тела — 400', async () =&gt; {
+    expect((await post()).status).toBe(400);
+  });
+  it('тело-массив — 400', async () =&gt; {
+    expect((await post().send([1, 2])).status).toBe(400);
+  });
+  it('без Content-Type — 400', async () =&gt; {
+    expect((await post().set('Content-Type', 'text/plain').send('title=x')).status).toBe(400);
+  });
+  it('битый JSON — 400 с сообщением', async () =&gt; {
+    const res = await post().set('Content-Type', 'application/json').send('{oops');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf('string');
+  });
+  it('правильное тело — 201', async () =&gt; {
+    expect((await post().send({ title: 'Лампа', price: 27900 })).status).toBe(201);
+  });
+});</code></pre>
+<p>Без тела и без JSON-заголовка <code>req.body</code> равен <code>undefined</code>. Деструктуризация <code>const { title } = req.body</code> бросила бы <code>TypeError</code>, и клиент получил бы 500. Защита — <code>req.body ?? {}</code>. Мутант без неё и с обработчиком, который всё превращает в 500, наши тесты ловят.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

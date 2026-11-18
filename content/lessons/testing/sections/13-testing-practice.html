@@ -7,6 +7,57 @@
 <h3 id="testing-integration-task">Следующий шаг: проверить настоящую связь</h3>
 <p>Из общих знаний: отдельно поднимите локальный тестовый HTTP-сервер с фиксированным ответом и обратитесь к нему настоящим клиентом. Проверьте URL, статус, разбор JSON и реакцию на ошибку. Остановите сервер после теста. Это упражнение на интеграцию; приведённые выше подмены fetchMovie его не заменяют.</p>
 <p>Для E2E сценария задайте путь: открыть каталог → ввести запрос → увидеть результат → очистить запрос. Укажите, используется ли настоящий тестовый backend или подмена. Проверьте состояние загрузки, ошибку, повторную попытку и доступность с клавиатуры.</p>
+<article class="task" id="te-integration" data-task="testing/te-integration">
+<h4>Задача 23. Интеграционный тест с настоящим HTTP-сервером <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите клиент <code>fetchProducts(baseUrl)</code>: делает <code>GET {baseUrl}/api/products</code>, при статусе не 2xx бросает <code>Error</code> с кодом в тексте, иначе возвращает JSON. Протестируйте его с настоящим локальным сервером на <code>node:http</code>: успешный ответ, ответ 500 и проверку, что клиент запросил правильный путь. Сервер поднимайте в <code>before</code> на свободном порту и закрывайте в <code>after</code>.</p>
+<p class="why"><b>Зачем:</b> подмены проверяют реакцию кода на задуманный вами ответ, но не совместимость с настоящим HTTP: путь, статус, заголовки, разбор JSON. Интеграционный тест закрывает этот разрыв, оставаясь быстрым и без интернета.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p><code>server.listen(0)</code> даёт свободный порт, узнать его можно через <code>server.address().port</code>. Как устроен <code>http.createServer</code>, разобрано в <a href="/lessons/node-basics#nb-http">уроке про Node.js</a>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// client.mjs
+export async function fetchProducts(baseUrl) {
+  const res = await fetch(`${baseUrl}/api/products`);
+  if (!res.ok) throw new Error(`Сервер ответил ${res.status}`);
+  return res.json();
+}</code></pre>
+<pre><code>// client.test.mjs
+import { describe, it, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import { fetchProducts } from './client.mjs';
+
+describe('fetchProducts с настоящим сервером', () =&gt; {
+  let server;
+  let baseUrl;
+  let status = 200;
+  const requested = [];
+
+  before(async () =&gt; {
+    server = http.createServer((req, res) =&gt; {
+      requested.push(req.url);
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(status === 200 ? [{ id: 1, title: 'Чистый код' }] : { error: 'boom' }));
+    });
+    await new Promise((resolve) =&gt; server.listen(0, resolve));
+    baseUrl = `http://localhost:${server.address().port}`;
+  });
+
+  after(() =&gt; new Promise((resolve) =&gt; server.close(resolve)));
+
+  it('получает товары и запрашивает правильный путь', async () =&gt; {
+    status = 200;
+    assert.deepEqual(await fetchProducts(baseUrl), [{ id: 1, title: 'Чистый код' }]);
+    assert.equal(requested.at(-1), '/api/products');
+  });
+
+  it('ответ 500 превращается в ошибку с кодом', async () =&gt; {
+    status = 500;
+    await assert.rejects(() =&gt; fetchProducts(baseUrl), /500/);
+  });
+});</code></pre>
+<p>Порт 0 просит систему выдать любой свободный порт: тесты не конфликтуют с запущенным dev-сервером и друг с другом. <code>after</code> закрывает сервер, иначе процесс теста не завершится. Мутант с неверным путём и без проверки статуса ловят оба теста. Это ровно то, что не поймала бы подмена <code>fetch</code>, возвращающая нужный ответ на любой адрес. Сам сервер здесь тоже подмена (не ваш настоящий бэкенд), но HTTP настоящий. Совместимость с вашим API проверяют тестами на стороне сервера, как в уроке <a href="/lessons/express-typescript#et-supertest">Express на TypeScript</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="testing-school">Подготовка к школьному тесту</h3>
 <p>Сумейте своими словами объяснить уровни тестирования, пирамиду, FIRST, AAA, TDD и BDD. Выберите подходящий уровень для ошибки расчёта, несовместимого JSON и потерянного фокуса. Пройдите тест ниже, затем [St2] Testing в RS App согласно расписанию своего набора. Ссылка из README школы на rss-testing не является здесь проверенной инструкцией по запуску отдельного задания.</p>
 </section>

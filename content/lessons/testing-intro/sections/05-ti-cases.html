@@ -20,6 +20,31 @@
   expect(catalog).toEqual([{ id: 1, stock: 2 }, { id: 2, stock: 0 }]);
 });</code></pre>
 <p>Комментарии писать не обязательно, но мысленно делить тест на эти части полезно. Подробнее — в разделе <a href="/lessons/testing#testing-first-test">AAA</a> основного урока.</p>
+<article class="task" id="ti-immutable" data-task="testing-intro/ti-immutable">
+<h4>Задача 15. Тест «не меняет входные данные» <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите в стиле AAA тест, который доказывает, что <code>sortByPrice</code> не меняет переданный массив. Отметьте комментариями три части теста.</p>
+<pre><code>// sort.js
+function sortByPrice(products) {
+  return [...products].sort((a, b) =&gt; a.price - b.price);
+}
+module.exports = { sortByPrice };</code></pre>
+<p class="why"><b>Зачем:</b> функции, которые тайком меняют аргументы, — источник самых трудных багов: данные «портятся» далеко от места, где их испортили. Такой тест — дешёвая страховка.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// sort.test.js
+const { sortByPrice } = require('./sort');
+
+test('не меняет исходный массив', () =&gt; {
+  // Arrange
+  const products = [{ id: 1, price: 300 }, { id: 2, price: 100 }];
+  // Act
+  sortByPrice(products);
+  // Assert
+  expect(products.map((p) =&gt; p.id)).toEqual([1, 2]);
+});</code></pre>
+<p>Данные созданы внутри теста, а не взяты из общего файла: если мутант всё же испортит массив, это не повлияет на другие тесты. Проверяется порядок id до и после. Убедились: версия функции без копии (<code>products.sort(...)</code>) этот тест роняет.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="ti-good-tests">Признаки хорошего теста</h3>
 <ul>
 <li><strong>Одна мысль на тест.</strong> Если тест упал, по названию сразу понятно, какое правило нарушено.</li>
@@ -30,4 +55,129 @@
 </ul>
 <p>Последние пункты вместе с быстротой называют принципами <strong>FIRST</strong> — подробно в разделе <a href="/lessons/testing#testing-first">FIRST</a>.</p>
 <details class="q"><summary>Какие случаи вы бы проверили у функции <code>removeFromCart(cart, productId)</code>?</summary><div class="a"><p>Обычный: удаляет нужный товар, остальные остаются. Граничный: удаление единственного товара даёт пустую корзину. Неправильный ввод: ID товара, которого нет, — корзина не меняется. Ровно эти три теста есть в задании.</p></div></details>
+<article class="task" id="ti-cases" data-task="testing-intro/ti-cases">
+<h4>Задача 14. Три группы случаев для фильтра цены <span class="lvl">★★☆ практика</span></h4>
+<p>Для <code>filterByPrice(products, min, max)</code> (границы включаются, пустая граница не применяется) сначала выпишите случаи по трём группам: обычные, граничные, неправильный ввод. Затем напишите тесты: минимум по два на группу.</p>
+<pre><code>// price.js
+// min и max включительно; undefined — граница не применяется
+function filterByPrice(products, min, max) {
+  return products.filter(
+    (p) =&gt; (min === undefined || p.price &gt;= min) &amp;&amp; (max === undefined || p.price &lt;= max),
+  );
+}
+module.exports = { filterByPrice };</code></pre>
+<p class="why"><b>Зачем:</b> ошибки чаще всего прячутся на краях: <code>&lt;</code> вместо <code>&lt;=</code>, пустой массив, отсутствующий параметр. Список трёх групп превращает «а что бы проверить?» в механическую процедуру.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Граничные: товар с ценой ровно <code>min</code>, ровно <code>max</code>, <code>min === max</code>, пустой каталог. Неправильный ввод: <code>min &gt; max</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// price.test.js
+const { filterByPrice } = require('./price');
+
+const products = [
+  { id: 1, price: 100 },
+  { id: 2, price: 200 },
+  { id: 3, price: 300 },
+];
+const ids = (list) =&gt; list.map((p) =&gt; p.id);
+
+describe('обычные случаи', () =&gt; {
+  test('диапазон 150–250 оставляет товар 2', () =&gt; {
+    expect(ids(filterByPrice(products, 150, 250))).toEqual([2]);
+  });
+  test('только min оставляет всё дороже', () =&gt; {
+    expect(ids(filterByPrice(products, 200, undefined))).toEqual([2, 3]);
+  });
+});
+
+describe('границы', () =&gt; {
+  test('цена ровно на min и max включается', () =&gt; {
+    expect(ids(filterByPrice(products, 100, 300))).toEqual([1, 2, 3]);
+  });
+  test('min равен max — один товар', () =&gt; {
+    expect(ids(filterByPrice(products, 200, 200))).toEqual([2]);
+  });
+  test('пустой каталог — пустой результат', () =&gt; {
+    expect(filterByPrice([], 0, 1000)).toEqual([]);
+  });
+});
+
+describe('неправильный ввод', () =&gt; {
+  test('без границ возвращает всё', () =&gt; {
+    expect(ids(filterByPrice(products))).toEqual([1, 2, 3]);
+  });
+  test('min больше max — ничего', () =&gt; {
+    expect(filterByPrice(products, 300, 100)).toEqual([]);
+  });
+});</code></pre>
+<p>Мутант с <code>&gt;</code> и <code>&lt;</code> вместо <code>&gt;=</code> и <code>&lt;=</code> проходит «обычные» тесты, а ловят его только граничные: «ровно на min и max» и «min равен max». Тест «min больше max — ничего» фиксирует поведение, которое стоит обсудить: может, интерфейс должен менять границы местами? Тест делает это решение видимым.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ti-bad-tests" data-task="testing-intro/ti-bad-tests">
+<h4>Задача 16. Почините плохие тесты <span class="lvl">★★☆ практика</span></h4>
+<p>Тесты ниже проходят, но нарушают правила из раздела выше. Найдите три нарушения и перепишите тесты.</p>
+<pre><code>// starter.js
+const cart = [];
+
+test('добавляет товар', () =&gt; {
+  cart.push({ id: 1, price: 100, quantity: 2 });
+  expect(cart).toHaveLength(1);
+});
+
+test('считает сумму', () =&gt; {
+  // работает, только если первый тест уже выполнился
+  const expected = cart.reduce((s, i) =&gt; s + i.price * i.quantity, 0);
+  expect(subtotal(cart)).toBe(expected);
+});</code></pre>
+<pre><code>// subtotal.js
+const subtotal = (cart) =&gt; cart.reduce((s, i) =&gt; s + i.price * i.quantity, 0);
+module.exports = { subtotal };</code></pre>
+<p class="why"><b>Зачем:</b> тест, зависящий от соседа, падает «случайно» при запуске одного файла или в другом порядке. А ожидание, посчитанное той же формулой, что и в коде, повторит ошибку кода и всегда будет зелёным.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// subtotal.test.js
+const { subtotal } = require('./subtotal');
+
+test('сумма учитывает количество', () =&gt; {
+  const cart = [{ id: 1, price: 100, quantity: 2 }, { id: 2, price: 50, quantity: 1 }];
+  expect(subtotal(cart)).toBe(250);
+});
+
+test('пустая корзина даёт 0', () =&gt; {
+  expect(subtotal([])).toBe(0);
+});</code></pre>
+<p>Три нарушения. <b>Общее изменяемое состояние</b>: массив <code>cart</code> на уровне файла, второй тест зависит от первого. <b>Ожидание той же формулой</b>: если в <code>subtotal</code> забыть <code>quantity</code>, в тесте его можно «забыть» так же, и тест останется зелёным. Мутант без <code>quantity</code> исходный тест действительно проходит. <b>Первый тест проверяет не наш код</b>, а <code>Array.prototype.push</code>. В новой версии у каждого теста свои данные и ожидание, посчитанное вручную: 100 × 2 + 50 = 250.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ti-time" data-task="testing-intro/ti-time">
+<h4>Задача 17. Время — параметром <span class="lvl">★★☆ практика</span></h4>
+<p>Функция ниже зависит от текущего времени, поэтому её нельзя надёжно протестировать. Перепишите её так, чтобы дата передавалась параметром (по умолчанию — <code>new Date()</code>), и напишите тесты: акция ещё не началась, идёт и уже закончилась (граница «последний день включительно»).</p>
+<pre><code>function isSaleActive() {
+  const now = new Date();
+  return now &gt;= new Date('2026-11-20') &amp;&amp; now &lt; new Date('2026-11-30');
+}</code></pre>
+<p class="why"><b>Зачем:</b> повторяемость: тест, зависящий от сегодняшней даты, сегодня зелёный, а через неделю красный, хотя код никто не трогал. Внешнюю зависимость (часы, сеть, случайность) выносят в параметр, и функция становится чистой.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// sale.js
+const SALE_START = new Date('2026-11-20T00:00:00Z');
+const SALE_END = new Date('2026-11-30T00:00:00Z'); // не включительно: 29-е — последний день
+
+function isSaleActive(now = new Date()) {
+  return now &gt;= SALE_START &amp;&amp; now &lt; SALE_END;
+}
+module.exports = { isSaleActive };</code></pre>
+<pre><code>// sale.test.js
+const { isSaleActive } = require('./sale');
+
+test.each([
+  ['2026-11-19T23:59:59Z', false],
+  ['2026-11-20T00:00:00Z', true],
+  ['2026-11-29T23:59:59Z', true],
+  ['2026-11-30T00:00:00Z', false],
+])('%s → %s', (iso, expected) =&gt; {
+  expect(isSaleActive(new Date(iso))).toBe(expected);
+});</code></pre>
+<p>Значение по умолчанию сохраняет удобный вызов <code>isSaleActive()</code> в приложении, а тест передаёт любую дату. Тестовые точки стоят по обе стороны каждой границы с точностью до секунды. Даты указаны в UTC (<code>Z</code>): без этого результат зависел бы от часового пояса компьютера, и тест вёл бы себя по-разному у вас и в CI.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

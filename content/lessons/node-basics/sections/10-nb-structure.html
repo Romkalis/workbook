@@ -37,4 +37,42 @@ start();</code></pre>
 <p>Фронтенд на Vite (<code>localhost:5173</code>) и сервер (<code>localhost:3000</code>) — разные origin, поэтому браузер применит CORS. Два решения из урока <a href="/lessons/client-server#cs-cors-fix">о клиенте и сервере</a>: подключить на сервере пакет <code>cors</code> с вашим origin (<code>app.use(cors({ origin: 'http://localhost:5173' }))</code>) или настроить прокси в dev-сервере Vite.</p>
 <h3 id="nb-next">Что дальше</h3>
 <p>Теперь в уроке <a href="/lessons/jwt-auth">«JWT-авторизация»</a> знакомо всё, на что он опирается: <code>require</code>, npm и <code>.env</code>, Express-маршруты и middleware, модели Mongoose. К этому добавятся модель пользователя с хешем пароля, выдача токена при входе и middleware, которое проверяет токен перед защищёнными маршрутами.</p>
+<article class="task" id="nb-t-structure" data-task="node-basics/nb-t-structure">
+<h4>Задача 30. app отдельно от server и первый тест API <span class="lvl">★★☆ практика</span></h4>
+<p>Разделите проект на <code>app.mjs</code> (создаёт приложение, ничего не слушает) и <code>server.mjs</code> (читает порт из окружения и вызывает <code>listen</code>). Напишите тест <code>app.test.mjs</code> на <code>node:test</code> с библиотекой <a href="/lessons/express-typescript#et-supertest">supertest</a>: <code>GET /api/health</code> отвечает <code>{ ok: true }</code>, неизвестный путь — 404.</p>
+<p class="why"><b>Зачем:</b> приложение, которое не занимает порт при импорте, тестируется без запуска сервера: быстро, параллельно и без конфликтов с <code>npm run dev</code>. Это главный архитектурный шаг перед тем, как проект начнёт расти.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.mjs
+import express from 'express';
+
+export function createApp() {
+  const app = express();
+  app.get('/api/health', (req, res) =&gt; res.json({ ok: true }));
+  app.use((req, res) =&gt; res.status(404).json({ error: 'Маршрут не найден' }));
+  return app;
+}</code></pre>
+<pre><code>// server.mjs
+import { createApp } from './app.mjs';
+
+const port = Number(process.env.PORT) || 3000;
+createApp().listen(port, () =&gt; console.log(`http://localhost:${port}`));</code></pre>
+<pre><code>// app.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import request from 'supertest';
+import { createApp } from './app.mjs';
+
+test('health', async () =&gt; {
+  const res = await request(createApp()).get('/api/health');
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { ok: true });
+});
+
+test('неизвестный путь — 404', async () =&gt; {
+  assert.equal((await request(createApp()).get('/nope')).status, 404);
+});</code></pre>
+<p>supertest принимает приложение и сам поднимает его на временном порту на время запроса. Ставится как dev-зависимость: <code>npm i -D supertest</code>. В <code>server.mjs</code> остались только «грязные» вещи: окружение и порт. Его почти нечего тестировать, и в этом смысл разделения. Продолжение с TypeScript, проверкой данных и CORS — в уроке <a href="/lessons/express-typescript">Express на TypeScript</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

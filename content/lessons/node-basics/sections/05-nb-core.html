@@ -9,6 +9,78 @@
 <li><code>process.cwd()</code> — папка, из которой запустили программу (не обязательно папка файла).</li>
 <li><code>process.version</code>, <code>process.platform</code> — версия Node.js и система: у нас вывело <code>v22.23.2 darwin</code>.</li>
 </ul>
+<article class="task" id="nb-t-argv" data-task="node-basics/nb-t-argv">
+<h4>Задача 7. Разбор аргументов командной строки <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>parseArgs(argv)</code>: из массива вроде <code>['--category', 'books', '--limit', '2', '--json']</code> получает объект <code>{ category: 'books', limit: '2', json: true }</code> (флаг без значения — <code>true</code>). Используйте его в <code>list.mjs</code>: скрипт печатает названия товаров из <code>products.json</code> с фильтром по категории и ограничением количества.</p>
+<pre><code>// products.json
+[
+  { "id": 1, "title": "Чистый код", "category": "books", "price": 150000 },
+  { "id": 2, "title": "Каркассон", "category": "games", "price": 249000 },
+  { "id": 3, "title": "Грокаем алгоритмы", "category": "books", "price": 99000 }
+]</code></pre>
+<p class="why"><b>Зачем:</b> разбор аргументов отдельно от действия — то же разделение, что «чистая функция + тонкий внешний слой». <code>parseArgs</code> легко протестировать на массивах, а скрипт только склеивает части.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Аргументы программы начинаются с индекса 2: <code>process.argv.slice(2)</code>. Флаг без значения — это когда следующий элемент отсутствует или тоже начинается с <code>--</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// args.mjs
+export function parseArgs(argv) {
+  const result = {};
+  for (let i = 0; i &lt; argv.length; i++) {
+    const arg = argv[i];
+    if (!arg.startsWith('--')) continue;
+    const next = argv[i + 1];
+    if (next === undefined || next.startsWith('--')) {
+      result[arg.slice(2)] = true;
+    } else {
+      result[arg.slice(2)] = next;
+      i++;
+    }
+  }
+  return result;
+}</code></pre>
+<pre><code>// list.mjs
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { parseArgs } from './args.mjs';
+
+const args = parseArgs(process.argv.slice(2));
+const products = JSON.parse(await readFile(path.join(import.meta.dirname, 'products.json'), 'utf8'));
+
+const limit = args.limit === undefined ? Infinity : Number(args.limit);
+const found = products.filter((p) =&gt; !args.category || p.category === args.category).slice(0, limit);
+console.log(found.map((p) =&gt; p.title).join('\n'));</code></pre>
+<p>Значения остаются строками, превращает их в числа тот, кто знает смысл (<code>Number(args.limit)</code>). <code>parseArgs</code> не знает, что <code>limit</code> — число. В Node есть встроенный <code>util.parseArgs</code> с описанием опций (из общих знаний), но написать свой простой разбор полезно хотя бы раз, чтобы понимать, что там внутри.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="nb-t-exit" data-task="node-basics/nb-t-exit">
+<h4>Задача 8. Код выхода и поток ошибок <span class="lvl">★☆☆ разминка</span></h4>
+<p>Доработайте <code>list.mjs</code>: если передана неизвестная категория, скрипт пишет сообщение в поток ошибок (<code>console.error</code>) и завершается с кодом 1. Проверьте в терминале: <code>node list.mjs --category toys; echo $?</code>.</p>
+<pre><code>// products.json
+[
+  { "id": 1, "title": "Чистый код", "category": "books", "price": 150000 },
+  { "id": 2, "title": "Каркассон", "category": "games", "price": 249000 }
+]</code></pre>
+<p class="why"><b>Зачем:</b> скрипты запускают другие скрипты, CI и git-хуки. Им нужен не текст, а код выхода. Сообщения об ошибках идут в отдельный поток, чтобы <code>node list.mjs &gt; out.txt</code> не смешал результат с ошибками.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// list.mjs
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+
+const category = process.argv[2];
+const products = JSON.parse(await readFile(path.join(import.meta.dirname, 'products.json'), 'utf8'));
+const known = new Set(products.map((p) =&gt; p.category));
+
+if (category &amp;&amp; !known.has(category)) {
+  console.error(`Неизвестная категория «${category}». Есть: ${[...known].join(', ')}`);
+  process.exit(1);
+}
+
+const found = products.filter((p) =&gt; !category || p.category === category);
+console.log(found.map((p) =&gt; p.title).join('\n'));</code></pre>
+<p>Сообщение помогает исправить ошибку: в нём перечислены существующие категории. Здесь подходит <code>process.exit(1)</code>: после ошибки делать больше нечего. В задаче про проверки в уроке тестирования мы выбирали <code>process.exitCode</code>, потому что там нужно было продолжить работу. Список категорий взят из данных, а не написан руками, поэтому новая категория не потребует правки скрипта.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="nb-env">Переменные окружения и .env</h3>
 <p><b>Переменные окружения</b> — настройки, которые передаются программе снаружи, а не пишутся в коде: порт, адрес базы данных, секретные ключи. Один и тот же код запускают на ноутбуке и на сервере с разными значениями. А секреты не попадают в git (<a href="https://nodejs.org/en/learn/command-line/how-to-read-environment-variables-from-nodejs">документация</a>).</p>
 <p>Локально их удобно держать в файле <code>.env</code> в корне проекта:</p>
@@ -21,6 +93,56 @@ JWT_SECRET=длинная-случайная-строка</code></pre>
 <li>Пакет <code>dotenv</code>, как в уроке о JWT: <code>require('dotenv').config()</code> в самом начале программы.</li>
 </ul>
 <p>Проверка: <code>node --env-file=.env -e "console.log(process.env.PORT, typeof process.env.PORT)"</code> вывела <code>4000 string</code>. Все значения в <code>process.env</code> — <b>строки</b>, числа и логические значения нужно преобразовать: <code>Number(process.env.PORT) || 3000</code>. Файл <code>.env</code> всегда добавляют в <code>.gitignore</code>, а в репозиторий кладут <code>.env.example</code> — файл-образец с названиями переменных без настоящих значений.</p>
+<article class="task" id="nb-t-config" data-task="node-basics/nb-t-config">
+<h4>Задача 9. Конфигурация из окружения <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>loadConfig(env = process.env)</code>, которая возвращает <code>{ port, nodeEnv, apiKey }</code>. Правила: <code>PORT</code> по умолчанию 3000, должен быть целым числом от 1 до 65535, иначе ошибка с названием переменной. <code>NODE_ENV</code> по умолчанию <code>'development'</code>. <code>API_KEY</code> обязателен только при <code>NODE_ENV=production</code>.</p>
+<p class="why"><b>Зачем:</b> неверная настройка должна ронять сервер сразу при старте с понятным текстом («PORT должен быть числом, получено "abc"»), а не через час странным поведением. Параметр <code>env</code> делает функцию чистой: тесты передают объект, а не меняют <code>process.env</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// config.mjs
+export function loadConfig(env = process.env) {
+  const port = env.PORT === undefined ? 3000 : Number(env.PORT);
+  if (!Number.isInteger(port) || port &lt; 1 || port &gt; 65535) {
+    throw new Error(`PORT должен быть целым числом от 1 до 65535, получено "${env.PORT}"`);
+  }
+
+  const nodeEnv = env.NODE_ENV ?? 'development';
+  const apiKey = env.API_KEY;
+  if (nodeEnv === 'production' &amp;&amp; !apiKey) {
+    throw new Error('API_KEY обязателен в production');
+  }
+
+  return { port, nodeEnv, apiKey };
+}</code></pre>
+<p>Все значения в окружении — строки, поэтому <code>Number</code> и проверка. Конфигурацию читают в одном месте, при запуске, и дальше передают готовый объект. Тогда в коде нет разбросанных <code>process.env.X</code>, и сразу видно, какие настройки есть у приложения. Ключ необязателен в разработке, чтобы новичку не нужно было добывать секрет ради запуска на своём компьютере.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="nb-t-env-file" data-task="node-basics/nb-t-env-file">
+<h4>Задача 10. .env и .env.example <span class="lvl">★☆☆ разминка</span></h4>
+<p>Подключите <code>loadConfig</code> из прошлой задачи в <code>server.mjs</code>, который просто печатает итоговую конфигурацию без ключа. Создайте <code>.env</code> с <code>PORT=4000</code> и <code>.env.example</code> с пустыми значениями. Запустите с <code>--env-file</code>. Добавьте <code>.env</code> в <code>.gitignore</code>.</p>
+<p class="why"><b>Зачем:</b> <code>.env.example</code> — документация «какие настройки нужны», которая живёт в репозитории, а секреты остаются у каждого свои. Без него новичок узнаёт о переменной, только когда сервер упадёт.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// server.mjs
+import { loadConfig } from './config.mjs';
+
+const { port, nodeEnv } = loadConfig();
+console.log(`Сервер: порт ${port}, режим ${nodeEnv}`);</code></pre>
+<pre><code>// config.mjs
+export function loadConfig(env = process.env) {
+  const port = env.PORT === undefined ? 3000 : Number(env.PORT);
+  if (!Number.isInteger(port) || port &lt; 1 || port &gt; 65535) throw new Error(`PORT неверный: "${env.PORT}"`);
+  const nodeEnv = env.NODE_ENV ?? 'development';
+  if (nodeEnv === 'production' &amp;&amp; !env.API_KEY) throw new Error('API_KEY обязателен в production');
+  return { port, nodeEnv, apiKey: env.API_KEY };
+}</code></pre>
+<pre><code>// .env.example
+PORT=
+NODE_ENV=
+API_KEY=</code></pre>
+<p>Команда: <code>node --env-file=.env server.mjs</code> выведет «порт 4000». В <code>.gitignore</code> строка <code>.env</code>, а <code>.env.example</code> коммитится. Ключ намеренно не печатается: логи часто попадают туда, где их читают многие.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="nb-fs">Файлы: fs</h3>
 <p>Модуль <a href="https://nodejs.org/api/fs.html"><code>fs</code></a> (file system) работает с файлами. У большинства функций три вида: с колбэком (<code>fs.readFile</code>), синхронный (<code>fs.readFileSync</code>) и на промисах (<code>fs/promises</code>). В новом коде берите промисы, а синхронные — только в коротких скриптах: пока файл читается синхронно, сервер не отвечает никому.</p>
 <pre><code>import { readFile, writeFile } from 'node:fs/promises';
@@ -36,6 +158,74 @@ try {
   console.log(error.code); // ENOENT — такого файла нет
 }</code></pre>
 <p>Без второго аргумента <code>'utf8'</code> <code>readFile</code> вернёт не строку, а <code>Buffer</code> — набор байтов. Ошибки Node.js имеют свойство <code>code</code>: <code>ENOENT</code> (нет файла), <code>EACCES</code> (нет прав), <code>EADDRINUSE</code> (порт занят) — по нему удобно ветвиться, как учил урок <a href="/lessons/error-handling#eh-codes">об обработке ошибок</a>.</p>
+<article class="task" id="nb-t-count" data-task="node-basics/nb-t-count">
+<h4>Задача 11. Сколько строк в файле <span class="lvl">★☆☆ разминка</span></h4>
+<p>Упражнение из урока: <code>count.mjs</code> получает имя файла из аргументов, читает его через <code>fs/promises</code> и печатает число строк. Если файла нет — понятное сообщение и код 1. Если аргумента нет — подсказка, как запускать, и код 1.</p>
+<p class="why"><b>Зачем:</b> это скелет любой утилиты: аргументы → чтение → результат, а ошибки — понятными словами. Обработка по <code>error.code</code> отделяет ожидаемую ситуацию («нет файла») от настоящей поломки.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// count.mjs
+import { readFile } from 'node:fs/promises';
+
+const file = process.argv[2];
+if (!file) {
+  console.error('Использование: node count.mjs &lt;файл&gt;');
+  process.exit(1);
+}
+
+try {
+  const text = await readFile(file, 'utf8');
+  const lines = text === '' ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
+  console.log(lines);
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+  console.error(`Файл не найден: ${file}`);
+  process.exit(1);
+}</code></pre>
+<p>Файл <code>"a\nb\n"</code> — это две строки, а не три: завершающий перенос не начинает новую строку. Это граничный случай, о котором стоит подумать. Ошибки, кроме <code>ENOENT</code>, пробрасываются дальше. Если нет прав (<code>EACCES</code>), честнее упасть с настоящей причиной, чем соврать «не найден».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="nb-t-json-store" data-task="node-basics/nb-t-json-store">
+<h4>Задача 12. JSON-хранилище с значением по умолчанию <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите модуль <code>store.mjs</code> с двумя функциями. <code>readJson(file, fallback)</code> возвращает разобранный JSON, а если файла нет — <code>fallback</code>. Любая другая ошибка, включая битый JSON, пробрасывается. <code>writeJson(file, data)</code> сохраняет с отступом 2 и переносом строки в конце.</p>
+<p class="why"><b>Зачем:</b> это будет «база данных» каталога до Mongo. Важное решение: отсутствующий файл — нормальная ситуация (первый запуск), а битый файл — авария, которую нельзя молча заменить пустым массивом, иначе следующая запись сотрёт все данные.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// store.mjs
+import { readFile, writeFile } from 'node:fs/promises';
+
+export async function readJson(file, fallback) {
+  try {
+    return JSON.parse(await readFile(file, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') return fallback;
+    throw error;
+  }
+}
+
+export async function writeJson(file, data) {
+  await writeFile(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
+}</code></pre>
+<p>У ошибки <code>JSON.parse</code> нет <code>code</code>, поэтому она пробрасывается. Посмотрите, что случилось бы с «удобным» <code>catch { return fallback }</code>: файл повредился → прочитали <code>[]</code> → добавили товар → записали массив из одного товара. Остальные данные потеряны без единой ошибки в логе.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="nb-t-atomic" data-task="node-basics/nb-t-atomic">
+<h4>Задача 13. Запись, которую нельзя оборвать на середине <span class="lvl">★★★ с подвохом</span></h4>
+<p>Если процесс упадёт посреди <code>writeFile</code>, на диске останется половина JSON. Сделайте <code>writeJsonAtomic(file, data)</code>: сначала пишет во временный файл рядом (<code>file + '.tmp'</code>), затем переименовывает его в нужное имя через <code>rename</code> из <code>fs/promises</code>.</p>
+<p class="why"><b>Зачем:</b> переименование файла в пределах одного диска выполняется целиком или никак (из общих знаний об операционных системах), поэтому читатель видит либо старую, либо новую версию, но не обрывок. Так же поступают редакторы и базы данных. Это пример инженерного мышления: думать не только о том, как должно работать, но и о том, как это может сломаться.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// atomic.mjs
+import { writeFile, rename } from 'node:fs/promises';
+
+export async function writeJsonAtomic(file, data) {
+  const tmp = `${file}.tmp`;
+  await writeFile(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8');
+  await rename(tmp, file);
+}</code></pre>
+<p>Временный файл лежит в той же папке: при переименовании между разными дисками атомарность не гарантирована. Ограничение решения: два одновременных вызова запишут один и тот же <code>.tmp</code>. Для учебного каталога это допустимо, а настоящая база данных решает и эту задачу. Это одна из причин, почему данные в итоге переезжают в базу.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="nb-path">Пути: path</h3>
 <p>Пути в Windows пишутся через <code>\</code>, в macOS и Linux через <code>/</code>. Модуль <a href="https://nodejs.org/api/path.html"><code>path</code></a> собирает их правильно для любой системы, поэтому строки руками не склеивают:</p>
 <ul>
@@ -44,6 +234,50 @@ try {
 <li><code>path.extname('photo.final.jpg')</code> → <code>.jpg</code>; <code>path.basename(file)</code> → имя файла.</li>
 </ul>
 <p>Относительные пути в <code>readFile('data.json')</code> считаются от <code>process.cwd()</code>, а не от файла с кодом. Запустили из другой папки — файл «пропал». Надёжнее строить путь от <code>import.meta.dirname</code> или <code>__dirname</code>.</p>
+<div class="warn"><p><b>Пути от пользователя.</b> Если часть пути приходит из запроса (имя картинки, файла для скачивания), просто склеить её с папкой опасно: <code>path.join('public', '../../.env')</code> выйдет за пределы <code>public</code>. Эта уязвимость называется path traversal. Защита: получить итоговый путь через <code>path.resolve(root, userPath)</code> и проверить, что он начинается с <code>path.resolve(root) + path.sep</code>. Готовый <code>express.static</code> такие проверки делает сам.</p></div>
+<article class="task" id="nb-t-path" data-task="node-basics/nb-t-path">
+<h4>Задача 14. Путь к данным от файла, а не от терминала <span class="lvl">★☆☆ разминка</span></h4>
+<p>Скрипт ниже работает, только если запускать его из папки проекта. Исправьте его так, чтобы <code>data/products.json</code> находился при запуске из любой папки. Строки путей руками не склеивайте.</p>
+<pre><code>// starter.mjs
+import { readFile } from 'node:fs/promises';
+const products = JSON.parse(await readFile('data/products.json', 'utf8'));
+console.log(products.length);</code></pre>
+<pre><code>// data/products.json
+[{ "id": 1 }, { "id": 2 }]</code></pre>
+<p class="why"><b>Зачем:</b> сервер на хостинге запускают из какой угодно папки, а cron-задачи — вообще из домашней. Код, который зависит от того, откуда его запустили, однажды не найдёт свои файлы в самый неудобный момент.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// count-products.mjs
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+
+const file = path.join(import.meta.dirname, 'data', 'products.json');
+const products = JSON.parse(await readFile(file, 'utf8'));
+console.log(products.length);</code></pre>
+<p>Относительный путь в <code>readFile</code> считается от <code>process.cwd()</code>. <code>path.join</code> соберёт путь с правильным разделителем для Windows и Unix. Каждая часть передаётся отдельным аргументом, без <code>'/'</code> в строках.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="nb-t-traversal" data-task="node-basics/nb-t-traversal">
+<h4>Задача 15. Не выпустить пользователя из папки <span class="lvl">★★★ с подвохом</span></h4>
+<p>Сервер отдаёт картинки товаров по имени из адреса: <code>/images/lamp.jpg</code>. Напишите <code>safeResolve(root, userPath)</code>: возвращает абсолютный путь внутри <code>root</code> или бросает ошибку, если путь выходит за её пределы (<code>../../etc/passwd</code>, абсолютный <code>/etc/passwd</code>).</p>
+<p class="why"><b>Зачем:</b> это уязвимость path traversal: склеив папку с именем из запроса, сервер отдаст любой файл, до которого дотянется, вплоть до <code>.env</code> с секретами. Проверять нужно итоговый путь после разрешения всех <code>..</code>, а не искать в строке «плохие» символы.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p><code>path.resolve(root, userPath)</code> сам разрешит все <code>..</code>. Затем проверьте, что результат начинается с <code>root + path.sep</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// safe.mjs
+import path from 'node:path';
+
+export function safeResolve(root, userPath) {
+  const base = path.resolve(root);
+  const full = path.resolve(base, userPath);
+  if (!full.startsWith(base + path.sep)) {
+    throw new Error('Путь вне разрешённой папки');
+  }
+  return full;
+}</code></pre>
+<p>Проверяется результат <code>resolve</code>: так ловится любая форма обхода, включая абсолютный путь, который <code>resolve</code> просто подставит вместо базы. Разделитель в конце (<code>base + path.sep</code>) важен: без него папка <code>/srv/images-secret</code> «начиналась бы» с <code>/srv/images</code>. Сама папка <code>root</code> тоже отклоняется, ведь отдать нужно файл внутри неё. Готовый <code>express.static</code> такие проверки уже делает. Собственный код нужен, когда вы читаете файлы по имени из запроса вручную.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="nb-events">События: EventEmitter</h3>
 <p>Многие объекты Node.js (сервер, потоки, процесс) сообщают о происходящем через события, как кнопки в браузере. Основа — класс <a href="https://nodejs.org/api/events.html"><code>EventEmitter</code></a>:</p>
 <pre><code>const { EventEmitter } = require('node:events');
@@ -55,4 +289,33 @@ console.log('после emit');
 // новый заказ 42
 // после emit</code></pre>
 <p><code>on</code> подписывается, <code>emit</code> вызывает всех подписчиков — синхронно, сразу. Если у эмиттера случилось событие <code>'error'</code>, а подписчика на него нет, программа упадёт, поэтому на <code>'error'</code> подписываются всегда.</p>
+<article class="task" id="nb-t-events" data-task="node-basics/nb-t-events">
+<h4>Задача 16. Магазин на событиях <span class="lvl">★★☆ практика</span></h4>
+<p>Сделайте класс <code>Shop extends EventEmitter</code> с методом <code>placeOrder(items)</code>: для непустого заказа генерирует событие <code>'order'</code> с объектом <code>{ id, total }</code> (id растёт с 1), для пустого — событие <code>'error'</code> с <code>Error</code>. Подпишите два обработчика на <code>'order'</code>: «письмо» и «лог», и один на <code>'error'</code>.</p>
+<p class="why"><b>Зачем:</b> события развязывают части программы: магазин не знает, кто реагирует на заказ. Завтра добавится аналитика, и для этого понадобится новый подписчик, а не правка <code>placeOrder</code>. Подписка на <code>'error'</code> обязательна, иначе ошибка уронит процесс.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// shop.mjs
+import { EventEmitter } from 'node:events';
+
+export class Shop extends EventEmitter {
+  #nextId = 1;
+
+  placeOrder(items) {
+    if (items.length === 0) {
+      this.emit('error', new Error('Пустой заказ'));
+      return;
+    }
+    const total = items.reduce((sum, i) =&gt; sum + i.price * i.quantity, 0);
+    this.emit('order', { id: this.#nextId++, total });
+  }
+}
+
+const shop = new Shop();
+shop.on('order', (o) =&gt; console.log(`письмо: заказ №${o.id}`));
+shop.on('order', (o) =&gt; console.log(`лог: ${o.total}`));
+shop.on('error', (e) =&gt; console.log(`ошибка: ${e.message}`));</code></pre>
+<p><code>emit</code> вызывает подписчиков синхронно и по порядку подписки, поэтому «письмо» всегда раньше «лога». Без подписчика на <code>'error'</code> <code>emit('error')</code> бросает ошибку прямо из <code>placeOrder</code>. Проверочный тест это показывает.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

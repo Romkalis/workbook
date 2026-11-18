@@ -5,13 +5,55 @@
 const asserted = raw as number;
 const converted = Number(raw);
 console.log(typeof asserted, typeof converted); // string number
-</code></pre><p><code>as number</code> не преобразовало строку в число. Для преобразования нужен Number, а для безопасности ещё и проверка результата, например Number.isFinite. Утверждения разрешаются при достаточном пересечении типов; двойное <code>as unknown as T</code> позволяет обойти ограничение и часто скрывает ошибку. Предпочитайте сужение проверкой, если форма данных заранее неизвестна.</p><h3 id="ts-non-null">Оператор !: ответственность на авторе</h3><pre><code>function size(value: string | null): number {
+</code></pre><p><code>as number</code> не преобразовало строку в число. Для преобразования нужен Number, а для безопасности ещё и проверка результата, например Number.isFinite. Утверждения разрешаются при достаточном пересечении типов; двойное <code>as unknown as T</code> позволяет обойти ограничение и часто скрывает ошибку. Предпочитайте сужение проверкой, если форма данных заранее неизвестна.</p><article class="task" id="tsb-as-fix" data-task="typescript-basic/tsb-as-fix">
+<h4>Задача 26. Замените as на настоящее преобразование <span class="lvl">★☆☆ разминка</span></h4>
+<p>Код ниже компилируется, но считает сумму неправильно. Найдите причину и исправьте без <code>as</code>: значения из формы должны стать числами, а нечисловые — давать ошибку.</p>
+<pre><code>const fromForm: unknown[] = ['100', '250'];
+const prices = fromForm as number[];
+const sum = prices.reduce((a, b) =&gt; a + b, 0);
+console.log(sum); // "0100250" вместо 350</code></pre>
+<p class="why"><b>Зачем:</b> <code>as</code> не меняет данные, он только просит компилятор замолчать. Поэтому ошибка тут не видна ни компилятору, ни в редакторе, а <code>+</code> склеивает строки. Это классика: «TypeScript же проверил!» — нет, вы попросили его не проверять.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function toPrices(values: unknown[]): number[] {
+  return values.map((v) =&gt; {
+    const n = typeof v === 'number' ? v : Number(v);
+    if (!Number.isFinite(n)) throw new TypeError(`Не число: ${String(v)}`);
+    return n;
+  });
+}
+
+const sum = toPrices(['100', '250']).reduce((a, b) =&gt; a + b, 0);
+console.log(sum); // 350</code></pre>
+<p><code>Number(v)</code> действительно преобразует значение, а <code>Number.isFinite</code> отсекает <code>NaN</code> от <code>"abc"</code>. Функция возвращает <code>number[]</code> честно, без утверждений. Правило: если хочется написать <code>as</code> для внешних данных, на его месте должна быть проверка или преобразование.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-non-null">Оператор !: ответственность на авторе</h3><pre><code>function size(value: string | null): number {
   if (value === null) return 0;
   return value.length;
 }
 const maybe: string | null = &quot;TS&quot;;
 console.log(maybe!.length, size(null)); // 2 0
-</code></pre><p><code>!</code> после выражения (<code>input!.value</code>) — это обещание компилятору: «здесь точно не null». TypeScript поверит на слово и ничего не проверит. Если обещание окажется ложным, программа упадёт при запуске, как в обычном JavaScript. Для <a href="/lessons/how-browsers-work">DOM</a> безопаснее проверить результат querySelector и при необходимости instanceof HTMLInputElement. <code>value?.length</code> безопасно возвращает undefined при отсутствии значения; это исполняемая операция, в отличие от утверждения !. Префиксный <code>!value</code> — обычное логическое отрицание JS.</p><h3 id="ts-const-assertions">as const сохраняет литералы</h3><pre><code>const options = { mode: &quot;read&quot;, size: 2 } as const;
+</code></pre><p><code>!</code> после выражения (<code>input!.value</code>) — это обещание компилятору: «здесь точно не null». TypeScript поверит на слово и ничего не проверит. Если обещание окажется ложным, программа упадёт при запуске, как в обычном JavaScript. Для <a href="/lessons/how-browsers-work">DOM</a> безопаснее проверить результат querySelector и при необходимости instanceof HTMLInputElement. <code>value?.length</code> безопасно возвращает undefined при отсутствии значения; это исполняемая операция, в отличие от утверждения !. Префиксный <code>!value</code> — обычное логическое отрицание JS.</p><article class="task" id="tsb-non-null" data-task="typescript-basic/tsb-non-null">
+<h4>Задача 27. Уберите опасный ! <span class="lvl">★☆☆ разминка</span></h4>
+<p>Функция падает с <code>TypeError</code>, если товара нет в каталоге. Перепишите её без <code>!</code>: для отсутствующего товара возвращайте <code>null</code> и отразите это в типе результата.</p>
+<pre><code>const catalog = new Map&lt;number, { title: string; price: number }&gt;([[1, { title: 'A', price: 100 }]]);
+export function priceOf(id: number): number {
+  return catalog.get(id)!.price;
+}</code></pre>
+<p class="why"><b>Зачем:</b> <code>!</code> переносит проверку из компилятора в вашу голову. Когда id приходит из адреса страницы или из корзины в localStorage, товара может уже не быть. Тип <code>number | null</code> заставит каждого вызывающего подумать, что показывать в этом случае.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>const catalog = new Map&lt;number, { title: string; price: number }&gt;([[1, { title: 'A', price: 100 }]]);
+
+export function priceOf(id: number): number | null {
+  const product = catalog.get(id);
+  return product ? product.price : null;
+}</code></pre>
+<p><code>Map.get</code> возвращает <code>T | undefined</code> — это правда о данных. Одна проверка сужает тип, и <code>!</code> не нужен. Можно и короче: <code>catalog.get(id)?.price ?? null</code>. Оператор <code>?.</code> — исполняемая проверка, а не обещание.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-const-assertions">as const сохраняет литералы</h3><pre><code>const options = { mode: &quot;read&quot;, size: 2 } as const;
 const directions = [&quot;up&quot;, &quot;down&quot;] as const;
 type Direction = typeof directions[number]; // &quot;up&quot; | &quot;down&quot;
 const direction: Direction = &quot;up&quot;;
@@ -20,11 +62,55 @@ if (false) {
   // @ts-expect-error: свойство стало readonly
   options.size = 3;
 }
-</code></pre><p>Без <code>as const</code> запись <code>const roles = ["admin", "user"]</code> получает тип <code>string[]</code>: просто какие-то строки. С <code>as const</code> тип становится <code>readonly ["admin", "user"]</code>: TypeScript запоминает точные значения и запрещает менять массив. Как и <code>readonly</code>, это работает только при проверке типов. Заморозить объект в работающей программе может только <code>Object.freeze</code>.</p><h3 id="ts-satisfies">satisfies проверяет совместимость</h3><pre><code>type Channels = &quot;success&quot; | &quot;error&quot;;
+</code></pre><p>Без <code>as const</code> запись <code>const roles = ["admin", "user"]</code> получает тип <code>string[]</code>: просто какие-то строки. С <code>as const</code> тип становится <code>readonly ["admin", "user"]</code>: TypeScript запоминает точные значения и запрещает менять массив. Как и <code>readonly</code>, это работает только при проверке типов. Заморозить объект в работающей программе может только <code>Object.freeze</code>.</p><article class="task" id="tsb-as-const" data-task="typescript-basic/tsb-as-const">
+<h4>Задача 28. Категории: массив, тип и проверка <span class="lvl">★★☆ практика</span></h4>
+<p>Объявите <code>CATEGORIES = ['books', 'games', 'toys'] as const</code>, выведите из него тип <code>Category</code> и напишите предикат <code>isCategory(value: string): value is Category</code>. Используйте его, чтобы безопасно разобрать категорию из адреса <code>?category=games</code>.</p>
+<p class="why"><b>Зачем:</b> один источник правды: список категорий для меню и тип для проверок берутся из одного массива. Добавили категорию в массив — и меню, и тип, и проверка обновились сами.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export const CATEGORIES = ['books', 'games', 'toys'] as const;
+export type Category = (typeof CATEGORIES)[number]; // 'books' | 'games' | 'toys'
+
+export function isCategory(value: string): value is Category {
+  return (CATEGORIES as readonly string[]).includes(value);
+}
+
+export function categoryFromQuery(search: string): Category | null {
+  const value = new URLSearchParams(search).get('category');
+  return value !== null &amp;&amp; isCategory(value) ? value : null;
+}</code></pre>
+<p>Без <code>as const</code> массив был бы <code>string[]</code>, и тип <code>Category</code> выродился бы в <code>string</code>. С ним массив становится <code>readonly ['books', 'games', 'toys']</code>, а <code>[number]</code> берёт union элементов. Внутри <code>isCategory</code> расширяем массив до <code>readonly string[]</code>, потому что <code>includes</code> у узкого кортежа принимает только известные строки. Это безопасное <i>расширение</i>, а не утверждение о неизвестных данных.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-satisfies">satisfies проверяет совместимость</h3><pre><code>type Channels = &quot;success&quot; | &quot;error&quot;;
 const colors = {
   success: [0, 128, 0],
   error: &quot;red&quot;
 } satisfies Record&lt;Channels, string | [number, number, number]&gt;;
 console.log(colors.error.toUpperCase(), colors.success[1]);
 </code></pre><p>При аннотации <code>: Record&lt;...&gt;</code> чтение каждого значения дало бы широкий union. <code>satisfies</code> проверяет контракт, сохраняя полезную конкретику выражения: error остаётся строкой, success — кортежем. Контекст может влиять на вывод, поэтому это не обещание «тип никогда не меняется». Оператор появился в TS 4.9; в видео 2021 года его не будет.</p><div class="tbl"><table><thead><tr><th scope="col">Запись</th><th scope="col">Задача</th><th scope="col">Проверка в runtime</th></tr></thead><tbody><tr><td><code>: T</code></td><td>Задать тип и проверить присваивание</td><td>Нет</td></tr><tr><td><code>as T</code> и <code>!</code></td><td>Утвердить то, что автор считает известным</td><td>Нет</td></tr><tr><td><code>as const</code></td><td>Сохранить литеральность и readonly</td><td>Нет</td></tr><tr><td><code>satisfies T</code></td><td>Проверить контракт выражения</td><td>Нет</td></tr><tr><td><code>typeof</code>, <code>instanceof</code></td><td>Проверить реальное значение и сузить тип</td><td>Да</td></tr></tbody></table></div>
+<article class="task" id="tsb-satisfies" data-task="typescript-basic/tsb-satisfies">
+<h4>Задача 29. Промокоды через satisfies <span class="lvl">★★☆ практика</span></h4>
+<p>Объявите словарь промокодов <code>{ SALE10: 10, SALE20: 20 }</code> так, чтобы: 1) компилятор проверил, что все значения — числа; 2) тип <code>PromoCode</code> был <code>'SALE10' | 'SALE20'</code>, а не <code>string</code>. Напишите <code>discountFor(code: PromoCode): number</code>.</p>
+<p class="why"><b>Зачем:</b> аннотация <code>Record&lt;string, number&gt;</code> проверит значения, но сотрёт ключи: <code>keyof</code> станет <code>string</code>. <code>satisfies</code> проверяет контракт и оставляет конкретику, и это единственный способ получить и то и другое.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export const PROMO_CODES = {
+  SALE10: 10,
+  SALE20: 20,
+} satisfies Record&lt;string, number&gt;;
+
+export type PromoCode = keyof typeof PROMO_CODES; // 'SALE10' | 'SALE20'
+
+export function discountFor(code: PromoCode): number {
+  return PROMO_CODES[code];
+}
+
+if (false) {
+  // @ts-expect-error: такого промокода нет
+  discountFor('FREE');
+}</code></pre>
+<p>Попробуйте написать <code>SALE30: '30'</code>: <code>satisfies</code> сообщит, что строка не число. При этом тип <code>PROMO_CODES</code> остался точным, и <code>keyof</code> даёт union реальных ключей. Сравните с аннотацией <code>const PROMO_CODES: Record&lt;string, number&gt;</code>: тогда <code>discountFor('FREE')</code> скомпилируется и вернёт <code>undefined</code> во время работы.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

@@ -29,6 +29,35 @@ const Todo = mongoose.model('Todo', todoSchema);</code></pre>
 <li><b>Модель</b> — класс для работы с коллекцией. Из имени <code>'Todo'</code> Mongoose делает имя коллекции <code>todos</code>.</li>
 </ul>
 <p>Проверено без базы: <code>new Todo({ title: '  Купить молоко  ' })</code> дал <code>title</code> «Купить молоко» без пробелов, <code>done: false</code> и готовый <code>_id</code> типа ObjectId. Документ без <code>title</code> не прошёл проверку: <code>ValidationError</code> с видом ошибки <code>required</code> у поля <code>title</code> (<a href="https://mongoosejs.com/docs/validation.html">документация по валидации</a>).</p>
+<article class="task" id="nb-t-schema" data-task="node-basics/nb-t-schema">
+<h4>Задача 28. Схема товара с проверками <span class="lvl">★★☆ практика</span></h4>
+<p>Опишите схему Mongoose для товара: <code>title</code> обязательный, обрезается от пробелов, до 200 символов; <code>price</code> обязательный, целое число не меньше 0; <code>category</code> — одно из <code>books</code>, <code>games</code>, <code>home</code>; <code>stock</code> по умолчанию 0. Проверьте без базы через <code>doc.validateSync()</code>: правильный товар проходит, а отрицательная цена, неизвестная категория и пустое название дают ошибки по нужным полям.</p>
+<p class="why"><b>Зачем:</b> схема — последний рубеж перед базой: что бы ни прислал клиент и что бы ни пропустил маршрут, в коллекцию не попадёт товар с ценой −5. Проверку схемы можно тестировать без базы, а значит, быстро.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Целое число проверяет <code>validate: { validator: Number.isInteger, message: '...' }</code>. <code>validateSync()</code> возвращает <code>undefined</code> или ошибку, у которой в <code>.errors</code> ключи — названия полей.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// product.mjs
+import mongoose from 'mongoose';
+
+const productSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true, maxlength: 200 },
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+      validate: { validator: Number.isInteger, message: 'Цена — целое число копеек' },
+    },
+    category: { type: String, required: true, enum: ['books', 'games', 'home'] },
+    stock: { type: Number, default: 0, min: 0 },
+  },
+  { timestamps: true },
+);
+
+export const Product = mongoose.model('Product', productSchema);</code></pre>
+<p><code>required</code> и <code>trim</code> вместе дают нужное поведение: строка из пробелов после обрезки становится пустой и не проходит проверку. Сообщение у своей проверки объясняет правило, и его можно показать клиенту в ответе 400. Цена в копейках и целая по тем же причинам, что во всех уроках про корзину: дробные числа считаются неточно.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="nb-crud">Подключение и операции</h3>
 <pre><code>await mongoose.connect(process.env.MONGO_URI);
 
@@ -59,4 +88,37 @@ await Todo.findByIdAndDelete(id);                            // удалить</
 });</code></pre>
 <p>Этот фрагмент повторяет проверенный выше маршрут, но с запросом к базе; с настоящей MongoDB при подготовке урока он не запускался.</p>
 <div class="note"><b>Пароли не хранят как есть</b><p>Если в модели есть пароль, его сохраняют только в виде хеша — необратимого отпечатка, по которому можно проверить пароль, но нельзя его восстановить (библиотека bcrypt). Как это делается в хуке модели перед сохранением — в уроке <a href="/lessons/jwt-auth#jwt-model">«JWT-авторизация»</a>.</p></div>
+<article class="task" id="nb-t-objectid" data-task="node-basics/nb-t-objectid">
+<h4>Задача 29. Middleware проверки id <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите middleware <code>validateObjectId(paramName = 'id')</code>: если <code>req.params[paramName]</code> не похож на ObjectId, отвечает 400 <code>{ error: 'Неверный id' }</code>, иначе пропускает дальше. Подключите к маршруту <code>GET /api/products/:id</code> с заглушкой вместо базы.</p>
+<p class="why"><b>Зачем:</b> одна и та же проверка нужна во всех маршрутах с <code>:id</code>. Скопированная пять раз, она где-нибудь забудется, и клиент получит 500 от <code>CastError</code> вместо понятного 400.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// validate-id.mjs
+import mongoose from 'mongoose';
+
+export function validateObjectId(paramName = 'id') {
+  return (req, res, next) =&gt; {
+    if (!mongoose.isValidObjectId(req.params[paramName])) {
+      return res.status(400).json({ error: 'Неверный id' });
+    }
+    next();
+  };
+}</code></pre>
+<pre><code>// app.mjs
+import express from 'express';
+import { validateObjectId } from './validate-id.mjs';
+
+export function createApp(findById) {
+  const app = express();
+  app.get('/api/products/:id', validateObjectId(), async (req, res) =&gt; {
+    const product = await findById(req.params.id);
+    if (!product) return res.status(404).json({ error: 'Товар не найден' });
+    res.json(product);
+  });
+  return app;
+}</code></pre>
+<p>Порядок ответов теперь честный: 400 — «id даже не похож на id», 404 — «похож, но такого нет». Функция поиска передана параметром, поэтому маршрут проверяется без базы. В настоящем приложении туда передают <code>(id) =&gt; Product.findById(id)</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

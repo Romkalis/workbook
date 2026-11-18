@@ -18,6 +18,34 @@ export async function fetchQuote(items: { productId: string; quantity: number }[
   return (await res.json()) as { subtotal: number; discount: number; total: number };
 }</code></pre>
 <p>Без заголовка <code>Content-Type: application/json</code> <code>express.json()</code> не тронет тело, и <code>req.body</code> окажется <code>undefined</code>. Сервер честно ответит 400. Это самая частая причина вопроса «почему сервер не видит мои данные». Почему <code>fetch</code> не бросает ошибку при 400 и зачем проверять <code>res.ok</code>, разобрано в <a href="/lessons/country-search#cs-fetch">Country Search</a>. Сам этот клиентский код в браузере не запускался; тот же запрос проверен через supertest.</p>
+<article class="task" id="et-t-cors-list" data-task="express-typescript/et-t-cors-list">
+<h4>Задача 17. CORS для нескольких адресов <span class="lvl">★★☆ практика</span></h4>
+<p>У проекта два фронтенда: локальный <code>http://localhost:5173</code> и опубликованный. Настройте <code>cors</code> со списком разрешённых адресов из переменной <code>CLIENT_ORIGINS</code> (через запятую). Разрешённый origin получает заголовок <code>Access-Control-Allow-Origin</code> со своим адресом, чужой — не получает.</p>
+<p class="why"><b>Зачем:</b> <code>origin: '*'</code> «чтобы заработало» открывает API любой странице в интернете. Явный список — минимально необходимые права. Список в переменной окружения позволяет добавить адрес без правки кода.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express from 'express';
+import cors from 'cors';
+
+export function parseOrigins(value: string | undefined): string[] {
+  return (value ?? 'http://localhost:5173')
+    .split(',')
+    .map((s) =&gt; s.trim())
+    .filter((s) =&gt; s !== '');
+}
+
+export function createApp(allowed: string[]) {
+  const app = express();
+  app.use(cors({ origin: allowed }));
+  app.get('/api/health', (_req, res) =&gt; {
+    res.json({ ok: true });
+  });
+  return app;
+}</code></pre>
+<p>Пакет <code>cors</code> принимает массив: если origin запроса есть в списке, в ответ уходит именно он, а для чужого заголовок не ставится, и браузер не отдаст ответ странице. Помните, что это защита пользователей браузера, а не сервера: curl получит ответ в любом случае. Разбор строки вынесен в чистую функцию <code>parseOrigins</code>: пробелы и лишняя запятая в переменной не сломают настройку.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="et-deploy">Деплой</h3>
 <p>GitHub Pages и Netlify в базовом варианте отдают только статические файлы, Node-сервер они не запускают. Для API нужен хостинг с Node: Render, Railway, Fly.io и подобные (из общих знаний, условия бесплатных тарифов меняются, проверяйте на сайте). Общая схема почти везде одна:</p>
 <ol>
@@ -27,4 +55,27 @@ export async function fetchQuote(items: { productId: string; quantity: number }[
 <li>На фронтенде <code>VITE_API_URL</code> — адрес API. Переменные с префиксом <code>VITE_</code> попадают в код при сборке, поэтому секретов там быть не должно.</li>
 </ol>
 <div class="note"><p>Бесплатные серверы часто засыпают без запросов, и первый запрос после паузы идёт десятки секунд. Перед записью интервью откройте <code>/api/health</code>, чтобы разбудить сервер. Или храните данные прямо во фронтенде, как разрешает задание, и не зависьте от этого.</p></div>
+<article class="task" id="et-t-step5" data-task="express-typescript/et-t-step5">
+<h4>Задача 18. Проект, шаг 5: CORS и конфигурация <span class="lvl">★★☆ практика</span></h4>
+<p>Последний шаг сквозного проекта: <code>loadConfig(env)</code> с проверкой порта и адресом фронтенда, <code>cors</code> с этим адресом, <code>server.ts</code> читает конфигурацию в одном месте. После шага проект готов к деплою по чек-листу из раздела выше.</p>
+<p class="starter"><code>npx degit Romkalis/workbook/starters/shop-api/05-start shop-api-05-start</code> <a href="/starters/shop-api-05-start.zip" download>Скачать ZIP</a></p>
+<p class="why"><b>Зачем:</b> всё, что отличается между ноутбуком и хостингом, приходит из окружения и проверяется при старте. Это последний шаг от «работает у меня» к «работает где угодно».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// src/config.ts
+export interface Config {
+  port: number;
+  clientOrigin: string;
+}
+
+export function loadConfig(env: Record&lt;string, string | undefined&gt; = process.env): Config {
+  const port = env.PORT === undefined ? 3000 : Number(env.PORT);
+  if (!Number.isInteger(port) || port &lt; 1 || port &gt; 65535) {
+    throw new Error(`PORT должен быть целым числом от 1 до 65535, получено "${env.PORT}"`);
+  }
+  return { port, clientOrigin: env.CLIENT_ORIGIN ?? 'http://localhost:5173' };
+}</code></pre>
+<p><code>createApp(clientOrigin)</code> получает адрес параметром, а не читает <code>process.env</code> сам. Поэтому тест шага создаёт приложение с <code>https://shop.example</code> и не трогает окружение. Готовое решение всех пяти шагов — в папке <code>06-done</code>: <code>npx degit Romkalis/workbook/starters/shop-api/06-done shop-api-done</code>. Следующий шаг — отрисовать эти товары на фронтенде, он появится в уроках о ванильном фронтенде.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

@@ -10,7 +10,38 @@ function first(value: string | string[]): string {
   return Array.isArray(value) ? (value[0] ?? &quot;&quot;) : value;
 }
 console.log(first([&quot;TS&quot;]));
-</code></pre><p>Пока переменная может быть и строкой, и числом, TypeScript разрешит только то, что умеют оба типа. Например, <code>toUpperCase()</code> есть только у строк, поэтому вызвать его сразу нельзя. После проверки <code>typeof value === "string"</code> компилятор знает: внутри этой ветки точно строка. Другие средства: <code>instanceof</code> для классов, <code>in</code> для свойств и <code>Array.isArray</code> для массивов. Учитывайте, что <code>typeof null === "object"</code>. Проверка truthy отбрасывает также пустую строку и ноль; если надо исключить только отсутствие, проверяйте null/undefined явно.</p><h3 id="ts-discriminated">Размеченное объединение: состояние без противоречий</h3><pre><code>type LoadResult =
+</code></pre><p>Пока переменная может быть и строкой, и числом, TypeScript разрешит только то, что умеют оба типа. Например, <code>toUpperCase()</code> есть только у строк, поэтому вызвать его сразу нельзя. После проверки <code>typeof value === "string"</code> компилятор знает: внутри этой ветки точно строка. Другие средства: <code>instanceof</code> для классов, <code>in</code> для свойств и <code>Array.isArray</code> для массивов. Учитывайте, что <code>typeof null === "object"</code>. Проверка truthy отбрасывает также пустую строку и ноль; если надо исключить только отсутствие, проверяйте null/undefined явно.</p><article class="task" id="tsb-narrow-qty" data-task="typescript-basic/tsb-narrow-qty">
+<h4>Задача 12. Количество из строки или числа <span class="lvl">★☆☆ разминка</span></h4>
+<p>Количество товара приходит то числом (из кода), то строкой (из поля ввода). Напишите <code>parseQuantity(input: string | number): number</code>: строку обрезает от пробелов и переводит в число; результат должен быть целым и не меньше 1, иначе функция бросает <code>RangeError</code>.</p>
+<p class="why"><b>Зачем:</b> union на входе — нормальная ситуация на границе программы. Задача функции — превратить «то или это» в одно надёжное значение, чтобы дальше по коду об этом не думать.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Сначала <code>typeof input === 'string'</code> — внутри ветки доступен <code>trim()</code>. Проверку целого числа делает <code>Number.isInteger</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function parseQuantity(input: string | number): number {
+  const value = typeof input === 'string' ? Number(input.trim()) : input;
+  if (!Number.isInteger(value) || value &lt; 1) {
+    throw new RangeError(`Количество должно быть целым числом от 1, получено: ${String(input)}`);
+  }
+  return value;
+}</code></pre>
+<p>В ветке <code>typeof input === 'string'</code> тип сужен до <code>string</code>, и <code>trim()</code> разрешён. В другой ветке остаётся <code>number</code>. Дальше одна проверка покрывает всё сразу: <code>Number("abc")</code> даёт <code>NaN</code>, а <code>Number.isInteger(NaN)</code> — <code>false</code>. Пустая строка превращается в <code>0</code> и тоже отсекается условием <code>&lt; 1</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="tsb-narrow-tags" data-task="typescript-basic/tsb-narrow-tags">
+<h4>Задача 13. Теги в любом виде <span class="lvl">★★☆ практика</span></h4>
+<p>Теги товара хранятся по-разному: строкой <code>"new, sale"</code>, массивом или их нет совсем. Напишите <code>normalizeTags(tags: string | string[] | undefined): string[]</code>: всегда массив, без пробелов по краям и без пустых строк.</p>
+<p class="why"><b>Зачем:</b> приведение «разношёрстных» данных к одной форме в одном месте — основной приём защиты от хаоса. Остальной код работает только с <code>string[]</code> и не проверяет три случая заново.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function normalizeTags(tags: string | string[] | undefined): string[] {
+  if (tags === undefined) return [];
+  const list = Array.isArray(tags) ? tags : tags.split(',');
+  return list.map((t) =&gt; t.trim()).filter((t) =&gt; t !== '');
+}</code></pre>
+<p>Три проверки сужают тип по очереди: после <code>=== undefined</code> остаётся <code>string | string[]</code>, а <code>Array.isArray</code> разделяет массив и строку. Для массива <code>typeof</code> не подходит: он вернёт <code>"object"</code>. Чистка (<code>trim</code>, фильтр пустых) идёт <i>после</i> приведения к массиву, поэтому написана один раз для обоих случаев.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-discriminated">Размеченное объединение: состояние без противоречий</h3><pre><code>type LoadResult =
   | { status: &quot;loading&quot; }
   | { status: &quot;success&quot;; data: string[] }
   | { status: &quot;error&quot;; message: string };
@@ -26,7 +57,73 @@ function render(result: LoadResult): string {
   }
 }
 console.log(render({ status: &quot;success&quot;, data: [&quot;TS&quot;] }));
-</code></pre><p>Общее поле status — дискриминант. В ветке success гарантированно есть data, а в error — message. Если добавить новый вариант и забыть обработку, присваивание в never обнаружит пропуск. Это надёжнее объекта с тремя необязательными полями, который разрешает бессмысленные сочетания.</p><h3 id="ts-intersections">Пересечение контрактов</h3><pre><code>type Identified = { id: number };
+</code></pre><p>Общее поле status — дискриминант. В ветке success гарантированно есть data, а в error — message. Если добавить новый вариант и забыть обработку, присваивание в never обнаружит пропуск. Это надёжнее объекта с тремя необязательными полями, который разрешает бессмысленные сочетания.</p><article class="task" id="tsb-state" data-task="typescript-basic/tsb-state">
+<h4>Задача 14. Состояние загрузки каталога <span class="lvl">★★☆ практика</span></h4>
+<p>Опишите тип <code>CatalogState</code> размеченным объединением: <code>idle</code>, <code>loading</code>, <code>success</code> с массивом товаров, <code>error</code> с сообщением. Напишите <code>statusText(state)</code>: «Нажмите "Загрузить"», «Загрузка…», «Найдено N товаров», «Ошибка: …». В <code>default</code> добавьте проверку полноты через <code>never</code>.</p>
+<p class="why"><b>Зачем:</b> три отдельных поля <code>isLoading</code>, <code>error</code>, <code>data</code> разрешают бессмыслицу: загрузка и ошибка одновременно. Размеченное объединение описывает только возможные состояния, а <code>never</code> гарантирует, что новое состояние не забудут отрисовать.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type CatalogState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; products: { title: string }[] }
+  | { status: 'error'; message: string };
+
+export function statusText(state: CatalogState): string {
+  switch (state.status) {
+    case 'idle':
+      return 'Нажмите "Загрузить"';
+    case 'loading':
+      return 'Загрузка…';
+    case 'success':
+      return `Найдено ${state.products.length} товаров`;
+    case 'error':
+      return `Ошибка: ${state.message}`;
+    default: {
+      const unreachable: never = state;
+      return unreachable;
+    }
+  }
+}</code></pre>
+<p>В ветке <code>'success'</code> компилятор знает, что есть <code>products</code>, а в <code>'error'</code> — <code>message</code>, без единой проверки на <code>undefined</code>. Строка <code>const unreachable: never = state</code> компилируется, только если все варианты обработаны выше. Это «сигнализация» на будущее, следующая задача её проверит.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="tsb-never-alarm" data-task="typescript-basic/tsb-never-alarm">
+<h4>Задача 15. Новое состояние — и сработала сигнализация <span class="lvl">★★★ с подвохом</span></h4>
+<p>Добавьте в <code>CatalogState</code> из прошлой задачи вариант <code>{ status: 'empty' }</code> (ничего не найдено). Не трогая <code>statusText</code>, запустите проверку типов и прочитайте ошибку. Затем обработайте новый вариант.</p>
+<p class="why"><b>Зачем:</b> в реальном проекте состояние добавляет один человек, а <code>switch</code> лежит в пяти файлах у других. Проверка через <code>never</code> превращает «забыли обработать» из бага на проде в ошибку компиляции.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Ошибка будет в строке <code>const unreachable: never = state</code>: в неё «просочился» необработанный вариант.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type CatalogState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'empty' }
+  | { status: 'success'; products: { title: string }[] }
+  | { status: 'error'; message: string };
+
+export function statusText(state: CatalogState): string {
+  switch (state.status) {
+    case 'idle':
+      return 'Нажмите "Загрузить"';
+    case 'loading':
+      return 'Загрузка…';
+    case 'empty':
+      return 'Ничего не найдено';
+    case 'success':
+      return `Найдено ${state.products.length} товаров`;
+    case 'error':
+      return `Ошибка: ${state.message}`;
+    default: {
+      const unreachable: never = state;
+      return unreachable;
+    }
+  }
+}</code></pre>
+<p>До исправления компилятор сообщает примерно: <i>Type '{ status: "empty"; }' is not assignable to type 'never'</i>. В тексте ошибки прямо назван пропущенный вариант. Почему отдельное состояние <code>empty</code>, а не <code>success</code> с пустым массивом: у пустого результата свой интерфейс (сообщение, кнопка «Сбросить фильтры»), и явный вариант не даст его забыть.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ts-intersections">Пересечение контрактов</h3><pre><code>type Identified = { id: number };
 type Titled = { title: string };
 type Lesson = Identified &amp; Titled;
 const lesson: Lesson = { id: 1, title: &quot;TypeScript&quot; };
@@ -37,4 +134,20 @@ if (false) {
   const impossible: Impossible = { id: 1 };
 }
 </code></pre><p>Пересечение не означает «выбрать правое свойство при конфликте». Несовместимые требования к одному полю могут дать never. При <code>interface extends</code> несовместимое переопределение обычно обнаруживается уже в объявлении интерфейса.</p>
+<article class="task" id="tsb-intersect" data-task="typescript-basic/tsb-intersect">
+<h4>Задача 16. Отметка времени через пересечение <span class="lvl">★☆☆ разминка</span></h4>
+<p>Опишите <code>type Timestamps = { createdAt: string; updatedAt: string }</code> и <code>type StoredProduct = Product &amp; Timestamps</code>. Напишите <code>toStored(p: Product, now: string): StoredProduct</code>, которая проставляет обе даты.</p>
+<p class="why"><b>Зачем:</b> пересечение собирает тип из независимых «кусков»: отметки времени нужны и товару, и заказу, и пользователю. Описав их один раз, вы не копируете поля по всем сущностям.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type Product = { id: number; title: string; price: number };
+type Timestamps = { createdAt: string; updatedAt: string };
+export type StoredProduct = Product &amp; Timestamps;
+
+export function toStored(p: Product, now: string): StoredProduct {
+  return { ...p, createdAt: now, updatedAt: now };
+}</code></pre>
+<p>Значение типа <code>A &amp; B</code> должно удовлетворять обоим контрактам сразу, поэтому в объекте есть все поля. Время передаётся параметром <code>now</code>, а не берётся внутри через <code>new Date()</code>: так функция чистая и её легко тестировать (зависимость от часов вынесена наружу).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>
