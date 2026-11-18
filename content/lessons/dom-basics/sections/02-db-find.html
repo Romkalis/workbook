@@ -1,0 +1,89 @@
+<section id="db-find">
+<h2>Найти элемент</h2>
+<h3 id="db-query">querySelector и querySelectorAll</h3>
+<pre><code>const title = document.querySelector('h1'); // первый h1 или null
+const cards = document.querySelectorAll('.card'); // все .card, NodeList
+const search = document.querySelector&lt;HTMLInputElement&gt;('#search'); // тип подсказан явно</code></pre>
+<p>Оба метода принимают тот же CSS-селектор, что и стили: <code>#id</code>, <code>.class</code>, <code>[data-id="5"]</code>, <code>ul &gt; li</code>. <code>querySelector</code> возвращает первый подходящий элемент или <b>null</b>, если ничего нет. <code>querySelectorAll</code> возвращает коллекцию <code>NodeList</code> — она бывает пустой, но никогда не <code>null</code>.</p>
+<p>Искать можно не только во всём документе, но и внутри элемента: <code>card.querySelector('.price')</code> ищет только среди потомков карточки. Так код карточки не зацепит цену соседней.</p>
+<article class="task" id="db-t-count" data-task="dom-basics/db-t-count">
+<h4>Задача 1. Сколько товаров на странице <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>countByCategory(root, category)</code>: возвращает число элементов <code>.card</code> внутри <code>root</code>, у которых <code>data-category</code> равен переданному. Значение категории в строку селектора не подставляйте.</p>
+<p class="why"><b>Зачем:</b> поиск внутри нужного блока не даёт посчитать лишнее, например карточки из соседнего блока «Вы смотрели». А данные, вставленные в строку селектора, — та же ловушка, что данные в <code>innerHTML</code>: кавычка в значении ломает запрос.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// count.ts
+export function countByCategory(root: ParentNode, category: string): number {
+  return [...root.querySelectorAll&lt;HTMLElement&gt;('.card')].filter((card) =&gt; card.dataset.category === category).length;
+}</code></pre>
+<p>Селектор постоянный (<code>.card</code>), а сравнение с данными идёт в JavaScript через <code>dataset</code>. Можно было бы написать <code><code>.card[data-category="${category}"]</code></code>, но категория <code>a"b</code> сломала бы такой селектор с ошибкой. Экранировать значение умеет <code>CSS.escape</code> (есть в браузерах, но, например, нет в jsdom), а сравнение строк в коде не требует экранирования вообще. Поиск идёт внутри <code>root</code>, а не во всём документе: функция работает для любого блока.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="db-null">null — это не ошибка, а вопрос</h3>
+<p><code>querySelector</code> честно признаётся: «может, такого элемента нет». Опечатка в селекторе, скрипт подключён раньше разметки, элемент удалили — всё это реальные ситуации. TypeScript требует их обработать:</p>
+<pre><code>export function getRequired&lt;T extends Element&gt;(root: ParentNode, selector: string, type: new () =&gt; T): T {
+  const el = root.querySelector(selector);
+  if (!(el instanceof type)) {
+    throw new Error(`Не найден элемент ${selector} нужного типа`);
+  }
+  return el;
+}
+// const input = getRequired(document, '#search', HTMLInputElement); // HTMLInputElement, не null</code></pre>
+<p>Проверка <code>instanceof HTMLInputElement</code> решает две задачи: исключает <code>null</code> и уточняет тип, после неё доступно <code>input.value</code>. Утверждение <code>document.querySelector('#search')!</code> (оператор <code>!</code>) тоже убирает ошибку компилятора, но ничего не проверяет: если элемента нет, программа упадёт позже и в другом месте (<a href="/lessons/typescript-basic#ts-non-null">почему ! опасен</a>). Громкая ошибка с понятным текстом при запуске лучше тихого <code>undefined</code> через час.</p>
+<article class="task" id="db-t-required" data-task="dom-basics/db-t-required">
+<h4>Задача 2. Обязательный элемент <span class="lvl">★☆☆ разминка</span></h4>
+<p>Используя <code>getRequired</code> из раздела (или свою версию), найдите в разметке поле поиска <code>#search</code> и кнопку <code>#reset</code>. Напишите <code>setupSearch(root)</code>, которая возвращает <code>{ input, button }</code> с правильными типами, а при отсутствии элемента бросает понятную ошибку. Ни одного <code>!</code> и <code>as</code>.</p>
+<p class="why"><b>Зачем:</b> ошибка «не найден #search» при старте страницы сразу показывает причину: опечатку в селекторе или изменённую вёрстку. Тихий <code>null</code> всплывёт позже как «Cannot read properties of null» в обработчике клика, и искать причину придётся дольше.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// setup.ts
+function getRequired&lt;T extends Element&gt;(root: ParentNode, selector: string, type: new () =&gt; T): T {
+  const el = root.querySelector(selector);
+  if (!(el instanceof type)) throw new Error(`Не найден элемент ${selector} нужного типа`);
+  return el;
+}
+
+export function setupSearch(root: ParentNode) {
+  return {
+    input: getRequired(root, '#search', HTMLInputElement),
+    button: getRequired(root, '#reset', HTMLButtonElement),
+  };
+}</code></pre>
+<p>Тип результата выводится сам: <code>{ input: HTMLInputElement; button: HTMLButtonElement }</code>. Конструктор (<code>HTMLInputElement</code>) работает и как проверка во время выполнения, и как источник типа. Все элементы ищутся один раз при старте: если вёрстка сломана, вы узнаете сразу, а не после первого клика.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="db-nodelist">NodeList и массивы</h3>
+<p><code>NodeList</code> похож на массив, но не массив: у него есть <code>forEach</code> и цикл <code>for...of</code>, а <code>map</code> и <code>filter</code> нет. Нужны методы массива — превратите: <code>[...cards]</code> или <code>Array.from(cards)</code>. <code>querySelectorAll</code> возвращает «снимок»: если потом добавить новую карточку, старый <code>NodeList</code> о ней не узнает.</p>
+<article class="task" id="db-t-prices" data-task="dom-basics/db-t-prices">
+<h4>Задача 3. Сумма цен со страницы <span class="lvl">★☆☆ разминка</span></h4>
+<p>На странице карточки с ценой в атрибуте <code>data-price</code> (копейки). Напишите <code>sumPrices(root)</code> через <code>querySelectorAll</code> и методы массива <code>map</code>/<code>reduce</code>.</p>
+<p class="why"><b>Зачем:</b> <code>NodeList</code> не массив, и это частая причина ошибки «map is not a function». Превращение в массив — привычка, которая нужна каждый день.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// sum.ts
+export function sumPrices(root: ParentNode): number {
+  return [...root.querySelectorAll&lt;HTMLElement&gt;('[data-price]')]
+    .map((el) =&gt; Number(el.dataset.price))
+    .reduce((sum, price) =&gt; sum + price, 0);
+}</code></pre>
+<p>Spread <code>[...nodeList]</code> даёт настоящий массив. Значения <code>dataset</code> — строки, поэтому <code>Number</code>. Без него <code>reduce</code> склеил бы строки. Обобщение <code>querySelectorAll&lt;HTMLElement&gt;</code> нужно, чтобы TypeScript разрешил <code>dataset</code>: у общего <code>Element</code> его нет. Учтите, что хранить истину в DOM не лучшая идея. В уроке о состоянии цены будут браться из данных, а DOM только показывает их.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="db-closest">closest: подняться к родителю</h3>
+<p><code>element.closest('.card')</code> идёт вверх от элемента (включая его самого) и возвращает первого предка, подходящего под селектор, или <code>null</code>. Это главный инструмент для событий: кликнули по иконке внутри кнопки внутри карточки — <code>closest</code> найдёт карточку. Подробно — в следующем уроке.</p>
+<article class="task" id="db-t-closest" data-task="dom-basics/db-t-closest">
+<h4>Задача 4. Найти карточку по клику внутри <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>productIdFrom(target)</code>: по любому элементу внутри карточки (кнопка, иконка в кнопке, текст) возвращает <code>data-id</code> ближайшей <code>.card</code>, или <code>null</code>, если элемент не в карточке. Аргумент может быть любым <code>EventTarget</code> или <code>null</code>.</p>
+<p class="why"><b>Зачем:</b> это заготовка для делегирования событий из следующего урока: один обработчик на список и <code>closest</code>, чтобы понять, по какой карточке кликнули. Аргумент типа <code>EventTarget | null</code> — ровно то, что лежит в <code>event.target</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// closest.ts
+export function productIdFrom(target: EventTarget | null): string | null {
+  if (!(target instanceof Element)) return null;
+  const card = target.closest&lt;HTMLElement&gt;('.card');
+  return card?.dataset.id ?? null;
+}</code></pre>
+<p><code>event.target</code> может быть не элементом (например, документом или окном), поэтому сначала <code>instanceof Element</code>: у других целей нет <code>closest</code>. <code>closest</code> проверяет и сам элемент, так что клик прямо по карточке тоже работает. <code>?.</code> и <code>?? null</code> превращают «не в карточке» и «нет data-id» в один честный ответ <code>null</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

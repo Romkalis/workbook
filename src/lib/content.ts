@@ -63,7 +63,7 @@ export function getLesson(slug: string): Lesson | undefined {
 }
 
 /** Названия отдельных разделов (track). Они идут после всех этапов. */
-const TRACK_TITLES: Record<string, string> = { backend: 'Backend' };
+const TRACK_TITLES: Record<string, string> = { frontend: 'Frontend: ванильный JS', backend: 'Backend' };
 
 /** Уроки, сгруппированные по этапам (Stage) и отдельным разделам для общего оглавления. */
 export function getStages(): { key: string; title: string; lessons: Lesson[] }[] {

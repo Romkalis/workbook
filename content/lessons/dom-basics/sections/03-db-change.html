@@ -1,0 +1,152 @@
+<section id="db-change">
+<h2>Изменить элемент</h2>
+<h3 id="db-text-html">textContent и innerHTML</h3>
+<pre><code>title.textContent = 'Каталог'; // текст как есть
+list.innerHTML = '&lt;li&gt;Первый&lt;/li&gt;'; // строка разбирается как HTML</code></pre>
+<p><code>textContent</code> вставляет <b>текст</b>: угловые скобки останутся скобками на экране. <code>innerHTML</code> <b>разбирает строку как HTML</b>: создаст элементы, атрибуты, обработчики событий. Если в строку попал текст пользователя, он станет кодом:</p>
+<pre><code>const name = '&lt;img src=x onerror="alert(document.cookie)"&gt;'; // ввёл пользователь
+card.innerHTML = `&lt;h3&gt;${name}&lt;/h3&gt;`; // браузер создаст img и выполнит onerror
+card.querySelector('h3')!.textContent = name; // безопасно: покажет текст как есть</code></pre>
+<p>Это <b>XSS</b> (cross-site scripting) — внедрение чужого скрипта на вашу страницу. Скрипт работает с правами пользователя: читает данные, отправляет запросы от его имени. Правило простое: <b>данные — через <code>textContent</code>, разметка — через создание элементов или шаблоны</b>. <code>innerHTML</code> допустим только для строк, которые вы написали сами, без подстановки данных.</p>
+<div class="warn"><p>Данные «из своего API» — тоже данные пользователя: название товара кто-то ввёл в админке, отзыв написал покупатель. Безопасность не должна зависеть от того, насколько вы доверяете источнику.</p></div>
+<article class="task" id="db-t-xss" data-task="dom-basics/db-t-xss">
+<h4>Задача 5. Найдите и закройте XSS <span class="lvl">★☆☆ разминка</span></h4>
+<p>Функция ниже показывает отзыв покупателя. Найдите уязвимость и перепишите функцию без <code>innerHTML</code> с данными, сохранив разметку: имя в <code>&lt;b&gt;</code>, текст в <code>&lt;p&gt;</code>.</p>
+<pre><code>export function renderReview(container: HTMLElement, review: { author: string; text: string }) {
+  container.innerHTML = `&lt;b&gt;${review.author}&lt;/b&gt;&lt;p&gt;${review.text}&lt;/p&gt;`;
+}</code></pre>
+<p class="why"><b>Зачем:</b> отзыв пишет кто угодно. Строка <code>&lt;img src=x onerror=...&gt;</code> в поле «текст» выполнится в браузере каждого, кто откроет страницу товара. Это хранимый XSS, самый опасный вид.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// review.ts
+export function renderReview(container: HTMLElement, review: { author: string; text: string }): void {
+  const author = document.createElement('b');
+  author.textContent = review.author;
+  const text = document.createElement('p');
+  text.textContent = review.text;
+  container.replaceChildren(author, text);
+}</code></pre>
+<p>Разметку создаём элементами, данные вставляем через <code>textContent</code>, и никакая строка не станет HTML. <code>replaceChildren</code> заменяет старый отзыв целиком, как это делал <code>innerHTML</code>. Проверка ниже подсовывает в отзыв тег <code>img</code> и убеждается, что такой элемент не появился.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="db-t-highlight" data-task="dom-basics/db-t-highlight">
+<h4>Задача 6. Подсветка найденного без innerHTML <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>highlight(text, query)</code>: возвращает <code>DocumentFragment</code>, в котором каждое вхождение <code>query</code> (без учёта регистра) обёрнуто в <code>&lt;mark&gt;</code>, а остальной текст — обычные текстовые узлы. Пустой запрос — весь текст без подсветки. Никакого <code>innerHTML</code>.</p>
+<p class="why"><b>Зачем:</b> «найти и обернуть в mark» через <code>innerHTML</code> и <code>replace</code> — популярный способ открыть XSS, ведь и текст, и запрос пришли от пользователя. Сборка из текстовых узлов безопасна по построению.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Ищите позиции в <code>text.toLowerCase()</code> через <code>indexOf(q, from)</code>, а куски берите из исходного <code>text</code>, чтобы сохранить регистр. Текстовый узел создаёт <code>document.createTextNode</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// highlight.ts
+export function highlight(text: string, query: string): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+  const q = query.trim().toLowerCase();
+  if (q === '') {
+    fragment.append(text);
+    return fragment;
+  }
+  const lower = text.toLowerCase();
+  let from = 0;
+  let at = lower.indexOf(q, from);
+  while (at !== -1) {
+    if (at &gt; from) fragment.append(document.createTextNode(text.slice(from, at)));
+    const mark = document.createElement('mark');
+    mark.textContent = text.slice(at, at + q.length);
+    fragment.append(mark);
+    from = at + q.length;
+    at = lower.indexOf(q, from);
+  }
+  if (from &lt; text.length) fragment.append(text.slice(from));
+  return fragment;
+}</code></pre>
+<p>Позиции ищутся в строке нижнего регистра, а вырезаются из исходной, поэтому «Код» в «Чистый Код» подсветится с заглавной буквы. <code>append</code> со строкой сам создаёт текстовый узел, это короче <code>createTextNode</code>. Запрос <code>&lt;b&gt;</code> найдётся как обычный текст и попадёт в <code>mark</code> текстом. Ограничение: для языков, где <code>toLowerCase</code> меняет длину строки (например, немецкое ß в верхнем регистре), позиции могут сместиться. Для русского и английского это не проблема (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="db-attrs">Атрибуты и свойства</h3>
+<p>У элемента есть <b>атрибуты</b> (то, что написано в HTML) и <b>свойства</b> (поля объекта DOM). Часто они связаны: <code>img.src</code> и атрибут <code>src</code>. Но не всегда. У <code>&lt;input value="1"&gt;</code> атрибут <code>value</code> — начальное значение, а свойство <code>input.value</code> — то, что сейчас в поле. Пользователь печатает — меняется свойство, атрибут остаётся <code>"1"</code>. Поэтому значение поля читают через <b>свойство</b> <code>input.value</code>.</p>
+<p><code>getAttribute</code>/<code>setAttribute</code> нужны для атрибутов без удобного свойства, например <code>aria-*</code>. Логические атрибуты (<code>disabled</code>, <code>hidden</code>, <code>checked</code>) удобнее менять свойствами: <code>button.disabled = true</code>.</p>
+<article class="task" id="db-t-value" data-task="dom-basics/db-t-value">
+<h4>Задача 7. Атрибут или свойство <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>isChanged(input)</code>: возвращает <code>true</code>, если пользователь изменил значение поля по сравнению с тем, что было в HTML. И <code>resetField(input)</code>, которая возвращает полю исходное значение.</p>
+<p class="why"><b>Зачем:</b> разница между атрибутом и свойством не теоретическая: на ней построены кнопки «Сбросить» и предупреждения «у вас несохранённые изменения». Атрибут помнит начало, свойство знает текущее.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// field.ts
+export function isChanged(input: HTMLInputElement): boolean {
+  return input.value !== input.defaultValue;
+}
+
+export function resetField(input: HTMLInputElement): void {
+  input.value = input.defaultValue;
+}</code></pre>
+<p><code>defaultValue</code> — свойство, которое отражает атрибут <code>value</code>, то же самое, что <code>getAttribute('value') ?? ''</code>, только с правильным типом. Сравнение «текущее против исходного» не требует хранить копию данных в переменной: исходное значение уже лежит в разметке.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="db-classes">classList и dataset</h3>
+<pre><code>export function setStock(card: HTMLElement, stock: number): void {
+  card.dataset.stock = String(stock); // атрибут data-stock="0"
+  card.classList.toggle('card--empty', stock === 0); // класс есть, только если товара нет
+  const button = card.querySelector('button');
+  if (button) button.disabled = stock === 0;
+}</code></pre>
+<p><code>classList.add/remove/toggle/contains</code> меняют классы, не трогая остальные (в отличие от <code>className = '...'</code>, который перезапишет всё). <code>toggle(name, condition)</code> со вторым аргументом ставит класс, когда условие истинно, — одна строка вместо <code>if/else</code>.</p>
+<p><code>dataset</code> — доступ к атрибутам <code>data-*</code>: <code>data-product-id</code> читается как <code>dataset.productId</code>. Значения всегда строки. Сюда кладут идентификатор, по которому обработчик потом найдёт товар.</p>
+<article class="task" id="db-t-stock" data-task="dom-basics/db-t-stock">
+<h4>Задача 8. Карточка без остатка <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>updateStock(card, stock)</code>: пишет остаток в <code>data-stock</code>, ставит класс <code>card--empty</code> при нуле и снимает его при положительном остатке, блокирует кнопку и меняет её текст на «Нет в наличии» / «В корзину». Одной функцией, без <code>style</code>.</p>
+<p class="why"><b>Зачем:</b> одна функция, которая приводит карточку в соответствие с данными, надёжнее нескольких мест, где по отдельности меняют класс, кнопку и текст. Рано или поздно одно из мест забудут.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// stock.ts
+export function updateStock(card: HTMLElement, stock: number): void {
+  const empty = stock === 0;
+  card.dataset.stock = String(stock);
+  card.classList.toggle('card--empty', empty);
+  const button = card.querySelector('button');
+  if (button) {
+    button.disabled = empty;
+    button.textContent = empty ? 'Нет в наличии' : 'В корзину';
+  }
+}</code></pre>
+<p>Функция идемпотентна: вызов с тем же остатком дважды даёт тот же результат, а <code>toggle</code> со вторым аргументом не зависит от прошлого состояния класса. Это важное свойство. Такую функцию можно вызывать после любого изменения данных, не думая, что уже было на экране.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="db-style">Классы вместо style</h3>
+<p><code>el.style.color = 'red'</code> работает, но смешивает оформление с логикой: дизайнер не найдёт этот цвет в CSS, а тёмная тема его не перекрасит. Почти всегда лучше переключить класс (<code>card--empty</code>) и описать вид в CSS. <code>style</code> оставляют для по-настоящему вычисляемых значений: координаты, ширина полосы прогресса. Для показа и скрытия есть атрибут <code>hidden</code>: <code>el.hidden = true</code>.</p>
+<article class="task" id="db-t-progress" data-task="dom-basics/db-t-progress">
+<h4>Задача 9. Когда style уместен <span class="lvl">★★☆ практика</span></h4>
+<p>Сделайте полосу прогресса бесплатной доставки: <code>updateDeliveryBar(bar, subtotal, threshold)</code> задаёт ширину внутреннего <code>.bar__fill</code> в процентах (не больше 100) через <code>style</code>, а при достижении порога ставит класс <code>bar--done</code> и пишет в <code>.bar__text</code> «Доставка бесплатна», иначе «Ещё N ₽ до бесплатной доставки».</p>
+<p class="why"><b>Зачем:</b> ширина зависит от числа, и описать её заранее в CSS нельзя: это настоящий случай для <code>style</code>. А цвет «готово» — фиксированное оформление, ему место в классе. Задача учит различать эти два случая.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// bar.ts
+export function updateDeliveryBar(bar: HTMLElement, subtotal: number, threshold: number): void {
+  const fill = bar.querySelector&lt;HTMLElement&gt;('.bar__fill');
+  const text = bar.querySelector('.bar__text');
+  if (!fill || !text) throw new Error('Неверная разметка полосы');
+
+  const percent = Math.min(100, Math.round((subtotal / threshold) * 100));
+  const done = subtotal &gt;= threshold;
+  fill.style.width = `${percent}%`;
+  bar.classList.toggle('bar--done', done);
+  text.textContent = done
+    ? 'Доставка бесплатна'
+    : `Ещё ${Math.ceil((threshold - subtotal) / 100)} ₽ до бесплатной доставки`;
+}</code></pre>
+<p><code>Math.min(100, ...)</code> не даёт полосе вылезти за край при сумме больше порога. Остаток округлён вверх (<code>Math.ceil</code>): «ещё 0 ₽» при недостающих 50 копейках выглядело бы как ошибка. Для доступности у полосы стоит добавить <code>role="progressbar"</code> и <code>aria-valuenow</code>, а текст рядом уже дублирует смысл (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="db-t-hidden" data-task="dom-basics/db-t-hidden">
+<h4>Задача 10. Показать и скрыть сообщение <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>showMessage(el, text)</code>: если текст непустой, показывает элемент с этим текстом, иначе прячет его и очищает. Используйте атрибут <code>hidden</code>, не <code>style.display</code>.</p>
+<p class="why"><b>Зачем:</b> <code>hidden</code> — смысловой атрибут: «сейчас не актуально». Его понимают программы чтения с экрана и тесты, и не нужно помнить, каким был <code>display</code> до скрытия (<code>flex</code>? <code>grid</code>?).</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// message.ts
+export function showMessage(el: HTMLElement, text: string): void {
+  el.textContent = text;
+  el.hidden = text.trim() === '';
+}</code></pre>
+<p>Свойство <code>hidden</code> ставит и снимает одноимённый атрибут. В CSS у класса с <code>display: flex</code> атрибут может «проиграть». Тогда добавляют правило <code>[hidden] { display: none !important; }</code> (из общих знаний). Пустой текст очищается тоже, чтобы скрытый элемент не хранил старое сообщение.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>
