@@ -1,0 +1,70 @@
+<section id="st-render">
+<h2>Функция render</h2>
+<pre><code>export interface CartLine {
+  id: string;
+  title: string;
+  price: number;
+  quantity: number;
+}
+
+export interface CartState {
+  lines: CartLine[];
+}
+
+export const cartTotal = (state: CartState) =&gt; state.lines.reduce((s, l) =&gt; s + l.price * l.quantity, 0);
+
+export function renderCart(root: HTMLElement, state: CartState): void {
+  const list = document.createElement('ul');
+  list.append(
+    ...state.lines.map((line) =&gt; {
+      const li = document.createElement('li');
+      li.dataset.id = line.id;
+      li.textContent = `${line.title} × ${line.quantity}`;
+      return li;
+    }),
+  );
+  const total = document.createElement('p');
+  total.textContent = state.lines.length === 0 ? 'Корзина пуста' : `Итого: ${(cartTotal(state) / 100).toFixed(2)} ₽`;
+  root.replaceChildren(list, total);
+}</code></pre>
+<p><code>renderCart</code> не знает, что произошло — добавили товар или удалили. Она знает только, каким должен быть экран при таком состоянии. Поэтому в ней нет веток «если добавили, то...», и разойтись список и итог не могут: оба нарисованы из одних данных.</p>
+<p>Полная перерисовка — самый простой вариант. Её цена: потеря фокуса и введённого текста внутри перерисованного блока и лишняя работа на больших списках. Когда это мешает, перерисовывают точечно или переиспользуют элементы по ключу, как в задаче <a href="/lessons/dom-basics#db-t-diff">«Обновить список, сохранив карточки»</a>. Именно это за вас делают виртуальный DOM React и шаблоны Vue.</p>
+<article class="task" id="st-t-render-todo" data-task="dom-state/st-t-render-todo">
+<h4>Задача 2. render для списка задач <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>renderTodos(root, state)</code> для состояния <code>{ todos: { id, title, done }[], filter: 'all' | 'active' | 'done' }</code>. Рисует <code>ul</code> с видимыми по фильтру задачами (выполненные с классом <code>done</code>), а под ним строку «Осталось: N» — число невыполненных среди <b>всех</b> задач.</p>
+<p class="why"><b>Зачем:</b> render — чистое преобразование «данные → разметка». В нём не должно быть вопроса «что изменилось». Поэтому одна функция корректно рисует и первое открытие страницы, и любое следующее состояние.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// todos.ts
+export interface Todo {
+  id: string;
+  title: string;
+  done: boolean;
+}
+export interface TodoState {
+  todos: Todo[];
+  filter: 'all' | 'active' | 'done';
+}
+
+export const visibleTodos = (s: TodoState) =&gt;
+  s.filter === 'all' ? s.todos : s.todos.filter((t) =&gt; t.done === (s.filter === 'done'));
+
+export function renderTodos(root: HTMLElement, state: TodoState): void {
+  const list = document.createElement('ul');
+  list.append(
+    ...visibleTodos(state).map((t) =&gt; {
+      const li = document.createElement('li');
+      li.dataset.id = t.id;
+      li.textContent = t.title;
+      li.classList.toggle('done', t.done);
+      return li;
+    }),
+  );
+  const left = document.createElement('p');
+  left.textContent = `Осталось: ${state.todos.filter((t) =&gt; !t.done).length}`;
+  root.replaceChildren(list, left);
+}</code></pre>
+<p>Фильтрация вынесена в селектор <code>visibleTodos</code>: это производные данные, и их удобно тестировать отдельно. Счётчик считается по всем задачам, а не по видимым, и это решение стоит записать в тест: при фильтре «выполненные» видно три задачи, а осталось две.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

@@ -1,0 +1,175 @@
+<section id="st-persist">
+<h2>Сохранить состояние: localStorage</h2>
+<p>Корзина не должна пропадать при перезагрузке. <code>localStorage</code> хранит строки по ключу, только для этого сайта, без срока давности:</p>
+<pre><code>export interface KeyValueStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+export function loadState&lt;T&gt;(storage: KeyValueStorage, key: string, isValid: (x: unknown) =&gt; x is T, fallback: T): T {
+  try {
+    const raw = storage.getItem(key);
+    if (raw === null) return fallback;
+    const data: unknown = JSON.parse(raw);
+    return isValid(data) ? data : fallback;
+  } catch {
+    return fallback; // битый JSON или хранилище недоступно
+  }
+}
+
+export function saveState(storage: KeyValueStorage, key: string, value: unknown): void {
+  try {
+    storage.setItem(key, JSON.stringify(value));
+  } catch {
+    // переполнено или запрещено (приватный режим) — работаем без сохранения
+  }
+}</code></pre>
+<p>Три правила. <b>Прочитанное — <code>unknown</code></b>: данные мог сохранить старый код с другой формой, их мог поправить пользователь в DevTools, поэтому нужна проверка (предикат, как в <a href="/lessons/typescript-basic#ts-any-unknown">TypeScript Basic</a>). <b>Хранилище может отказать</b>: <code>setItem</code> бросает исключение при переполнении, а в некоторых режимах приватности доступ к хранилищу запрещён (из общих знаний), и это не должно ронять приложение. <b>Хранилище передаётся параметром</b>: в браузере <code>localStorage</code>, в тестах объект на <code>Map</code>.</p>
+<p>Сохранять удобно подпиской на стор: <code>store.subscribe((s) =&gt; saveState(localStorage, 'cart', s))</code>. Тогда ни одно действие не «забудет» сохранить данные.</p>
+<div class="warn"><p>В <code>localStorage</code> не кладут секреты и токены доступа: его читает любой скрипт на странице, включая внедрённый через XSS (подробнее — в уроке <a href="/lessons/jwt-auth#jwt-storage-local">JWT-авторизация</a>).</p></div>
+<article class="task" id="st-t-persist" data-task="dom-state/st-t-persist">
+<h4>Задача 12. Корзина, которая переживает перезагрузку <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>createPersistentCart(storage)</code>: при создании читает корзину из ключа <code>shop:cart</code> с проверкой формы (строки с <code>id</code>-строкой и целыми <code>price</code> и <code>quantity</code> от 1; неверные строки отбрасываются), а после каждого изменения сохраняет её подпиской. Возвращает стор с <code>add(id, price)</code> и <code>getState()</code>.</p>
+<p class="why"><b>Зачем:</b> сохранение через подписку нельзя «забыть»: любое новое действие сохранится автоматически. А проверка при чтении защищает от данных, которые сохранила прошлая версия приложения с другой формой корзины.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// persistent.ts
+export interface Line {
+  id: string;
+  price: number;
+  quantity: number;
+}
+export interface KeyValueStorage {
+  getItem(k: string): string | null;
+  setItem(k: string, v: string): void;
+}
+const KEY = 'shop:cart';
+
+function isLine(x: unknown): x is Line {
+  return (
+    typeof x === 'object' &amp;&amp; x !== null &amp;&amp;
+    'id' in x &amp;&amp; typeof x.id === 'string' &amp;&amp;
+    'price' in x &amp;&amp; Number.isInteger(x.price) &amp;&amp;
+    'quantity' in x &amp;&amp; Number.isInteger(x.quantity) &amp;&amp; (x.quantity as number) &gt;= 1
+  );
+}
+
+function load(storage: KeyValueStorage): Line[] {
+  try {
+    const data: unknown = JSON.parse(storage.getItem(KEY) ?? '[]');
+    return Array.isArray(data) ? data.filter(isLine) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function createPersistentCart(storage: KeyValueStorage) {
+  let lines = load(storage);
+  const save = () =&gt; {
+    try {
+      storage.setItem(KEY, JSON.stringify(lines));
+    } catch {
+      /* хранилище недоступно — корзина работает без сохранения */
+    }
+  };
+  return {
+    getState: () =&gt; lines,
+    add(id: string, price: number) {
+      const found = lines.find((l) =&gt; l.id === id);
+      lines = found ? lines.map((l) =&gt; (l === found ? { ...l, quantity: l.quantity + 1 } : l)) : [...lines, { id, price, quantity: 1 }];
+      save();
+    },
+  };
+}</code></pre>
+<p>Неверные строки отбрасываются по одной, а не вся корзина. Если в сохранённых данных одна строка испорчена, пользователь не теряет остальные товары. Ключ с префиксом <code>shop:</code> не пересечётся с ключами других частей сайта на том же домене. Для простоты сохранение вызывается внутри <code>add</code>. Со стором из раздела это делается подпиской: <code>store.subscribe(save)</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="st-t-version" data-task="dom-state/st-t-version">
+<h4>Задача 13. Миграция сохранённых данных <span class="lvl">★★★ с подвохом</span></h4>
+<p>Раньше корзина сохранялась как <code>{ "g1": 2, "b1": 1 }</code> (id → количество), теперь — как <code>{ version: 2, lines: [{ id, quantity }] }</code>. Напишите <code>loadCart(raw: unknown)</code>, которая понимает обе формы: старую превращает в новую, новую проверяет, всё остальное даёт пустую корзину.</p>
+<p class="why"><b>Зачем:</b> у пользователей в браузерах лежат данные, сохранённые прошлой версией приложения. Без миграции после обновления сайта корзина у всех опустеет. Номер версии в данных позволяет различать формы надёжно, а не угадывать по признакам.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// migrate.ts
+export interface CartV2 {
+  version: 2;
+  lines: { id: string; quantity: number }[];
+}
+
+const isPositiveInt = (x: unknown): x is number =&gt; Number.isInteger(x) &amp;&amp; (x as number) &gt;= 1;
+
+export function loadCart(raw: unknown): CartV2 {
+  const empty: CartV2 = { version: 2, lines: [] };
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return empty;
+
+  if ('version' in raw) {
+    if (raw.version !== 2 || !('lines' in raw) || !Array.isArray(raw.lines)) return empty;
+    const lines = raw.lines.filter(
+      (l: unknown): l is CartV2['lines'][number] =&gt;
+        typeof l === 'object' &amp;&amp; l !== null &amp;&amp; 'id' in l &amp;&amp; typeof l.id === 'string' &amp;&amp; 'quantity' in l &amp;&amp; isPositiveInt(l.quantity),
+    );
+    return { version: 2, lines };
+  }
+
+  // версия 1: { [id]: quantity }
+  const lines = Object.entries(raw)
+    .filter(([, q]) =&gt; isPositiveInt(q))
+    .map(([id, quantity]) =&gt; ({ id, quantity: quantity as number }));
+  return { version: 2, lines };
+}</code></pre>
+<p>Новая форма узнаётся по полю <code>version</code>, а старая — по его отсутствию. Поэтому в новые данные версию записывают <b>всегда</b>, начиная с первой же версии. Тогда следующая миграция (v2 → v3) будет простым <code>switch</code> по номеру. После загрузки старой корзины её стоит сразу сохранить в новой форме, и старая перестанет встречаться. Неизвестная версия (например, 3 от более новой вкладки) даёт пустую корзину, а не ошибку: угадывать будущий формат нельзя.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="st-t-storage-fail" data-task="dom-state/st-t-storage-fail">
+<h4>Задача 14. Хранилище, которое отказывает <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите тест: если <code>setItem</code> бросает исключение (переполнение или запрет), функция сохранения из раздела не роняет приложение, а <code>loadState</code> при недоступном <code>getItem</code> возвращает значение по умолчанию. Используйте объекты-заглушки вместо <code>localStorage</code>.</p>
+<pre><code>// persist.ts
+export interface KeyValueStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+export function loadState&lt;T&gt;(storage: KeyValueStorage, key: string, isValid: (x: unknown) =&gt; x is T, fallback: T): T {
+  try {
+    const raw = storage.getItem(key);
+    if (raw === null) return fallback;
+    const data: unknown = JSON.parse(raw);
+    return isValid(data) ? data : fallback;
+  } catch {
+    return fallback;
+  }
+}
+export function saveState(storage: KeyValueStorage, key: string, value: unknown): void {
+  try {
+    storage.setItem(key, JSON.stringify(value));
+  } catch {
+    // работаем без сохранения
+  }
+}</code></pre>
+<p class="why"><b>Зачем:</b> хранилище — внешняя система, и оно отказывает: квота 5–10 МБ (из общих знаний), запрет в настройках браузера. Заглушка, которая бросает, воспроизводит это за одну строку, без хитрых настроек браузера.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// persist.test.ts
+import { expect, it } from 'vitest';
+import { loadState, saveState } from './persist.js';
+
+const broken = {
+  getItem(): string | null {
+    throw new Error('SecurityError');
+  },
+  setItem(): void {
+    throw new Error('QuotaExceededError');
+  },
+};
+
+it('сохранение при отказе хранилища не бросает', () =&gt; {
+  expect(() =&gt; saveState(broken, 'cart', [1, 2])).not.toThrow();
+});
+
+it('чтение при отказе хранилища даёт значение по умолчанию', () =&gt; {
+  const isArr = (x: unknown): x is number[] =&gt; Array.isArray(x);
+  expect(loadState(broken, 'cart', isArr, [])).toEqual([]);
+});</code></pre>
+<p>Заглушка с явными типами методов совместима с <code>KeyValueStorage</code>, и TypeScript проверит это при передаче. Мутант без <code>try/catch</code> падает на обоих тестах. Это как раз та защита, которую «упрощают» при рефакторинге со словами «тут же никогда не бывает ошибки».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

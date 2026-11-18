@@ -1,0 +1,317 @@
+<section id="st-store">
+<h2>Стор: состояние, изменения, подписчики</h2>
+<p>Состояние нужно где-то хранить, менять по правилам и сообщать об изменениях тем, кто рисует. Минимальный стор — это 15 строк:</p>
+<pre><code>export type Listener&lt;S&gt; = (state: S, prev: S) =&gt; void;
+
+export function createStore&lt;S&gt;(initial: S) {
+  let state = initial;
+  const listeners = new Set&lt;Listener&lt;S&gt;&gt;();
+  return {
+    getState: (): S =&gt; state,
+    setState(update: (prev: S) =&gt; S): void {
+      const prev = state;
+      const next = update(prev);
+      if (Object.is(next, prev)) return; // ничего не изменилось — не беспокоим подписчиков
+      state = next;
+      listeners.forEach((listener) =&gt; listener(state, prev));
+    },
+    subscribe(listener: Listener&lt;S&gt;): () =&gt; void {
+      listeners.add(listener);
+      return () =&gt; listeners.delete(listener);
+    },
+  };
+}</code></pre>
+<p>Изменение задаётся функцией «старое состояние → новое», а не присваиванием поля. Это значит, что <b>состояние не меняют на месте</b>, а создают новое: <code>{ ...prev, lines: [...prev.lines, line] }</code>. Зачем: подписчик получает и новое, и старое состояние и может сравнить их ссылкой (<code>prev.lines === state.lines</code> — «корзина не менялась, перерисовывать не надо»). Если менять массив на месте, старое и новое — один объект, и сравнение ничего не скажет. Эта идея — <b>иммутабельность</b>, она подробно разобрана в уроке <a href="/lessons/fp-basics">Основы ФП</a>.</p>
+<p><code>subscribe</code> возвращает функцию отписки — тот же договор, что у <code>mount</code>/<code>unmount</code> из прошлого урока. Готовые библиотеки (Redux, zustand, на котором сделан этот учебник) устроены так же, только с удобствами.</p>
+<h3 id="st-actions">Изменения с именами</h3>
+<p>Когда изменений много, их удобно назвать и собрать в одном месте — чистые функции «состояние + данные → новое состояние»:</p>
+<pre><code>import type { CartLine, CartState } from './render.js';
+
+export const addLine = (state: CartState, item: Omit&lt;CartLine, 'quantity'&gt;): CartState =&gt; {
+  const found = state.lines.find((l) =&gt; l.id === item.id);
+  return {
+    lines: found
+      ? state.lines.map((l) =&gt; (l === found ? { ...l, quantity: l.quantity + 1 } : l))
+      : [...state.lines, { ...item, quantity: 1 }],
+  };
+};
+
+export const removeLine = (state: CartState, id: string): CartState =&gt; ({
+  lines: state.lines.filter((l) =&gt; l.id !== id),
+});</code></pre>
+<p>Вызов: <code>store.setState((s) =&gt; addLine(s, product))</code>. Вся логика корзины — в чистых функциях, их тестируют без DOM, без стора и без браузера. Это тот же код, что в задачах урока <a href="/lessons/testing-intro#ti-add">Testing Intro</a>: там вы уже писали его с тестами.</p>
+<article class="task" id="st-t-store-use" data-task="dom-state/st-t-store-use">
+<h4>Задача 3. Счётчик через стор <span class="lvl">★☆☆ разминка</span></h4>
+<p>Используя <code>createStore</code> из раздела, сделайте счётчик с кнопками «+» и «−» и выводом. Кнопки только вызывают <code>setState</code>, а вывод обновляется подпиской. Число не может быть меньше 0.</p>
+<pre><code>// store.ts
+export type Listener&lt;S&gt; = (state: S, prev: S) =&gt; void;
+export function createStore&lt;S&gt;(initial: S) {
+  let state = initial;
+  const listeners = new Set&lt;Listener&lt;S&gt;&gt;();
+  return {
+    getState: (): S =&gt; state,
+    setState(update: (prev: S) =&gt; S): void {
+      const prev = state;
+      const next = update(prev);
+      if (Object.is(next, prev)) return;
+      state = next;
+      listeners.forEach((l) =&gt; l(state, prev));
+    },
+    subscribe(listener: Listener&lt;S&gt;): () =&gt; void {
+      listeners.add(listener);
+      return () =&gt; listeners.delete(listener);
+    },
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> разделение «кто меняет» и «кто показывает» на маленьком примере: кнопки не знают про вывод, вывод не знает про кнопки. Завтра появится третья кнопка или второй вывод, и ни одна часть не изменится.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// counter.ts
+import { createStore } from './store.js';
+
+export function mountCounter(inc: HTMLButtonElement, dec: HTMLButtonElement, out: HTMLElement) {
+  const store = createStore({ count: 0 });
+  const render = (s: { count: number }) =&gt; {
+    out.textContent = String(s.count);
+    dec.disabled = s.count === 0;
+  };
+  store.subscribe(render);
+  render(store.getState());
+  inc.addEventListener('click', () =&gt; store.setState((s) =&gt; ({ count: s.count + 1 })));
+  dec.addEventListener('click', () =&gt; store.setState((s) =&gt; (s.count === 0 ? s : { count: s.count - 1 })));
+  return store;
+}</code></pre>
+<p>Ограничение «не меньше 0» живёт в изменении, а не в кнопке: при нуле функция возвращает прежнее состояние, и стор даже не оповещает подписчиков. Блокировка «−» на нуле — подсказка пользователю, но защита всё равно в данных. Первый <code>render</code> вызывается вручную: подписка сработает только при изменении.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="st-t-unsub" data-task="dom-state/st-t-unsub">
+<h4>Задача 4. Отписка <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите тест для <code>createStore</code>: после вызова функции отписки слушатель больше не вызывается, а другие слушатели продолжают получать изменения. Используйте Vitest и шпион <code>vi.fn()</code>.</p>
+<pre><code>// store.ts
+export type Listener&lt;S&gt; = (state: S, prev: S) =&gt; void;
+export function createStore&lt;S&gt;(initial: S) {
+  let state = initial;
+  const listeners = new Set&lt;Listener&lt;S&gt;&gt;();
+  return {
+    getState: (): S =&gt; state,
+    setState(update: (prev: S) =&gt; S): void {
+      const prev = state;
+      const next = update(prev);
+      if (Object.is(next, prev)) return;
+      state = next;
+      listeners.forEach((l) =&gt; l(state, prev));
+    },
+    subscribe(listener: Listener&lt;S&gt;): () =&gt; void {
+      listeners.add(listener);
+      return () =&gt; listeners.delete(listener);
+    },
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> неработающая отписка — утечка: удалённый со страницы компонент продолжает перерисовываться при каждом изменении. Ошибка тихая и проявляется медленным приложением через полчаса работы.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// store.test.ts
+import { expect, it, vi } from 'vitest';
+import { createStore } from './store.js';
+
+it('после отписки слушатель молчит, остальные работают', () =&gt; {
+  const store = createStore(0);
+  const first = vi.fn();
+  const second = vi.fn();
+  const offFirst = store.subscribe(first);
+  store.subscribe(second);
+
+  offFirst();
+  store.setState((n) =&gt; n + 1);
+
+  expect(first).not.toHaveBeenCalled();
+  expect(second).toHaveBeenCalledWith(1, 0);
+});</code></pre>
+<p>Тест специально отписывает <b>первого</b> из двух слушателей. Мутант с <code>pop()</code> удаляет последнего добавленного, то есть не того, и тест это ловит. Если бы отписывали единственного слушателя, такой мутант прошёл бы. Проверка <code>toHaveBeenCalledWith(1, 0)</code> заодно фиксирует договор: слушатель получает новое и старое состояние.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="st-t-noop" data-task="dom-state/st-t-noop">
+<h4>Задача 5. Изменение, которое ничего не меняет <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите действие <code>removeTodo(state, id)</code> так, чтобы при отсутствии задачи с таким id оно возвращало <b>тот же</b> объект состояния. Убедитесь тестом, что стор в этом случае не оповещает подписчиков.</p>
+<pre><code>// store.ts
+export function createStore&lt;S&gt;(initial: S) {
+  let state = initial;
+  const listeners = new Set&lt;(s: S, p: S) =&gt; void&gt;();
+  return {
+    getState: (): S =&gt; state,
+    setState(update: (prev: S) =&gt; S): void {
+      const prev = state;
+      const next = update(prev);
+      if (Object.is(next, prev)) return;
+      state = next;
+      listeners.forEach((l) =&gt; l(state, prev));
+    },
+    subscribe(l: (s: S, p: S) =&gt; void) {
+      listeners.add(l);
+      return () =&gt; listeners.delete(l);
+    },
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> перерисовка без изменений — лишняя работа и, хуже, потерянный фокус и мигание интерфейса. Возврат прежнего объекта — договор «ничего не изменилось», который стор понимает через <code>Object.is</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// remove.ts
+export interface TodoState {
+  todos: { id: string; title: string }[];
+}
+
+export function removeTodo(state: TodoState, id: string): TodoState {
+  if (!state.todos.some((t) =&gt; t.id === id)) return state;
+  return { todos: state.todos.filter((t) =&gt; t.id !== id) };
+}</code></pre>
+<p><code>filter</code> всегда создаёт новый массив, даже если ничего не убрал. Поэтому без предварительной проверки стор получил бы «новое» состояние и перерисовал экран зря. Проверка <code>some</code> стоит прохода по массиву, но экономит перерисовку, и это выгодный обмен.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="st-t-mutation" data-task="dom-state/st-t-mutation">
+<h4>Задача 6. Почему push ломает подписку <span class="lvl">★★☆ практика</span></h4>
+<p>Действие ниже добавляет задачу через <code>push</code>. Экран после него не обновляется. Объясните почему, исправьте действие и напишите тест, который упал бы на исходной версии.</p>
+<pre><code>// starter.ts
+export function addTodo(state: TodoState, title: string): TodoState {
+  state.todos.push({ id: String(Date.now()), title });
+  return state;
+}</code></pre>
+<pre><code>// store.ts
+export function createStore&lt;S&gt;(initial: S) {
+  let state = initial;
+  const listeners = new Set&lt;(s: S, p: S) =&gt; void&gt;();
+  return {
+    getState: (): S =&gt; state,
+    setState(update: (prev: S) =&gt; S): void {
+      const prev = state;
+      const next = update(prev);
+      if (Object.is(next, prev)) return;
+      state = next;
+      listeners.forEach((l) =&gt; l(state, prev));
+    },
+    subscribe(l: (s: S, p: S) =&gt; void) {
+      listeners.add(l);
+      return () =&gt; listeners.delete(l);
+    },
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> мутация на месте — самая частая ошибка при работе с любым стором, от самодельного до Redux и React. Код «работает» (данные изменились), но никто об этом не узнал.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// add.ts
+export interface TodoState {
+  todos: { id: string; title: string }[];
+}
+
+export function addTodo(state: TodoState, title: string, id: string): TodoState {
+  return { ...state, todos: [...state.todos, { id, title }] };
+}</code></pre>
+<pre><code>// add.test.ts
+import { expect, it, vi } from 'vitest';
+import { createStore } from './store.js';
+import { addTodo } from './add.js';
+
+it('добавление оповещает подписчиков и не трогает старое состояние', () =&gt; {
+  const initial = { todos: [] };
+  const store = createStore&lt;{ todos: { id: string; title: string }[] }&gt;(initial);
+  const listener = vi.fn();
+  store.subscribe(listener);
+  store.setState((s) =&gt; addTodo(s, 'Купить лампу', '1'));
+  expect(listener).toHaveBeenCalledTimes(1);
+  expect(initial.todos).toHaveLength(0);
+});</code></pre>
+<p>Исходная версия возвращала тот же объект, который получила. <code>Object.is(next, prev)</code> истинно, и стор решил, что ничего не изменилось. Новая версия создаёт новый объект и новый массив, а старое состояние остаётся нетронутым: его можно сравнить, сохранить для «отмены» или показать в отладчике. Попутно id стал параметром: <code>Date.now()</code> внутри действия делал его нечистым и непредсказуемым в тестах.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="st-t-quantity" data-task="dom-state/st-t-quantity">
+<h4>Задача 7. Действие «изменить количество» <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите чистое действие <code>setQuantity(state, id, quantity)</code> для корзины: количество ограничено сверху остатком <code>stock</code> строки; 0 и меньше удаляют строку; неизвестный id или то же количество возвращают прежнее состояние.</p>
+<p class="why"><b>Зачем:</b> правила корзины живут в одной функции с ясным входом и выходом. Интерфейс может вызвать её из поля ввода, кнопок «±» или голосового помощника, и правила для всех будут одинаковы.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// quantity.ts
+export interface Line {
+  id: string;
+  price: number;
+  quantity: number;
+  stock: number;
+}
+export interface Cart {
+  lines: Line[];
+}
+
+export function setQuantity(state: Cart, id: string, quantity: number): Cart {
+  const line = state.lines.find((l) =&gt; l.id === id);
+  if (!line) return state;
+  if (quantity &lt;= 0) return { lines: state.lines.filter((l) =&gt; l !== line) };
+  const next = Math.min(Math.floor(quantity), line.stock);
+  if (next === line.quantity) return state;
+  return { lines: state.lines.map((l) =&gt; (l === line ? { ...l, quantity: next } : l)) };
+}</code></pre>
+<p>Выход за остаток не ошибка, а «столько, сколько есть». Пользователь ввёл 10 при остатке 3 и получил 3. Это решение интерфейса, и оно зафиксировано в функции. Другое разумное решение — отказать с сообщением. Главное, что правило в одном месте. <code>Math.floor</code> защищает от дробного ввода. Сравнение с текущим количеством избавляет от лишней перерисовки, как в задаче про noop.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="st-t-reducer" data-task="dom-state/st-t-reducer">
+<h4>Задача 8. Reducer и действия-объекты <span class="lvl">★★★ с подвохом</span></h4>
+<p>Переведите корзину на схему reducer: действия — объекты размеченного объединения <code>{ type: 'add', product } | { type: 'remove', id } | { type: 'clear' }</code>, функция <code>cartReducer(state, action)</code> возвращает новое состояние, в <code>default</code> — проверка полноты через <code>never</code>. Добавьте к стору метод <code>dispatch(action)</code>.</p>
+<p class="why"><b>Зачем:</b> действия-объекты можно записать в лог, отправить по сети, воспроизвести для отладки («что сделал пользователь перед ошибкой»). Это идея Redux, а <code>never</code> не даст забыть обработать новое действие, как в задаче про состояние загрузки в <a href="/lessons/typescript-basic#tsb-state">TypeScript Basic</a>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// reducer.ts
+export interface Line {
+  id: string;
+  price: number;
+  quantity: number;
+}
+export interface Cart {
+  lines: Line[];
+}
+export type CartAction =
+  | { type: 'add'; product: { id: string; price: number } }
+  | { type: 'remove'; id: string }
+  | { type: 'clear' };
+
+export function cartReducer(state: Cart, action: CartAction): Cart {
+  switch (action.type) {
+    case 'add': {
+      const found = state.lines.find((l) =&gt; l.id === action.product.id);
+      return {
+        lines: found
+          ? state.lines.map((l) =&gt; (l === found ? { ...l, quantity: l.quantity + 1 } : l))
+          : [...state.lines, { ...action.product, quantity: 1 }],
+      };
+    }
+    case 'remove':
+      return { lines: state.lines.filter((l) =&gt; l.id !== action.id) };
+    case 'clear':
+      return state.lines.length === 0 ? state : { lines: [] };
+    default: {
+      const unreachable: never = action;
+      return unreachable;
+    }
+  }
+}
+
+export function createCartStore(initial: Cart) {
+  let state = initial;
+  const log: CartAction[] = [];
+  const listeners = new Set&lt;(s: Cart) =&gt; void&gt;();
+  return {
+    getState: () =&gt; state,
+    dispatch(action: CartAction) {
+      log.push(action);
+      const next = cartReducer(state, action);
+      if (next === state) return;
+      state = next;
+      listeners.forEach((l) =&gt; l(state));
+    },
+    subscribe(l: (s: Cart) =&gt; void) {
+      listeners.add(l);
+      return () =&gt; listeners.delete(l);
+    },
+    history: () =&gt; [...log],
+  };
+}</code></pre>
+<p>Внутри каждой ветки <code>switch</code> TypeScript знает точный вид действия: в <code>'add'</code> есть <code>product</code>, в <code>'remove'</code> — <code>id</code>. Журнал <code>history</code> показывает силу схемы: можно восстановить состояние, применив все действия к начальному (<code>log.reduce(cartReducer, initial)</code>). Так работает «путешествие во времени» в инструментах разработчика Redux (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

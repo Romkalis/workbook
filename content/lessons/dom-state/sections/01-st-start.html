@@ -1,0 +1,43 @@
+<section id="st-start">
+<h2>Проблема: правда, размазанная по странице</h2>
+<p>В прошлых уроках мы меняли страницу точечно: добавили товар — вставили строку, удалили — убрали, изменили количество — переписали число и итог. Пока действий три, это работает. Когда их двадцать, появляется вопрос: где правда? В массиве корзины, в строках таблицы, в бейдже в шапке, в итоговой сумме? Каждое действие должно обновить все эти места, и одно из них однажды забудут. Пользователь увидит в шапке «3 товара», а в корзине — два.</p>
+<p>Решение, на котором построены все современные фреймворки: <b>состояние</b> (state) хранится в одном месте в виде обычных данных, а экран <b>вычисляется</b> из него. Изменение — это новое состояние, после которого страница перерисовывается. Коротко: <code>UI = render(state)</code>.</p>
+<h3 id="st-terms">Слова урока</h3>
+<dl class="gloss"><dt>Состояние</dt><dd>Все данные, от которых зависит экран: товары, корзина, фильтры, «идёт загрузка».</dd><dt>render</dt><dd>Функция, которая по состоянию приводит DOM к нужному виду.</dd><dt>Стор (store)</dt><dd>Объект, который хранит состояние, меняет его и сообщает подписчикам об изменениях.</dd><dt>Производные данные</dt><dd>То, что вычисляется из состояния (сумма корзины, отфильтрованный список) и потому не хранится отдельно.</dd></dl>
+<article class="task" id="st-t-truth" data-task="dom-state/st-t-truth">
+<h4>Задача 1. Перенесите правду из DOM в данные <span class="lvl">★☆☆ разминка</span></h4>
+<p>Счётчик лайков ниже хранит число в тексте кнопки и читает его оттуда. Перепишите на состояние: число в переменной, функция <code>render()</code> пишет текст «♥ N» и класс <code>liked</code>, клик меняет состояние и вызывает <code>render</code>. Повторный клик снимает лайк.</p>
+<pre><code>button.addEventListener('click', () =&gt; {
+  const n = Number(button.textContent!.replace('♥ ', ''));
+  if (button.classList.contains('liked')) {
+    button.textContent = `♥ ${n - 1}`;
+    button.classList.remove('liked');
+  } else {
+    button.textContent = `♥ ${n + 1}`;
+    button.classList.add('liked');
+  }
+});</code></pre>
+<p class="why"><b>Зачем:</b> код, который читает данные с экрана, ломается от любой правки вёрстки: поменяли «♥» на иконку — счётчик превратился в <code>NaN</code>. Состояние в переменных не зависит от того, как его показывают.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// like.ts
+export function mountLike(button: HTMLButtonElement, initialCount: number): void {
+  const state = { count: initialCount, liked: false };
+
+  const render = () =&gt; {
+    button.textContent = `♥ ${state.count}`;
+    button.classList.toggle('liked', state.liked);
+    button.setAttribute('aria-pressed', String(state.liked));
+  };
+
+  button.addEventListener('click', () =&gt; {
+    state.liked = !state.liked;
+    state.count += state.liked ? 1 : -1;
+    render();
+  });
+  render();
+}</code></pre>
+<p>Обработчик меняет только данные, а <code>render</code> переводит их на экран: класс, текст и попутно <code>aria-pressed</code>, который сообщает программе чтения с экрана, нажата ли кнопка-переключатель. Новое отображение (иконка, анимация) правится только в <code>render</code>, а логика не меняется.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>
