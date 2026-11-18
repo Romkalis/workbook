@@ -1,0 +1,48 @@
+<section id="tp-setup">
+<h2>Каркас проекта и CI</h2>
+<p>Один участник создаёт каркас в отдельной ветке, второй ревьюит. Команды из гайда задания:</p>
+<pre><code>npm create vite@latest team-store-app -- --template vanilla-ts
+cd team-store-app
+npm install
+npm install -D vitest
+npm pkg set "scripts.test=vitest run --passWithNoTests"</code></pre>
+<p>Флаг <code>--passWithNoTests</code> нужен, чтобы <code>npm test</code> не падал, пока тестов ещё нет. Уберите его, когда появятся тесты: тогда случайно удалённые тесты не пройдут незамеченными.</p>
+<h3 id="tp-folders">Структура папок</h3>
+<pre><code>src/
+  domain/          чистые функции и типы, без DOM
+    products.ts    тип Product, данные, filterProducts
+    cart.ts        addToCart, calculateCart
+    sort.ts        sortProducts
+  state/
+    cart-store.ts  состояние корзины + localStorage
+  ui/              всё, что трогает document
+    about.ts
+    catalog.ts
+    cart.ts
+  route.ts         parseRoute
+  main.ts          точка входа: слушает hashchange и рисует нужный экран
+tests/</code></pre>
+<p>Правило одно: <b>из <code>domain</code> нельзя импортировать <code>ui</code></b>. Тогда всё в <code>domain</code> тестируется без браузера, и именно оттуда берутся функции для live coding. Принцип разобран в <a href="/lessons/clean-code">Clean Code</a>.</p>
+<h3 id="tp-ci">CI на GitHub Actions</h3>
+<p>CI (continuous integration) — автоматический запуск сборки и тестов на каждый PR. В паре это главный страж <code>main</code>: напарник увидит красный крестик раньше, чем начнёт читать код. Файл <code>.github/workflows/ci.yml</code> из гайда:</p>
+<pre><code>name: Проверки проекта
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test</code></pre>
+<p><code>npm ci</code> ставит ровно то, что записано в <code>package-lock.json</code>, поэтому lock-файл обязательно коммитят (<a href="/lessons/node-basics#nb-lock">зачем он нужен</a>). Когда настроите ESLint и Prettier (<a href="/lessons/linters-formatters">урок про линтеры</a>), добавьте в CI шаг <code>npm run lint</code>. Сборка Vite типы не проверяет; в шаблоне <code>vanilla-ts</code> скрипт <code>build</code> начинается с <code>tsc</code>, поэтому ошибки типов CI всё-таки поймает. Проверьте это в своём <code>package.json</code>.</p>
+</section>

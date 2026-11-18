@@ -1,0 +1,140 @@
+<section id="tp-domain">
+<h2>Код: каталог, корзина и состояние</h2>
+<p>Код ниже — ядро магазина. Он запущен и покрыт тестами; DOM-слой (<code>src/ui</code>) не показан, он у каждой команды свой.</p>
+<h3 id="tp-products">Товары и фильтрация</h3>
+<pre><code>// src/domain/products.ts
+export interface Product {
+  id: string;
+  title: string;
+  category: string;
+  /** Цена в копейках: целые числа не теряют точность при сложении */
+  price: number;
+}
+
+export interface ProductFilters {
+  search?: string;
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+}
+
+export function filterProducts(products: readonly Product[], f: ProductFilters): Product[] {
+  const query = f.search?.trim().toLowerCase() ?? '';
+  return products.filter(
+    (p) =&gt;
+      (query === '' || p.title.toLowerCase().includes(query)) &amp;&amp;
+      (f.category === undefined || p.category === f.category) &amp;&amp;
+      (f.minPrice === undefined || p.price &gt;= f.minPrice) &amp;&amp;
+      (f.maxPrice === undefined || p.price &lt;= f.maxPrice),
+  );
+}
+
+export const PRODUCTS: readonly Product[] = [
+  { id: 'b1', title: 'Чистый код', category: 'books', price: 150000 },
+  { id: 'b2', title: 'Грокаем алгоритмы', category: 'books', price: 99000 },
+  { id: 'g1', title: 'Каркассон', category: 'games', price: 249000 },
+];</code></pre>
+<p>Все фильтры в одной функции, потому что по гайду они «действуют одновременно». Неуказанный фильтр — <code>undefined</code> — не применяется. Пустая строка поиска тоже не фильтрует, а <code>trim()</code> прощает случайный пробел.</p>
+<pre><code>// src/domain/sort.ts
+import type { Product } from './products.js';
+
+export type SortOrder = 'default' | 'price-asc' | 'price-desc';
+
+export function sortProducts(products: readonly Product[], order: SortOrder): Product[] {
+  const copy = [...products];
+  if (order === 'price-asc') copy.sort((a, b) =&gt; a.price - b.price);
+  if (order === 'price-desc') copy.sort((a, b) =&gt; b.price - a.price);
+  return copy;
+}</code></pre>
+<p>Сортировка делает копию <code>[...products]</code>: метод <code>sort</code> меняет массив на месте. Без копии «исходный порядок» после первой сортировки было бы не восстановить. Такое как раз ловят на ревью.</p>
+<h3 id="tp-cart">Корзина и промокод</h3>
+<pre><code>// src/domain/cart.ts
+export interface CartLine {
+  productId: string;
+  price: number;
+  quantity: number;
+}
+
+export interface CartTotals {
+  subtotal: number;
+  discount: number;
+  total: number;
+}
+
+const PROMO_CODES: Readonly&lt;Record&lt;string, number&gt;&gt; = { SALE10: 10 };
+
+export function addToCart(cart: readonly CartLine[], item: Omit&lt;CartLine, 'quantity'&gt;): CartLine[] {
+  const existing = cart.find((line) =&gt; line.productId === item.productId);
+  if (!existing) return [...cart, { ...item, quantity: 1 }];
+  return cart.map((line) =&gt; (line === existing ? { ...line, quantity: line.quantity + 1 } : line));
+}
+
+export function calculateCart(cart: readonly CartLine[], promo?: string): CartTotals {
+  const subtotal = cart.reduce((sum, line) =&gt; sum + line.price * line.quantity, 0);
+  const percent = promo === undefined ? 0 : (PROMO_CODES[promo.trim().toUpperCase()] ?? 0);
+  const discount = Math.round((subtotal * percent) / 100);
+  return { subtotal, discount, total: subtotal - discount };
+}</code></pre>
+<ul>
+<li><code>addToCart</code> не меняет старую корзину, а возвращает новую. Её легко тестировать (старое значение осталось для сравнения), и подписчики стора видят новое значение.</li>
+<li>Промокоды в словаре, а не в <code>if (promo === 'SALE10')</code>: новый код — одна строка. С флагом <code>noUncheckedIndexedAccess</code> <code>PROMO_CODES[code]</code> имеет тип <code>number | undefined</code>, и компилятор заставляет подставить <code>?? 0</code>.</li>
+<li>Скидка не «накапливается», потому что функция ничего не хранит: каждый раз считает от суммы заново. Требование гайда «повторный ввод не накапливает скидку» выполнено самим устройством функции, без отдельного флага.</li>
+<li><code>Math.round</code> — единственное место округления. На live coding это пригодится.</li>
+</ul>
+<h3 id="tp-store">Состояние корзины и localStorage</h3>
+<pre><code>// src/state/cart-store.ts
+import { addToCart, type CartLine } from '../domain/cart.js';
+
+/** Часть localStorage, которая нужна стору. В тестах подставляем объект с теми же методами. */
+export interface KeyValueStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+const KEY = 'team-store:cart';
+
+function isCartLine(x: unknown): x is CartLine {
+  return (
+    typeof x === 'object' &amp;&amp; x !== null &amp;&amp;
+    'productId' in x &amp;&amp; typeof x.productId === 'string' &amp;&amp;
+    'price' in x &amp;&amp; Number.isInteger(x.price) &amp;&amp;
+    'quantity' in x &amp;&amp; Number.isInteger(x.quantity) &amp;&amp; (x.quantity as number) &gt;= 1
+  );
+}
+
+export function loadCart(storage: KeyValueStorage): CartLine[] {
+  try {
+    const data: unknown = JSON.parse(storage.getItem(KEY) ?? '[]');
+    return Array.isArray(data) ? data.filter(isCartLine) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function createCartStore(storage: KeyValueStorage) {
+  let cart = loadCart(storage);
+  const listeners = new Set&lt;(cart: readonly CartLine[]) =&gt; void&gt;();
+
+  function set(next: CartLine[]) {
+    cart = next;
+    storage.setItem(KEY, JSON.stringify(cart));
+    listeners.forEach((fn) =&gt; fn(cart));
+  }
+
+  return {
+    get: (): readonly CartLine[] =&gt; cart,
+    add: (item: Omit&lt;CartLine, 'quantity'&gt;) =&gt; set(addToCart(cart, item)),
+    remove: (productId: string) =&gt; set(cart.filter((l) =&gt; l.productId !== productId)),
+    subscribe(fn: (cart: readonly CartLine[]) =&gt; void) {
+      listeners.add(fn);
+      return () =&gt; listeners.delete(fn);
+    },
+  };
+}</code></pre>
+<p>Три решения, которые стоит уметь объяснить:</p>
+<ul>
+<li><b>Хранилище передаётся параметром</b>, а не берётся из глобального <code>localStorage</code>. В браузере передаём <code>localStorage</code>, в тестах — объект на <code>Map</code>. Это внедрение зависимости (<a href="/lessons/testing#testing-injection">подробнее</a>), и тесты идут без браузера.</li>
+<li><b>Прочитанное из storage — <code>unknown</code>.</b> Пользователь мог поправить данные руками, старая версия приложения могла сохранить другую форму. Битые данные дают пустую корзину, а не белый экран.</li>
+<li><b>Подписка</b> (<code>subscribe</code>): UI корзины и счётчик в шапке подписываются на изменения и перерисовываются сами. Это паттерн «Наблюдатель» из урока <a href="/lessons/design-patterns">Design Patterns</a>.</li>
+</ul>
+</section>
