@@ -10,6 +10,38 @@ fetch('/api/user/profile', {
   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
 });</code></pre>
 <p>Просто и понятно. Минус: любой JavaScript на странице может прочитать <code>localStorage</code>. Если злоумышленник сумеет внедрить свой скрипт (такая атака называется <strong>XSS</strong>), он украдёт токен.</p>
+<article class="task" id="jw-client" data-task="jwt-auth/jw-client">
+<h4>Задача 13. Клиент: токен в каждом запросе и выход по 401 <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите на клиенте <code>createAuthClient(storage, onLogout)</code> с методами <code>login(token)</code>, <code>logout()</code> и <code>fetch(url, init?)</code>. <code>fetch</code> добавляет <code>Authorization</code>, если токен есть, и сохраняет заголовки, переданные вызывающим. При ответе 401 токен удаляется и вызывается <code>onLogout</code>. <code>storage</code> — объект с интерфейсом <code>localStorage</code>, чтобы в тесте подставить заглушку.</p>
+<p class="why"><b>Зачем:</b> если вручную дописывать заголовок в каждом <code>fetch</code>, его обязательно где-то забудут. Одна обёртка — одно место, где живут правила авторизации: как прикладывать токен и что делать, когда он перестал действовать.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type TokenStorage = Pick&lt;Storage, 'getItem' | 'setItem' | 'removeItem'&gt;;
+const KEY = 'token';
+
+export function createAuthClient(storage: TokenStorage, onLogout: () =&gt; void) {
+  const logout = () =&gt; {
+    storage.removeItem(KEY);
+    onLogout();
+  };
+  return {
+    login(token: string) {
+      storage.setItem(KEY, token);
+    },
+    logout,
+    async fetch(url: string, init: RequestInit = {}): Promise&lt;Response&gt; {
+      const headers = new Headers(init.headers);
+      const token = storage.getItem(KEY);
+      if (token) headers.set('Authorization', `Bearer ${token}`);
+      const response = await fetch(url, { ...init, headers });
+      if (response.status === 401) logout();
+      return response;
+    },
+  };
+}</code></pre>
+<p><code>new Headers(init.headers)</code> принимает любую форму заголовков: объект, массив пар или другой <code>Headers</code>. Если просто написать <code>{ ...init.headers, Authorization }</code>, это сломается, когда вызывающий передал <code>Headers</code>: spread его не раскрывает. <code>Pick&lt;Storage, …&gt;</code> описывает ровно то, что нужно, и в тесте хватает маленькой заглушки на <code>Map</code>. 403 не разлогинивает: пользователь известен, просто действие запрещено.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="jwt-storage-cookie">httpOnly cookie</h3>
 <pre><code>// на сервере при входе вместо res.json({ token })
 res.cookie('token', token, {
@@ -35,4 +67,47 @@ if (!token) return res.status(401).json({ message: 'Токен не предос
 <tr><td>CSRF</td><td>Не страшен: заголовок сам не отправляется</td><td>Нужна защита (sameSite)</td></tr>
 </tbody></table></div>
 <p>Для учебного проекта начните с localStorage и заголовка: так проще увидеть, что происходит. В рабочем проекте чаще выбирают httpOnly cookie.</p>
+<article class="task" id="jw-cookie" data-task="jwt-auth/jw-cookie">
+<h4>Задача 14. Токен в httpOnly cookie <span class="lvl">★★☆ практика</span></h4>
+<p>Переделайте вход на cookie. <code>POST /api/auth/login</code> ставит cookie <code>token</code> с флагами <code>HttpOnly</code>, <code>SameSite=Strict</code>, <code>Path=/</code> и сроком час, а в теле отвечает <code>{ ok: true }</code>. <code>GET /api/me</code> читает токен из cookie. <code>POST /api/auth/logout</code> удаляет cookie. Пароли проверять не нужно: вход принимает <code>{ userId }</code>, нас интересует только транспорт токена.</p>
+<p class="why"><b>Зачем:</b> cookie с <code>HttpOnly</code> недоступна JavaScript страницы, и XSS не сможет украсть токен. Выход здесь — это удаление cookie на сервере: клиентский код до неё не дотянется, даже если захочет.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import cookieParser from 'cookie-parser';
+import express from 'express';
+import jwt from 'jsonwebtoken';
+
+const COOKIE = { httpOnly: true, sameSite: 'strict', path: '/', secure: process.env.NODE_ENV === 'production' } as const;
+
+export function createApp(secret: string) {
+  const app = express();
+  app.use(express.json());
+  app.use(cookieParser());
+
+  app.post('/api/auth/login', (req, res) =&gt; {
+    const token = jwt.sign({ sub: String(req.body.userId) }, secret, { expiresIn: '1h' });
+    res.cookie('token', token, { ...COOKIE, maxAge: 60 * 60 * 1000 }).json({ ok: true });
+  });
+
+  app.get('/api/me', (req, res) =&gt; {
+    const token: unknown = req.cookies.token;
+    if (typeof token !== 'string') return res.status(401).json({ message: 'Нужен вход' });
+    try {
+      const p = jwt.verify(token, secret, { algorithms: ['HS256'] });
+      if (typeof p === 'string') throw new Error('payload');
+      res.json({ userId: p.sub });
+    } catch {
+      res.status(401).json({ message: 'Нужен вход' });
+    }
+  });
+
+  app.post('/api/auth/logout', (_req, res) =&gt; {
+    res.clearCookie('token', COOKIE).json({ ok: true });
+  });
+  return app;
+}</code></pre>
+<p><code>clearCookie</code> должен получить те же <code>path</code> и <code>sameSite</code>, что и при установке. Иначе браузер посчитает это другой cookie и не удалит исходную. Поэтому параметры вынесены в общую константу. <code>maxAge</code> задаётся в миллисекундах, а в заголовке превращается в секунды (<code>Max-Age=3600</code>). Токен остаётся действительным до <code>exp</code>, даже после удаления cookie. Если его успели скопировать, выход его не отзовёт, и это ограничение JWT из раздела «Что часто путают».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

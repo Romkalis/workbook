@@ -41,4 +41,90 @@ async function getPage(page, limit) {
 const page = await getEmployees({ _page: 2, _per_page: 3 });
 // page.pages = 2, page.items = 4, page.data = [Оля]</code></pre>
 <p>Если фронтенд и json-server работают на разных портах, браузеру понадобятся заголовки CORS. json-server отдаёт их сам, поэтому учебные запросы с <code>localhost:5173</code> на <code>localhost:3000</code> проходят. Чужой заголовок вроде <code>X-Total-Count</code> браузер даёт прочитать только если сервер перечислил его в <code>Access-Control-Expose-Headers</code> — json-server 0.17 делает и это: проверка запросом с заголовком <code>Origin</code> показала <code>Access-Control-Expose-Headers: X-Total-Count, Link</code>. Версия 1.0 отвечает <code>Access-Control-Allow-Origin: *</code>, а число записей отдаёт в теле, так что заголовок ей не нужен (раздел <a href="/lessons/client-server#cs-cors-headers">«Заголовки CORS»</a>).</p>
+<article class="task" id="rs-http-error" data-task="restful-api/rs-http-error">
+<h4>Задача 11. Клиент, который не теряет ошибку сервера <span class="lvl">★★☆ практика</span></h4>
+<p>Функция <code>request</code> из раздела бросает <code>Error("HTTP 400")</code>, и текст ошибки от сервера (<code>{ "message": "email занят" }</code>) теряется. Напишите класс <code>HttpError</code> с полями <code>status</code> и <code>message</code> и новую <code>request(url, init?)</code>:</p>
+<ul><li>при <code>!response.ok</code> бросает <code>HttpError</code> с сообщением из тела, если оно есть, иначе <code>"HTTP &lt;код&gt;"</code>;</li><li>тело ошибки может быть не JSON (например, HTML-страница прокси), и это не должно ломать обработку;</li><li>204 → <code>null</code>.</li></ul>
+<p class="why"><b>Зачем:</b> интерфейсу нужно и <b>что</b> сломалось (код: 401 — на вход, 409 — подсветить поле), и <b>почему</b> (текст для человека). Класс ошибки позволяет различать их через <code>instanceof</code> и не разбирать строки.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
+async function messageFrom(response: Response): Promise&lt;string&gt; {
+  try {
+    const data: unknown = await response.json();
+    if (typeof data === 'object' &amp;&amp; data !== null &amp;&amp; 'message' in data &amp;&amp; typeof data.message === 'string') {
+      return data.message;
+    }
+  } catch {
+    // тело не JSON — оставим стандартный текст
+  }
+  return `HTTP ${response.status}`;
+}
+
+export async function request(url: string, init: RequestInit = {}): Promise&lt;unknown&gt; {
+  const response = await fetch(url, init);
+  if (!response.ok) throw new HttpError(response.status, await messageFrom(response));
+  return response.status === 204 ? null : response.json();
+}</code></pre>
+<p><code>catch</code> без переменной пустой не случайно: ошибка разбора здесь ожидаема и не важна, ведь важен исходный код ответа. Результат имеет тип <code>unknown</code>: проверку формы данных берёт на себя вызывающий код (предикат или <a href="/lessons/zod">схема</a>). В тесте <code>fetch</code> подменяется на функцию, которая возвращает настоящий объект <code>Response</code>. В Node 18+ он есть глобально, как и в браузере.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="rs-search-params" data-task="restful-api/rs-search-params">
+<h4>Задача 12. Строка запроса без «undefined» <span class="lvl">★☆☆ разминка</span></h4>
+<p>Вызов <code>getEmployees({ role: undefined, page: 2 })</code> из раздела отправит <code>?role=undefined&amp;page=2</code>. Напишите <code>buildUrl(base, params)</code>, которая пропускает <code>undefined</code>, <code>null</code> и пустые строки, а числа и булевы значения превращает в строки.</p>
+<p class="why"><b>Зачем:</b> сервер честно отфильтрует сотрудников с ролью <code>"undefined"</code> и вернёт пустой список. Такая ошибка не падает, а тихо показывает «ничего не найдено», и её долго ищут.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type Param = string | number | boolean | null | undefined;
+
+export function buildUrl(base: string, params: Record&lt;string, Param&gt; = {}): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    search.append(key, String(value));
+  }
+  const query = search.toString();
+  return query ? `${base}?${query}` : base;
+}</code></pre>
+<p><code>0</code> и <code>false</code> не пропускаются: это настоящие значения фильтра («страница 0» — ошибка клиента, но решать это должен сервер). Вопросительный знак добавляется, только если есть параметры. <code>URLSearchParams</code> сам кодирует пробелы и кириллицу, поэтому склеивать строку вручную не нужно.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="rs-total" data-task="restful-api/rs-total">
+<h4>Задача 13. Одна страница из двух версий json-server <span class="lvl">★★☆ практика</span></h4>
+<p>Проект должен работать с обеими версиями json-server. Напишите <code>toPage(response, perPage)</code>, которая возвращает <code>{ items, total, pages }</code>:</p>
+<ul><li>версия 0.x: тело — массив, общее число в заголовке <code>X-Total-Count</code>;</li><li>версия 1.0: тело — объект <code>{ data, items, pages }</code>, где <code>items</code> — общее число записей.</li></ul>
+<p>Если формат не распознан, бросьте ошибку.</p>
+<p class="why"><b>Зачем:</b> это паттерн «адаптер»: различия внешнего API прячутся в одной функции, а остальной код работает с одним форматом. Обновили json-server — правится одна функция, а не каждый экран.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface PageResult {
+  items: unknown[];
+  total: number;
+  pages: number;
+}
+
+export async function toPage(response: Response, perPage: number): Promise&lt;PageResult&gt; {
+  const body: unknown = await response.json();
+  if (Array.isArray(body)) {
+    const header = response.headers.get('X-Total-Count');
+    const total = header === null ? body.length : Number(header);
+    return { items: body, total, pages: Math.ceil(total / perPage) };
+  }
+  if (typeof body === 'object' &amp;&amp; body !== null &amp;&amp; 'data' in body &amp;&amp; Array.isArray(body.data) &amp;&amp; 'items' in body &amp;&amp; typeof body.items === 'number') {
+    return { items: body.data, total: body.items, pages: Math.ceil(body.items / perPage) };
+  }
+  throw new TypeError('Неизвестный формат страницы');
+}</code></pre>
+<p>В версии 1.0 поле <code>items</code> — это <b>число</b>, а сами записи лежат в <code>data</code>. Неудачное название, и его легко перепутать, поэтому адаптер переименовывает поля в однозначные. Если заголовка нет, например CORS не разрешил его читать, честный запасной вариант — длина массива. Подробнее про такую обёртку — в уроке <a href="/lessons/design-patterns">«Паттерны проектирования»</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

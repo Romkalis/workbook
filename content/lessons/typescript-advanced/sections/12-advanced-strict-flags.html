@@ -12,6 +12,31 @@ if (false) {
 }
 </code></pre>
 <p>Флаг добавляет undefined для потенциально отсутствующего результата индексного доступа. Это полезно для массивов и словарей. Проверка должна учитывать реальное отсутствие; постфиксный ! лишь подавит сомнение компилятора. Флаг не включается автоматически одним strict.</p>
+<article class="task" id="tsa-unchecked" data-task="typescript-advanced/tsa-unchecked">
+<h4>Задача 24. Код, готовый к noUncheckedIndexedAccess <span class="lvl">★★☆ практика</span></h4>
+<p>Включите в проекте <code>noUncheckedIndexedAccess</code>. Перепишите функции ниже так, чтобы они компилировались с флагом и правильно работали на пустом массиве и при отсутствующем ключе. Без <code>!</code> и <code>as</code>.</p>
+<pre><code>export function firstTitle(titles: string[]): string {
+  return titles[0].toUpperCase();
+}
+export function priceOf(prices: Record&lt;string, number&gt;, id: string): number {
+  return prices[id] * 100;
+}</code></pre>
+<p class="why"><b>Зачем:</b> без флага <code>titles[0]</code> имеет тип <code>string</code>, хотя на пустом массиве это <code>undefined</code>, и падение случится на <code>.toUpperCase()</code>. Флаг заставляет решить, что делать при отсутствии, в момент написания кода.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function firstTitle(titles: string[]): string {
+  const first = titles[0];
+  return first === undefined ? 'Без названия' : first.toUpperCase();
+}
+
+export function priceOf(prices: Record&lt;string, number&gt;, id: string): number {
+  const price = prices[id];
+  if (price === undefined) throw new RangeError(`Нет цены для ${id}`);
+  return price * 100;
+}</code></pre>
+<p>Что вернуть при отсутствии — решение не про типы, а про смысл. Для заголовка подходит заглушка. Для цены заглушка опасна: <code>0</code> означал бы бесплатный товар, поэтому честнее бросить ошибку. С флагом <code>undefined</code> в <code>prices[id] * 100</code> — ошибка компиляции, без него — тихий <code>NaN</code> в корзине. Проверено отдельным запуском <code>tsc</code> с флагом.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="advanced-exact-optional">exactOptionalPropertyTypes: отсутствует или записано undefined?</h3>
 <p>Для этого примера включите exactOptionalPropertyTypes вместе со strict. Объекты <code>{}</code> и <code>{ theme: undefined }</code> различаются: в первом свойства нет, во втором оно есть, но содержит undefined. Это различие видно при проверке <code>"theme" in object</code>.</p>
 
@@ -25,4 +50,28 @@ if (false) {
 }
 </code></pre>
 <p>С этим флагом <code>theme?</code> допускает отсутствие поля, но не явную запись undefined, если undefined отдельно не указан в типе. Чтение optional-поля всё равно учитывает отсутствие. Флаг также не входит в strict. В проекте News API strict и noImplicitAny требуются заданием; дополнительные флаги выбирайте осознанно.</p>
+<article class="task" id="tsa-exact-optional" data-task="typescript-advanced/tsa-exact-optional">
+<h4>Задача 25. Собрать объект без лишних undefined <span class="lvl">★★★ с подвохом</span></h4>
+<p>С включённым <code>exactOptionalPropertyTypes</code> напишите <code>buildQuery(form)</code>: из формы <code>{ q: string; page: number | null }</code> получается <code>Query = { q?: string; page?: number }</code>. Пустая строка и <code>null</code> означают «поле не задано», и ключа в результате быть не должно, даже со значением <code>undefined</code>.</p>
+<p class="why"><b>Зачем:</b> <code>{ q: undefined }</code> и <code>{}</code> ведут себя по-разному: <code>"q" in obj</code>, <code>Object.keys</code>, <code>URLSearchParams</code> превратит первый в <code>q=undefined</code>. С флагом компилятор не даст записать <code>undefined</code> в необязательное поле, и разница станет видна.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Query {
+  q?: string;
+  page?: number;
+}
+
+export function buildQuery(form: { q: string; page: number | null }): Query {
+  const query: Query = {};
+  const q = form.q.trim();
+  if (q !== '') query.q = q;
+  if (form.page !== null) query.page = form.page;
+  return query;
+}
+
+// С флагом следующая строка — ошибка TS2375:
+// const bad: Query = { q: undefined };</code></pre>
+<p>Объект собирается постепенно, и ключ появляется только при наличии значения. Короче, но читается хуже: <code>{ ...(q &amp;&amp; { q }) }</code>. Проверьте мутант <code>{ q: q || undefined, … }</code>: без флага он компилируется, а тест «ключа нет» его ловит. Флаг включён в отдельной проверке <code>tsc</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

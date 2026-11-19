@@ -23,6 +23,72 @@ const items = input.filter(isNewsItem);
 console.log(items.map(item =&gt; item.title.toUpperCase())); // [&quot;TS&quot;]
 </code></pre>
 <p>Метод filter вызывает isNewsItem для каждого элемента. Для первого объекта проверка возвращает true, для второго — false из-за числового title, для null — false уже на первом шаге. В items остаётся один объект, а TypeScript знает тип массива <code>NewsItem[]</code>. Проверка подтверждает форму, но не безопасность ссылки или непустой заголовок: бизнес-правила проверяют отдельно. Типы DTO должны учитывать реальные null и пропуски, а не только удачный ответ сервера.</p>
+<article class="task" id="tsa-predicate" data-task="typescript-advanced/tsa-predicate">
+<h4>Задача 4. Предикат для статьи с тегами <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите предикат <code>isArticle(value: unknown): value is Article</code> для типа ниже и функцию <code>validArticles(input: unknown[]): Article[]</code>, которая оставляет только корректные элементы. Теги — массив строк, и каждый элемент тоже нужно проверить.</p>
+<pre><code>export interface Article {
+  id: string;
+  title: string;
+  tags: string[];
+  views: number;
+}</code></pre>
+<p class="why"><b>Зачем:</b> предикат — это обещание компилятору: «если я вернул <code>true</code>, это точно <code>Article</code>». Компилятор не проверяет, честно ли тело функции, поэтому забытая проверка тегов превратится в падение на <code>tag.toUpperCase()</code> где-то далеко от места ошибки.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p><code>Array.isArray(x) &amp;&amp; x.every((t) =&gt; typeof t === "string")</code>. Для числа подумайте, хотите ли вы пропускать <code>NaN</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Article {
+  id: string;
+  title: string;
+  tags: string[];
+  views: number;
+}
+
+function isRecord(value: unknown): value is Record&lt;string, unknown&gt; {
+  return typeof value === 'object' &amp;&amp; value !== null &amp;&amp; !Array.isArray(value);
+}
+
+export function isArticle(value: unknown): value is Article {
+  return (
+    isRecord(value) &amp;&amp;
+    typeof value.id === 'string' &amp;&amp;
+    typeof value.title === 'string' &amp;&amp;
+    Array.isArray(value.tags) &amp;&amp;
+    value.tags.every((tag) =&gt; typeof tag === 'string') &amp;&amp;
+    Number.isFinite(value.views)
+  );
+}
+
+export function validArticles(input: unknown[]): Article[] {
+  return input.filter(isArticle);
+}</code></pre>
+<p>Обратите внимание на <code>input.filter(isArticle)</code>: благодаря предикату результат имеет тип <code>Article[]</code>, а не <code>unknown[]</code>. С обычной функцией <code>(x) =&gt; boolean</code> тип бы не сузился. <code>Number.isFinite</code> отсекает и строки, и <code>NaN</code>: JSON не умеет передавать <code>NaN</code>, но данные могут прийти и не из JSON. Если полей становится много, такие проверки удобнее описывать схемой: этим займётся урок <a href="/lessons/zod">Zod</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="tsa-array-of" data-task="typescript-advanced/tsa-array-of">
+<h4>Задача 5. Предикат из предиката <span class="lvl">★★★ с подвохом</span></h4>
+<p>Проверки массивов повторяются: «это массив, и каждый элемент проходит проверку X». Напишите обобщённую функцию <code>isArrayOf</code>, которая принимает предикат элемента и возвращает предикат массива. Должно работать так:</p>
+<pre><code>const isStringArray = isArrayOf((x: unknown): x is string =&gt; typeof x === 'string');
+const data: unknown = ['a', 'b'];
+if (isStringArray(data)) data.join(', '); // data: string[]</code></pre>
+<p class="why"><b>Зачем:</b> так из маленьких проверенных кирпичиков собираются большие, и каждую проверку пишут один раз. Ровно так устроены библиотеки валидации. Задача тренирует generics: тип элемента <code>T</code> выводится из переданного предиката, и его не нужно указывать руками.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Сигнатура: <code>function isArrayOf&lt;T&gt;(guard: (x: unknown) =&gt; x is T): (value: unknown) =&gt; value is T[]</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function isArrayOf&lt;T&gt;(guard: (x: unknown) =&gt; x is T): (value: unknown) =&gt; value is T[] {
+  return (value: unknown): value is T[] =&gt; Array.isArray(value) &amp;&amp; value.every(guard);
+}
+
+export const isString = (x: unknown): x is string =&gt; typeof x === 'string';
+export const isStringArray = isArrayOf(isString);
+
+const data: unknown = ['a', 'b'];
+if (isStringArray(data)) {
+  const joined: string = data.join(', ');
+  console.log(joined);
+}</code></pre>
+<p>Функция возвращает функцию: это замыкание над <code>guard</code>. Тип возвращаемой стрелки тоже предикат, иначе снаружи сужение потеряется. <code>T</code> выводится из типа <code>guard</code>: для <code>isString</code> получается <code>string</code>. Пустой массив проходит проверку, ведь <code>every</code> на пустом массиве возвращает <code>true</code>. Для «массив из строк» это правильно. Если нужен непустой, это отдельное правило.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="advanced-assertion-functions">Функция утверждения: продолжить только с правильными данными</h3>
 <p>Иногда после неверных данных нужно остановить операцию, а не вернуть false. Для этого подходит assertion function — функция утверждения. Запись <code>asserts value is string</code> означает: «если вызов завершился без исключения, дальше value можно использовать как string».</p>
 
@@ -42,4 +108,41 @@ console.log(shout(&quot;ts&quot;));
 <p>После успешного возврата assertString значение сужено до string. При нарушении обещания функция обязана прервать обычный путь выполнения, например бросить исключение. Это не то же самое, что <code>as string</code>: утверждение типа не добавляет проверки. <code>fetchJson&lt;T&gt;()</code>, возвращающая <code>json as T</code>, также ничего не валидирует.</p>
 <p>Вызов <code>shout(null)</code> бросает Error с сообщением «Нужна строка»; catch перехватывает его. Вызов <code>shout("ts")</code> успешно возвращает «TS». Значение ошибки тоже проверяется: JavaScript позволяет бросить не только объект Error.</p>
 
+<article class="task" id="tsa-assert" data-task="typescript-advanced/tsa-assert">
+<h4>Задача 6. Утверждение с адресом ошибки <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите функцию утверждения <code>assertNewsResponse(value: unknown): asserts value is NewsResponse</code>. При неверных данных она бросает <code>TypeError</code>, и в сообщении указано, <b>какое поле</b> сломано: <code>"articles[1].title: ожидалась строка"</code>.</p>
+<pre><code>export interface NewsResponse {
+  status: 'ok';
+  articles: { title: string; url: string }[];
+}</code></pre>
+<p class="why"><b>Зачем:</b> «данные неверные» не помогает исправить ошибку, а «<code>articles[1].title</code>» сразу показывает, куда смотреть в ответе сервера. Функция утверждения подходит, когда дальше без правильных данных идти бессмысленно: после её вызова код пишется так, будто проверка уже прошла.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface NewsResponse {
+  status: 'ok';
+  articles: { title: string; url: string }[];
+}
+
+function isRecord(value: unknown): value is Record&lt;string, unknown&gt; {
+  return typeof value === 'object' &amp;&amp; value !== null &amp;&amp; !Array.isArray(value);
+}
+
+export function assertNewsResponse(value: unknown): asserts value is NewsResponse {
+  if (!isRecord(value)) throw new TypeError('ответ: ожидался объект');
+  if (value.status !== 'ok') throw new TypeError('status: ожидалось "ok"');
+  if (!Array.isArray(value.articles)) throw new TypeError('articles: ожидался массив');
+  value.articles.forEach((item: unknown, i) =&gt; {
+    if (!isRecord(item)) throw new TypeError(`articles[${i}]: ожидался объект`);
+    if (typeof item.title !== 'string') throw new TypeError(`articles[${i}].title: ожидалась строка`);
+    if (typeof item.url !== 'string') throw new TypeError(`articles[${i}].url: ожидалась строка`);
+  });
+}
+
+export function titles(raw: unknown): string[] {
+  assertNewsResponse(raw);
+  return raw.articles.map((a) =&gt; a.title); // raw уже NewsResponse
+}</code></pre>
+<p>В <code>titles</code> после вызова <code>assertNewsResponse(raw)</code> переменная <code>raw</code> имеет тип <code>NewsResponse</code>, хотя пришла как <code>unknown</code>. Одно ограничение: функцию утверждения нужно объявлять через <code>function</code> или с явной аннотацией типа. Стрелка без аннотации в константе выдаст ошибку TS2775. Предикат или утверждение? Предикат подходит, когда «не то» — нормальный вариант, его можно пропустить или отфильтровать. Утверждение — когда «не то» означает поломку.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

@@ -35,6 +35,48 @@ module.exports = function authMiddleware(req, res, next) {
 </ol>
 <p>Важная деталь: при неудаче <code>jwt.verify</code> <strong>выбрасывает исключение</strong>, а не возвращает false. Поэтому нужен <code>try/catch</code>, а не <code>if</code>.</p>
 <p>Опция <code>algorithms: ['HS256']</code> говорит библиотеке принимать только наш алгоритм. Её нет в исходном материале, но её советует документация jsonwebtoken: так сервер не примет токен, подписанный другим способом.</p>
+<article class="task" id="jw-middleware" data-task="jwt-auth/jw-middleware">
+<h4>Задача 10. requireAuth на TypeScript <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите middleware <code>requireAuth(secret)</code>: достаёт токен из <code>Authorization: Bearer …</code>, проверяет его только с алгоритмом HS256 и кладёт id пользователя (<code>sub</code>) в <code>res.locals.userId</code>. Отказы — 401 с разными текстами: нет заголовка, неверный формат, просрочен, подпись неверна. Подключите к <code>GET /api/me</code>, который отвечает <code>{ userId }</code>.</p>
+<p class="why"><b>Зачем:</b> в уроке id кладётся в <code>req.userId</code>, а TypeScript такого поля не знает. <code>res.locals</code> — предусмотренное Express место для данных одного запроса. Разные тексты отказов помогают клиенту: на «просрочен» можно тихо обновить токен, а на «подпись неверна» — выйти из аккаунта.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { type RequestHandler } from 'express';
+import jwt from 'jsonwebtoken';
+
+export function requireAuth(secret: string): RequestHandler {
+  return (req, res, next) =&gt; {
+    const header = req.headers.authorization;
+    if (!header) return res.status(401).json({ message: 'Токен не предоставлен' });
+    const [scheme, token, ...rest] = header.split(' ');
+    if (scheme !== 'Bearer' || !token || rest.length &gt; 0) {
+      return res.status(401).json({ message: 'Ожидался заголовок Authorization: Bearer &lt;token&gt;' });
+    }
+    try {
+      const payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
+      if (typeof payload === 'string' || typeof payload.sub !== 'string') {
+        return res.status(401).json({ message: 'Неверное содержимое токена' });
+      }
+      res.locals.userId = payload.sub;
+      next();
+    } catch (err) {
+      const expired = err instanceof jwt.TokenExpiredError;
+      res.status(401).json({ message: expired ? 'Токен просрочен' : 'Невалидный токен' });
+    }
+  };
+}
+
+export function createApp(secret: string) {
+  const app = express();
+  app.get('/api/me', requireAuth(secret), (_req, res) =&gt; {
+    res.json({ userId: res.locals.userId });
+  });
+  return app;
+}</code></pre>
+<p><code>jwt.verify</code> возвращает <code>string | JwtPayload</code>: строкой payload бывает, если подписали строку, а не объект. Поэтому проверка формы нужна и после проверки подписи. Подпись говорит «это выпустили мы», но не «внутри то, что мы ждём». <code>TokenExpiredError</code> — класс из библиотеки, его различают через <code>instanceof</code>, а не по тексту сообщения. Тексты могут поменяться в новой версии. Фабрика <code>requireAuth(secret)</code> получает секрет параметром, без чтения <code>process.env</code> внутри. Так её легко тестировать.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="jwt-middleware-use">Подключаем к маршруту</h3>
 <pre><code>// routes/user.js
 const router = require('express').Router();
@@ -54,6 +96,99 @@ router.get('/profile', authMiddleware, async (req, res) =&gt; {
 
 module.exports = router;</code></pre>
 <p><code>.select('-password')</code> убирает хеш пароля из ответа. Пользователя всё равно ищем в базе: токен говорит, <em>кто</em> пришёл, но актуальные данные профиля лежат в базе. Пользователя могли удалить уже после того, как токен был выдан, — для этого и проверка на 404.</p>
+<article class="task" id="jw-profile" data-task="jwt-auth/jw-profile">
+<h4>Задача 11. Профиль удалённого пользователя <span class="lvl">★★☆ практика</span></h4>
+<p>Сделайте <code>GET /api/profile</code> поверх <code>requireAuth</code> из прошлой задачи. Профиль берётся из хранилища по id из токена. Отдельно обработайте случай, когда токен действителен, а пользователя уже удалили. В ответе нет <code>passwordHash</code>.</p>
+<pre><code>// auth.ts
+import type { RequestHandler } from 'express';
+import jwt from 'jsonwebtoken';
+export function requireAuth(secret: string): RequestHandler {
+  return (req, res, next) =&gt; {
+    const [scheme, token] = (req.headers.authorization ?? '').split(' ');
+    if (scheme !== 'Bearer' || !token) return res.status(401).json({ message: 'Токен не предоставлен' });
+    try {
+      const p = jwt.verify(token, secret, { algorithms: ['HS256'] });
+      if (typeof p === 'string' || typeof p.sub !== 'string') throw new Error('payload');
+      res.locals.userId = p.sub;
+      next();
+    } catch {
+      res.status(401).json({ message: 'Невалидный токен' });
+    }
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> токен живёт своей жизнью: сервер его не хранит и не может отозвать. Пока не истёк срок, токен удалённого или заблокированного пользователя проходит проверку подписи. Поэтому данные пользователя всегда читаются из базы, а не из токена.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express from 'express';
+import { requireAuth } from './auth.js';
+
+export interface User {
+  id: string;
+  email: string;
+  passwordHash: string;
+}
+
+export function createApp(secret: string, users: Map&lt;string, User&gt;) {
+  const app = express();
+  app.get('/api/profile', requireAuth(secret), (_req, res) =&gt; {
+    const user = users.get(res.locals.userId as string);
+    if (!user) return res.status(401).json({ message: 'Пользователь больше не существует' });
+    res.json({ id: user.id, email: user.email });
+  });
+  return app;
+}</code></pre>
+<p>В уроке на этот случай отвечают 404. Здесь выбран 401, и это сознательное решение: «профиль не найден» звучит как ошибка адреса, а на деле не действует сама сессия. Клиент, получив 401, отправит на вход. Оба варианта встречаются, главное — договориться и быть последовательным. <code>res.locals</code> имеет тип <code>Record&lt;string, any&gt;</code>, поэтому приведение к <code>string</code> — это документация того, что положил middleware.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="jw-role" data-task="jwt-auth/jw-role">
+<h4>Задача 12. 401 или 403: проверка роли <span class="lvl">★★★ с подвохом</span></h4>
+<p>Добавьте middleware <code>requireRole("admin")</code>, который ставится после <code>requireAuth</code>. Роль берите из хранилища пользователей, а не из токена. Маршрут <code>DELETE /api/users/:id</code> доступен только администратору. Без токена — 401, с токеном обычного пользователя — 403, администратор — 204.</p>
+<p class="why"><b>Зачем:</b> разделение «кто вы» (аутентификация) и «что вам можно» (авторизация) — основа любой системы прав. Роль в токене удобна, но после понижения прав старый токен ещё час будет пускать бывшего администратора. Чтение из базы стоит один запрос, зато права меняются сразу.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { type Request, type RequestHandler } from 'express';
+import jwt from 'jsonwebtoken';
+
+export interface User {
+  id: string;
+  role: 'user' | 'admin';
+}
+
+export function createApp(secret: string, users: Map&lt;string, User&gt;) {
+  const requireAuth: RequestHandler = (req, res, next) =&gt; {
+    const [scheme, token] = (req.headers.authorization ?? '').split(' ');
+    try {
+      if (scheme !== 'Bearer' || !token) throw new Error('no token');
+      const p = jwt.verify(token, secret, { algorithms: ['HS256'] });
+      if (typeof p === 'string' || typeof p.sub !== 'string') throw new Error('payload');
+      res.locals.userId = p.sub;
+      next();
+    } catch {
+      res.status(401).json({ message: 'Нужен вход' });
+    }
+  };
+
+  const requireRole =
+    (role: User['role']): RequestHandler =&gt;
+    (_req, res, next) =&gt; {
+      const user = users.get(res.locals.userId as string);
+      if (!user) return res.status(401).json({ message: 'Нужен вход' });
+      if (user.role !== role) return res.status(403).json({ message: 'Недостаточно прав' });
+      next();
+    };
+
+  const app = express();
+  app.delete('/api/users/:id', requireAuth, requireRole('admin'), (req: Request&lt;{ id: string }&gt;, res) =&gt; {
+    users.delete(req.params.id);
+    res.status(204).end();
+  });
+  return app;
+}</code></pre>
+<p>Цепочка middleware читается слева направо, как охрана на входе: сначала «покажите пропуск», потом «есть ли допуск в этот зал». Порядок важен: <code>requireRole</code> опирается на <code>res.locals.userId</code>, который кладёт <code>requireAuth</code>. Тест с понижением роли показывает, зачем роль читать из хранилища: тот же токен перестаёт давать права сразу.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="jwt-middleware-app">Собираем приложение</h3>
 <pre><code>// app.js
 require('dotenv').config();

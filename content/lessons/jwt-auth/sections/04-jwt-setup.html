@@ -18,4 +18,28 @@ JWT_EXPIRES_IN=1d
 MONGO_URI=mongodb://localhost:27017/myapp</code></pre>
 <p>Секрет должен быть длинным и случайным. Получить такой можно командой <code>node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"</code>.</p>
 <div class="warn"><b>Не отправляйте .env в git</b><p>Добавьте строку <code>.env</code> в <code>.gitignore</code>. Кто знает <code>JWT_SECRET</code>, тот может выпустить токен от имени любого пользователя.</p></div>
+<article class="task" id="jw-config" data-task="jwt-auth/jw-config">
+<h4>Задача 4. Сервер не стартует без секрета <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>loadConfig(env)</code>, которая читает <code>JWT_SECRET</code>, <code>JWT_EXPIRES_IN</code> (по умолчанию <code>"1h"</code>) и <code>PORT</code> (по умолчанию 3000). Если секрета нет или он короче 32 символов, бросьте ошибку с понятным текстом. Вызывайте её один раз при старте, а не в каждом обработчике.</p>
+<p class="why"><b>Зачем:</b> без проверки <code>jwt.sign(payload, undefined)</code> упадёт только при первом входе пользователя. А короткий секрет вроде <code>"secret"</code> подбирается перебором за минуты. Fail fast: сервер с неверной настройкой не должен даже запуститься.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Config {
+  jwtSecret: string;
+  jwtExpiresIn: string;
+  port: number;
+}
+
+export function loadConfig(env: Record&lt;string, string | undefined&gt; = process.env): Config {
+  const secret = env.JWT_SECRET;
+  if (!secret || secret.length &lt; 32) {
+    throw new Error('JWT_SECRET не задан или короче 32 символов: проверьте файл .env');
+  }
+  const port = Number(env.PORT ?? 3000);
+  if (!Number.isInteger(port) || port &lt;= 0) throw new Error('PORT должен быть положительным целым');
+  return { jwtSecret: secret, jwtExpiresIn: env.JWT_EXPIRES_IN ?? '1h', port };
+}</code></pre>
+<p>Параметр <code>env</code> со значением по умолчанию <code>process.env</code> — небольшое внедрение зависимости: в тестах можно передать любой объект и не трогать настоящее окружение. Дальше по коду передаётся готовый <code>Config</code>, а не <code>process.env</code>. Все поля проверены и имеют правильные типы, и в одном месте видно, какие настройки нужны приложению.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

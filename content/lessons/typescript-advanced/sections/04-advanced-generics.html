@@ -19,6 +19,62 @@ if (false) {
 }
 </code></pre>
 <p>Ограничение <code>extends</code> задаёт минимальные требования, но сохраняет конкретный T. Возврат просто <code>{ id: string }</code> потерял бы сведения о title. Не возвращайте новый объект с одним id под видом произвольного T: у клиента могут быть обязательные дополнительные поля.</p>
+<article class="task" id="tsa-pluck" data-task="typescript-advanced/tsa-pluck">
+<h4>Задача 7. Достать одно поле из списка <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>pluck(items, key)</code>, которая возвращает массив значений одного поля. Тип результата должен следовать за ключом: для <code>"views"</code> — <code>number[]</code>, для <code>"title"</code> — <code>string[]</code>. Несуществующий ключ — ошибка компиляции (покажите строкой с <code>@ts-expect-error</code>).</p>
+<p class="why"><b>Зачем:</b> связь «ключ → тип значения» — самая частая работа generics в прикладном коде. Без неё функция вернула бы <code>unknown[]</code> или <code>any[]</code>, и каждый вызов пришлось бы приводить вручную.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function pluck&lt;T, K extends keyof T&gt;(items: readonly T[], key: K): T[K][] {
+  return items.map((item) =&gt; item[key]);
+}
+
+const articles = [
+  { title: 'TS', views: 10 },
+  { title: 'JS', views: 3 },
+];
+const views: number[] = pluck(articles, 'views');
+const titles: string[] = pluck(articles, 'title');
+console.log(views, titles);
+
+if (false) {
+  // @ts-expect-error: такого поля нет
+  pluck(articles, 'author');
+}</code></pre>
+<p><code>K extends keyof T</code> ограничивает ключ полями объекта, а <code>T[K]</code> — индексный доступ к типу — говорит, какой у этого поля тип. Параметр <code>readonly T[]</code> принимает и обычные, и неизменяемые массивы. Это обещание: функция массив не меняет.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="tsa-sort-by" data-task="typescript-advanced/tsa-sort-by">
+<h4>Задача 8. Сортировка по полю без порчи исходника <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>sortBy(items, key, dir = "asc")</code>: возвращает <b>новый</b> массив, отсортированный по полю. Сортировать можно только по полям-строкам и полям-числам. Строки сравнивайте через <code>localeCompare</code>, чтобы «ё» и регистр не ломали порядок.</p>
+<p class="why"><b>Зачем:</b> <code>Array.prototype.sort</code> меняет массив на месте. Если это массив из состояния или из пропсов, ошибка проявится в другом месте экрана. Ограничение «только строки и числа» выражено в типах: сортировка по полю-объекту не имеет смысла, и пусть это ловит компилятор.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Ключи, у которых значение строка или число: <code>{ [P in keyof T]: T[P] extends string | number ? P : never }[keyof T]</code>. Сначала соберите объект «ключ → ключ или never», потом возьмите объединение его значений.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type SortableKey&lt;T&gt; = { [P in keyof T]: T[P] extends string | number ? P : never }[keyof T];
+
+export function sortBy&lt;T, K extends SortableKey&lt;T&gt;&gt;(items: readonly T[], key: K, dir: 'asc' | 'desc' = 'asc'): T[] {
+  const sign = dir === 'asc' ? 1 : -1;
+  return [...items].sort((a, b) =&gt; {
+    const x = a[key] as string | number;
+    const y = b[key] as string | number;
+    const diff = typeof x === 'string' &amp;&amp; typeof y === 'string' ? x.localeCompare(y, 'ru') : Number(x) - Number(y);
+    return diff * sign;
+  });
+}
+
+const list = [
+  { title: 'Ёлка', views: 3, meta: { a: 1 } },
+  { title: 'Арбуз', views: 10, meta: { a: 2 } },
+];
+console.log(sortBy(list, 'title').map((x) =&gt; x.title));
+if (false) {
+  // @ts-expect-error: по объекту сортировать нельзя
+  sortBy(list, 'meta');
+}</code></pre>
+<p><code>SortableKey&lt;T&gt;</code> — комбинация mapped type и индексного доступа: для каждого ключа записываем сам ключ или <code>never</code>, а <code>[keyof T]</code> собирает значения в union. <code>never</code> из union исчезает. Внутри функции компилятор не может доказать, что <code>a[key]</code> строка или число: связь между <code>K</code> и типом значения слишком сложна для вывода. Поэтому одно <code>as</code> оправдано, но оно спрятано внутри функции, а снаружи API строгий. Копия <code>[...items]</code> обязательна. Мутант без неё ловится тестом, который проверяет, что исходный массив не поменялся.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="advanced-generic-containers">Обобщённый контейнер и тип по умолчанию</h3>
 <pre><code>interface Page&lt;T = string&gt; { items: readonly T[]; total: number }
 class Store&lt;T extends { id: string }&gt; {
@@ -30,6 +86,33 @@ const store = new Store([{ id: &quot;a1&quot;, title: &quot;TS&quot; }]);
 console.log(page.items.join(&quot;, &quot;), store.find(&quot;missing&quot;));
 </code></pre>
 <p>Page без аргумента использует string. У конструктора Store тип выводится из переданных элементов. Не обещайте T там, где поиск может ничего не вернуть. Статические члены принадлежат самому классу, а не экземпляру; использовать в их типах параметр T этого экземпляра нельзя.</p>
+<article class="task" id="tsa-paginate" data-task="typescript-advanced/tsa-paginate">
+<h4>Задача 9. Страница из любого списка <span class="lvl">★★☆ практика</span></h4>
+<p>Опишите тип <code>Page&lt;T&gt;</code> с полями <code>items</code>, <code>page</code>, <code>pageSize</code>, <code>total</code>, <code>pages</code>. Напишите <code>paginate(items, page, pageSize = 10)</code>: страницы нумеруются с 1, страница за пределами диапазона даёт пустой <code>items</code>, а <code>total</code> и <code>pages</code> остаются правильными.</p>
+<p class="why"><b>Зачем:</b> один обобщённый тип описывает страницу статей, товаров и пользователей. Тот же ответ сервер отдаёт в уроке <a href="/lessons/restful-api#rest-pagination">RESTful API</a>. Если форма страницы описана один раз, клиент и сервер не разойдутся в названиях полей.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Page&lt;T&gt; {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  pages: number;
+}
+
+export function paginate&lt;T&gt;(items: readonly T[], page: number, pageSize = 10): Page&lt;T&gt; {
+  const start = (page - 1) * pageSize;
+  return {
+    items: items.slice(start, start + pageSize),
+    page,
+    pageSize,
+    total: items.length,
+    pages: Math.ceil(items.length / pageSize),
+  };
+}</code></pre>
+<p>Тип <code>T</code> выводится из массива, поэтому <code>paginate(articles, 2)</code> вернёт <code>Page&lt;Article&gt;</code> без явного аргумента. <code>slice</code> за пределами массива возвращает пустой массив, а не бросает ошибку. Пограничный случай «страница 3 из 2» обрабатывается без отдельной ветки. <code>Math.ceil</code> нужен, потому что 21 элемент по 10 — это три страницы, а не 2,1.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="advanced-noinfer">Дополнительно: NoInfer и источник типа</h3>
 <p>Этот приём можно оставить на второй проход. В примере values — разрешённые варианты, fallback — запасное значение. Нужно вывести C только из списка вариантов, а запасное значение проверить по уже полученному типу.</p>
 
@@ -43,4 +126,35 @@ if (false) {
 }
 </code></pre>
 <p>Здесь C получается равным <code>"light" | "dark"</code>. Обёртка <code>NoInfer&lt;C&gt;</code> не позволяет аргументу fallback добавить в этот набор "auto". Поэтому "light" подходит, а "auto" вызывает ошибку. Это дополнение для TS 5.4+, полезное лишь там, где обычный вывод допускает лишние варианты.</p>
+<article class="task" id="tsa-noinfer" data-task="typescript-advanced/tsa-noinfer">
+<h4>Задача 10. Значение по умолчанию не должно расширять варианты <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>createSelect(options, initial)</code>: возвращает объект с текущим значением <code>value</code> и методом <code>set(next)</code>. Варианты задаются массивом <code>as const</code>. Вызов <code>createSelect(["new", "popular"] as const, "oldest")</code> должен быть ошибкой компиляции, а <code>set("oldest")</code> — тоже.</p>
+<p class="why"><b>Зачем:</b> без <code>NoInfer</code> компилятор выводит тип вариантов из <b>обоих</b> аргументов и «великодушно» добавляет <code>"oldest"</code> в набор. Опечатка в значении по умолчанию проходит молча, а в интерфейсе выбран пункт, которого нет в списке.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function createSelect&lt;O extends string&gt;(options: readonly O[], initial: NoInfer&lt;O&gt;) {
+  let value: O = initial;
+  return {
+    get value(): O {
+      return value;
+    },
+    options,
+    set(next: O): void {
+      value = next;
+    },
+  };
+}
+
+const sort = createSelect(['new', 'popular'] as const, 'new');
+sort.set('popular');
+
+if (false) {
+  // @ts-expect-error: "oldest" нет среди вариантов
+  createSelect(['new', 'popular'] as const, 'oldest');
+  // @ts-expect-error: и установить его нельзя
+  sort.set('oldest');
+}</code></pre>
+<p>Уберите <code>NoInfer</code> и посмотрите на первый <code>@ts-expect-error</code>. Компилятор сообщит, что директива лишняя: <code>O</code> вывелся как <code>"new" | "popular" | "oldest"</code>. <code>NoInfer&lt;O&gt;</code> говорит: «тип бери из <code>options</code>, а этот аргумент только проверяй». Геттер <code>value</code> нужен, чтобы снаружи всегда читалось текущее значение, а не копия, сделанная при создании объекта.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

@@ -6,6 +6,23 @@
 └──────┬─────────┘└──────┬───────┘└──────────┬──────────┘
    домен (+ порт)       путь           строка запроса</code></pre>
 <p><b>Путь</b> указывает ресурс: «статьи пользователя 1». <b>Строка запроса</b> после <code>?</code> уточняет выборку: третья страница, только опубликованные. Пары разделяются <code>&amp;</code>. Порт по умолчанию — 443 для HTTPS и 80 для HTTP; при локальной разработке его пишут явно: <code>localhost:3000</code>.</p>
+<article class="task" id="rs-url" data-task="restful-api/rs-url">
+<h4>Задача 1. Разобрать адрес на части <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>parseEndpoint(url)</code>, которая возвращает <code>{ origin, segments, query }</code>. Для <code>https://domain.com/user/1/articles?page=3&amp;published=true</code> получится <code>origin: "https://domain.com"</code>, <code>segments: ["user", "1", "articles"]</code>, <code>query: { page: "3", published: "true" }</code>. Разбирайте встроенным классом <code>URL</code>, без регулярных выражений.</p>
+<p class="why"><b>Зачем:</b> адрес — это структура, а не строка. Ручной разбор через <code>split("?")</code> ломается на кодированных символах (<code>%20</code>), на <code>#</code> и на портах. <code>URL</code> есть и в браузере, и в Node, и уже знает все эти правила.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function parseEndpoint(url: string) {
+  const u = new URL(url);
+  return {
+    origin: u.origin,
+    segments: u.pathname.split('/').filter(Boolean),
+    query: Object.fromEntries(u.searchParams),
+  };
+}</code></pre>
+<p><code>searchParams</code> сам декодирует значения: <code>?q=%D1%82%D1%81</code> превратится в <code>"тс"</code>. Обратите внимание, что все значения — строки: <code>page</code> равно <code>"3"</code>, а не <code>3</code>. Привести их к нужному типу и проверить — работа сервера, этим займётся задача про параметры списка ниже. <code>filter(Boolean)</code> убирает пустые части от ведущего и конечного слеша.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="rest-crud">Методы и CRUD</h3>
 <p>Почти любое действие с данными сводится к четырём операциям — <b>CRUD</b>: Create, Read, Update, Delete. В REST каждой соответствует метод HTTP:</p>
 <div class="tbl"><table>
@@ -20,9 +37,140 @@
 </tbody></table></div>
 <p>Лектор признаётся, что «особой разницы между PUT и PATCH не видит», и тут же на демо показывает её: <code>PUT</code> с телом <code>{"role": "developer"}</code> стёр все остальные поля пользователя. Проверено на json-server: после <code>PUT /employees/1</code> с <code>{"role":"lead"}</code> от записи осталось только <code>{"role":"lead","id":"1"}</code>, а <code>PATCH /employees/2</code> с <code>{"salary":3000}</code> поменял только зарплату. <code>PUT</code> — замена ресурса целиком, <code>PATCH</code> — частичное изменение.</p>
 <p>Важное свойство — <b>идемпотентность</b>: повтор запроса даёт тот же итог. <code>GET</code>, <code>PUT</code> и <code>DELETE</code> идемпотентны (удалить уже удалённое — всё равно «удалено»), <code>POST</code> нет: три одинаковых POST создадут три записи. Поэтому при обрыве связи повторить <code>PUT</code> безопасно, а <code>POST</code> — нет.</p>
+<article class="task" id="rs-crud" data-task="restful-api/rs-crud">
+<h4>Задача 2. CRUD в памяти: как отвечает json-server <span class="lvl">★★☆ практика</span></h4>
+<p>Без Express и без сети напишите функцию <code>handle(method, path, body?)</code> для ресурса <code>/employees</code>, которая возвращает <code>{ status, body }</code>. Поведение — как в таблице раздела: список, один элемент, создание (новый <code>id</code>, ответ 201), полная замена PUT, частичная PATCH, удаление (204 без тела). Неизвестный <code>id</code> — 404. Хранилище — <code>Map</code>, который передаётся в <code>createHandler(store)</code>.</p>
+<p class="why"><b>Зачем:</b> если отделить логику ресурса от HTTP-обвязки, её можно проверить обычными тестами за миллисекунды. Заодно в одном месте видно, чем PUT отличается от PATCH и какой код ответа у каждой операции.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Путь разбейте на сегменты: <code>["employees"]</code> — коллекция, <code>["employees", "2"]</code> — один элемент. При PUT сохраните <code>id</code> из адреса, даже если в теле пришёл другой.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Employee {
+  id: string;
+  name: string;
+  role: string;
+}
+type Body = Omit&lt;Employee, 'id'&gt;;
+export interface Reply {
+  status: number;
+  body?: unknown;
+}
+
+export function createHandler(store: Map&lt;string, Employee&gt;) {
+  let nextId = store.size + 1;
+  return function handle(method: string, path: string, body?: Partial&lt;Body&gt;): Reply {
+    const [resource, id, ...rest] = path.split('/').filter(Boolean);
+    if (resource !== 'employees' || rest.length &gt; 0) return { status: 404 };
+
+    if (id === undefined) {
+      if (method === 'GET') return { status: 200, body: [...store.values()] };
+      if (method === 'POST') {
+        const created: Employee = { name: '', role: '', ...body, id: String(nextId++) };
+        store.set(created.id, created);
+        return { status: 201, body: created };
+      }
+      return { status: 405 };
+    }
+
+    const current = store.get(id);
+    if (!current) return { status: 404 };
+    switch (method) {
+      case 'GET':
+        return { status: 200, body: current };
+      case 'PUT': {
+        const replaced: Employee = { name: '', role: '', ...body, id };
+        store.set(id, replaced);
+        return { status: 200, body: replaced };
+      }
+      case 'PATCH': {
+        const patched: Employee = { ...current, ...body, id };
+        store.set(id, patched);
+        return { status: 200, body: patched };
+      }
+      case 'DELETE':
+        store.delete(id);
+        return { status: 204 };
+      default:
+        return { status: 405 };
+    }
+  };
+}</code></pre>
+<p>Главная разница PUT и PATCH видна в двух строках. PUT строит объект заново из тела: чего нет в теле, того не будет. PATCH берёт текущий объект и накладывает изменения. <code>id</code> всегда берётся из адреса: ресурс определяется путём, а не телом, иначе клиент мог бы «переименовать» запись. 405 Method Not Allowed — честный ответ на <code>DELETE /employees</code>: адрес существует, но такое действие с ним запрещено. Проверки полей здесь намеренно нет, она появится в последней задаче.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="rs-idempotent" data-task="restful-api/rs-idempotent">
+<h4>Задача 3. Тест на идемпотентность <span class="lvl">★★☆ практика</span></h4>
+<p>Возьмите <code>createHandler</code> из прошлой задачи и напишите тесты, которые проверяют определение из раздела: повтор PUT и DELETE оставляет данные в том же состоянии, а повтор POST создаёт вторую запись. Сравнивайте состояние хранилища, а не ответы: второй DELETE вернёт 404, и это нормально.</p>
+<pre><code>// handler.ts
+export interface Employee { id: string; name: string; role: string }
+export function createHandler(store: Map&lt;string, Employee&gt;) {
+  let nextId = store.size + 1;
+  return function handle(method: string, path: string, body?: Partial&lt;Omit&lt;Employee, 'id'&gt;&gt;): { status: number; body?: unknown } {
+    const [, id] = path.split('/').filter(Boolean);
+    if (id === undefined &amp;&amp; method === 'POST') { const c = { name: '', role: '', ...body, id: String(nextId++) }; store.set(c.id, c); return { status: 201, body: c }; }
+    if (id === undefined) return { status: 200, body: [...store.values()] };
+    if (!store.has(id)) return { status: 404 };
+    if (method === 'PUT') { const r = { name: '', role: '', ...body, id }; store.set(id, r); return { status: 200, body: r }; }
+    if (method === 'DELETE') { store.delete(id); return { status: 204 }; }
+    return { status: 200, body: store.get(id) };
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> идемпотентность — это про <b>итоговое состояние сервера</b>, а не про одинаковые ответы. На этом свойстве держатся повторы запросов при обрыве связи: клиент может спокойно повторить PUT, но повтор POST создаст дубль заказа.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// idempotent.test.ts
+import { expect, it } from 'vitest';
+import { createHandler, type Employee } from './handler.js';
+
+const setup = () =&gt; {
+  const store = new Map&lt;string, Employee&gt;([['1', { id: '1', name: 'Аня', role: 'dev' }]]);
+  return { store, handle: createHandler(store) };
+};
+const snapshot = (store: Map&lt;string, Employee&gt;) =&gt; structuredClone([...store.entries()]);
+
+it('PUT идемпотентен', () =&gt; {
+  const { store, handle } = setup();
+  handle('PUT', '/employees/1', { name: 'Анна', role: 'lead' });
+  const once = snapshot(store);
+  handle('PUT', '/employees/1', { name: 'Анна', role: 'lead' });
+  expect(snapshot(store)).toEqual(once);
+});
+
+it('DELETE идемпотентен по состоянию', () =&gt; {
+  const { store, handle } = setup();
+  handle('DELETE', '/employees/1');
+  const once = snapshot(store);
+  const second = handle('DELETE', '/employees/1');
+  expect(snapshot(store)).toEqual(once);
+  expect(second.status).toBe(404);
+});
+
+it('POST не идемпотентен', () =&gt; {
+  const { store, handle } = setup();
+  handle('POST', '/employees', { name: 'Вася', role: 'dev' });
+  handle('POST', '/employees', { name: 'Вася', role: 'dev' });
+  expect(store.size).toBe(3);
+});</code></pre>
+<p><code>structuredClone</code> делает глубокую копию: без неё «снимок» указывал бы на те же объекты, и сравнение было бы бессмысленным. Второй DELETE отвечает 404, но данные те же. Поэтому тест сравнивает хранилище, а статус проверяет отдельно, чтобы зафиксировать и это поведение. Мутант ниже «добавляет» сотрудника при PUT вместо замены. Тест его ловит, хотя код ответа остаётся 200.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="rest-headers">Заголовки</h3>
 <p>Самые важные для REST — <code>Content-Type</code> (в каком формате тело запроса или ответа) и <code>Accept</code> (какой формат клиент хочет получить). Лектор подчёркивает: Postman ставит <code>Content-Type: application/json</code> сам, а в своём коде его нужно указывать, иначе сервер может неправильно понять данные. Проверка на json-server 0.17: <code>POST</code> с JSON в теле, но с <code>Content-Type: text/plain</code>, вернул 201, а запись создалась <b>пустой</b> — только с <code>id</code>. Сервер молча проигнорировал тело. Версия 1.0 в той же ситуации разобрала JSON — на это нельзя полагаться с другими серверами.</p>
 <p>Ещё заголовки со слайдов: <code>Access-Control-*</code> (CORS), <code>Cache-Control</code>, <code>Set-Cookie</code>, <code>Authorization</code> для токена (урок <a href="/lessons/jwt-auth">«JWT-авторизация»</a>).</p>
+<article class="task" id="rs-headers" data-task="restful-api/rs-headers">
+<h4>Задача 4. Заголовки только там, где нужны <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>buildInit(method, body?)</code>, которая собирает объект настроек для <code>fetch</code>. <code>Accept: application/json</code> ставится всегда. <code>Content-Type</code> и <code>body</code> — только если тело передано, и тогда тело превращается в JSON.</p>
+<p class="why"><b>Зачем:</b> <code>Content-Type</code> описывает тело запроса. У GET тела нет, и заголовок там вводит в заблуждение. Хуже того, в браузере он делает запрос «непростым» и вызывает лишний предварительный запрос CORS. А <code>Accept</code> говорит, какой ответ клиент готов прочитать.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function buildInit(method: string, body?: unknown): RequestInit {
+  const headers: Record&lt;string, string&gt; = { Accept: 'application/json' };
+  if (body === undefined) return { method, headers };
+  headers['Content-Type'] = 'application/json';
+  return { method, headers, body: JSON.stringify(body) };
+}</code></pre>
+<p>Проверка именно <code>=== undefined</code>: тело <code>null</code> или <code>0</code> — допустимый JSON, его надо отправить. Про «предварительный запрос»: браузер перед запросом на другой адрес с <code>Content-Type: application/json</code> сначала спрашивает сервер методом OPTIONS, можно ли. Подробнее — в уроке <a href="/lessons/client-server">«Клиент и сервер»</a> (из общих знаний: правила CORS).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="rest-json">Данные в JSON</h3>
 <pre><code>{
   "name": "John Doe",
@@ -31,6 +179,67 @@
   "city": null
 }</code></pre>
 <p>Правила JSON из лекции: ключи и строки — только в двойных кавычках, числа, <code>true</code>, <code>false</code> и <code>null</code> пишутся как есть, после последнего элемента запятая не ставится. Чего в JSON нет: <code>undefined</code>, функций, <code>NaN</code>, дат. Проверка: <code>JSON.stringify({ a: undefined, b: null, c: NaN, d: () =&gt; 1, e: new Date(0) })</code> дало <code>{"b":null,"c":null,"e":"1970-01-01T00:00:00.000Z"}</code> — <code>undefined</code> и функция исчезли, <code>NaN</code> стал <code>null</code>, дата превратилась в строку.</p>
+<article class="task" id="rs-json" data-task="restful-api/rs-json">
+<h4>Задача 5. Что теряется в JSON <span class="lvl">★★☆ практика</span></h4>
+<p>Заказ содержит дату (<code>Date</code>), набор тегов (<code>Set</code>) и необязательный комментарий. Узнайте, что с ними сделает <code>JSON.stringify</code>, и напишите пару функций: <code>toWire(order)</code> → объект, который переживёт JSON без потерь, и <code>fromWire(raw)</code> → обратно <code>Order</code>. Проверьте полный круг <code>fromWire(JSON.parse(JSON.stringify(toWire(o))))</code>.</p>
+<pre><code>export interface Order {
+  id: string;
+  createdAt: Date;
+  tags: Set&lt;string&gt;;
+  comment?: string;
+}</code></pre>
+<p class="why"><b>Зачем:</b> JSON знает только строки, числа, булевы значения, <code>null</code>, массивы и объекты. <code>Date</code> молча станет строкой, <code>Set</code> — пустым объектом <code>{}</code>, а <code>undefined</code> исчезнет. Ошибки не будет, данные просто испортятся.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Order {
+  id: string;
+  createdAt: Date;
+  tags: Set&lt;string&gt;;
+  comment?: string;
+}
+export interface WireOrder {
+  id: string;
+  createdAt: string;
+  tags: string[];
+  comment: string | null;
+}
+
+export function toWire(o: Order): WireOrder {
+  return { id: o.id, createdAt: o.createdAt.toISOString(), tags: [...o.tags], comment: o.comment ?? null };
+}
+
+export function fromWire(w: WireOrder): Order {
+  const order: Order = { id: w.id, createdAt: new Date(w.createdAt), tags: new Set(w.tags) };
+  if (w.comment !== null) order.comment = w.comment;
+  return order;
+}</code></pre>
+<p>Два типа — «как в программе» и «как в сети» — это нормальная практика: формат передачи описан явно и не зависит от того, какие классы удобны внутри. Дату передают строкой ISO 8601 (<code>2026-11-19T08:00:00.000Z</code>): она однозначна, содержит часовой пояс и сортируется как строка. Отсутствующий комментарий стал <code>null</code>: так клиент видит поле в ответе и знает, что оно пустое, а не забыто.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="rest-status">Коды ответов</h3>
 <p>Статья <a href="https://code.tutsplus.com/ru/tutorials/code-your-first-api-with-nodejs-and-express-understanding-rest-apis--cms-31697">tutsplus (на русском)</a> выделяет главные: 200 OK, 201 Created, 204 No Content, 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, 500 Internal Server Error. Хороший REST-API отвечает точным кодом и понятным сообщением в теле. Полный разбор — в разделе <a href="/lessons/client-server#cs-status">«Коды состояния»</a>.</p>
+<article class="task" id="rs-status" data-task="restful-api/rs-status">
+<h4>Задача 6. Какой код ответа <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>statusFor(outcome)</code> для исходов операции: <code>"ok"</code>, <code>"created"</code>, <code>"deleted"</code>, <code>"invalid"</code>, <code>"no-token"</code>, <code>"not-allowed"</code>, <code>"not-found"</code>, <code>"duplicate"</code>, <code>"crash"</code>. Используйте <code>Record</code>, чтобы новый исход нельзя было забыть.</p>
+<p class="why"><b>Зачем:</b> код ответа — первое, что читает клиент. По нему он решает, показать ошибку поля, отправить на страницу входа или повторить запрос. Перепутанные 401 и 403 приводят к выходу из аккаунта вместо сообщения «нет прав».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type Outcome = 'ok' | 'created' | 'deleted' | 'invalid' | 'no-token' | 'not-allowed' | 'not-found' | 'duplicate' | 'crash';
+
+const CODES: Record&lt;Outcome, number&gt; = {
+  ok: 200,
+  created: 201,
+  deleted: 204,
+  invalid: 400,
+  'no-token': 401,
+  'not-allowed': 403,
+  'not-found': 404,
+  duplicate: 409,
+  crash: 500,
+};
+
+export const statusFor = (outcome: Outcome): number =&gt; CODES[outcome];</code></pre>
+<p>401 Unauthorized, несмотря на название, означает «не знаю, кто вы»: токена нет или он просрочен. Лечится входом. 403 Forbidden — «знаю, кто вы, но нельзя». Повторный вход не поможет. 409 Conflict — запрос корректен, но противоречит текущему состоянию, например email уже занят. Коды 4xx — ошибка клиента, повторять тот же запрос бессмысленно. Коды 5xx — ошибка сервера, повтор может помочь.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

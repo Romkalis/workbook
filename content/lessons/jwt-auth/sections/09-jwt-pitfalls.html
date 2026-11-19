@@ -8,4 +8,58 @@
 <li><strong>Сменили JWT_SECRET — все выйдут.</strong> Все выданные токены станут недействительными: их подписи считались старым секретом. Иногда этим пользуются намеренно, чтобы разлогинить всех.</li>
 <li><strong>Refresh-токены — следующий шаг.</strong> В рабочих системах выдают пару: короткий access-токен (минуты) и долгий refresh-токен, которым можно получить новый access без повторного ввода пароля. Для учебного проекта пока не обязательно.</li>
 </ul>
+<article class="task" id="jw-logout-all" data-task="jwt-auth/jw-logout-all">
+<h4>Задача 15. Выйти на всех устройствах <span class="lvl">★★★ с подвохом</span></h4>
+<p>Токен нельзя отозвать, но можно сделать устаревшим. Добавьте пользователю поле <code>tokenVersion</code> (число). При входе версия кладётся в токен, <code>requireAuth</code> сверяет её с хранилищем, а <code>POST /api/auth/logout-all</code> увеличивает версию. После этого все ранее выданные токены перестают работать, а новый вход снова работает.</p>
+<p class="why"><b>Зачем:</b> это компромисс между «сервер ничего не хранит» и «нужно уметь выгнать пользователя». Мы храним одно число на пользователя, а не список токенов. Цена — одно чтение из хранилища на запрос, и мы его уже делаем, когда берём профиль.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { type RequestHandler } from 'express';
+import jwt from 'jsonwebtoken';
+
+export interface User {
+  id: string;
+  tokenVersion: number;
+}
+
+export function createApp(secret: string, users: Map&lt;string, User&gt;) {
+  const app = express();
+  app.use(express.json());
+
+  const issue = (user: User) =&gt; jwt.sign({ sub: user.id, ver: user.tokenVersion }, secret, { expiresIn: '1h' });
+
+  const requireAuth: RequestHandler = (req, res, next) =&gt; {
+    const [scheme, token] = (req.headers.authorization ?? '').split(' ');
+    try {
+      if (scheme !== 'Bearer' || !token) throw new Error('no token');
+      const p = jwt.verify(token, secret, { algorithms: ['HS256'] });
+      if (typeof p === 'string' || typeof p.sub !== 'string') throw new Error('payload');
+      const user = users.get(p.sub);
+      if (!user || p.ver !== user.tokenVersion) throw new Error('revoked');
+      res.locals.user = user;
+      next();
+    } catch {
+      res.status(401).json({ message: 'Нужен вход' });
+    }
+  };
+
+  app.post('/api/auth/login', (req, res) =&gt; {
+    const user = users.get(String(req.body.userId));
+    if (!user) return res.status(401).json({ message: 'Нужен вход' });
+    res.json({ token: issue(user) });
+  });
+  app.get('/api/me', requireAuth, (_req, res) =&gt; {
+    res.json({ id: (res.locals.user as User).id });
+  });
+  app.post('/api/auth/logout-all', requireAuth, (_req, res) =&gt; {
+    const user = res.locals.user as User;
+    users.set(user.id, { ...user, tokenVersion: user.tokenVersion + 1 });
+    res.status(204).end();
+  });
+  return app;
+}</code></pre>
+<p>Тот же механизм пригодится при смене пароля: увеличили версию, и украденные токены перестали работать. Альтернатива — «чёрный список» отозванных токенов. Но его нужно хранить до истечения каждого токена, и он растёт. В рабочих системах обычно комбинируют короткий access-токен и refresh-токен, который хранится на сервере и отзывается (раздел «Что часто путают»).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

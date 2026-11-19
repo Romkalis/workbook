@@ -18,6 +18,33 @@ if (false) {
 }
 </code></pre>
 <p>В Load три варианта состояния. <code>Extract&lt;Load, { status: "ready" }&gt;</code> оставляет только объект с готовыми данными. <code>Exclude&lt;Load, { status: "loading" }&gt;</code> оставляет два остальных варианта: ready и error. Иными словами, Exclude исключает подходящие варианты, а Extract выбирает их. NonNullable исключает null и undefined. Эти типы не проверяют переменную при выполнении: перед преобразованием внешнего значения всё ещё нужен guard.</p>
+<article class="task" id="tsa-extract" data-task="typescript-advanced/tsa-extract">
+<h4>Задача 15. Только ошибки <span class="lvl">★★☆ практика</span></h4>
+<p>Есть union состояний загрузки (ниже). Напишите <code>failed(states)</code>, которая возвращает только состояния с ошибкой. Тип результата получите через <code>Extract</code>, а не опишите вручную. После вызова должно компилироваться <code>failed(list)[0]?.message</code>.</p>
+<pre><code>export type Load =
+  | { status: 'loading' }
+  | { status: 'ready'; data: string[] }
+  | { status: 'error'; message: string };</code></pre>
+<p class="why"><b>Зачем:</b> <code>filter</code> с обычной стрелкой возвращает тот же тип <code>Load[]</code>, и до <code>message</code> не добраться без <code>as</code>. Предикат с <code>Extract</code> делает сужение и тип результата согласованными: поменяется вариант ошибки — поменяется и результат.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type Load =
+  | { status: 'loading' }
+  | { status: 'ready'; data: string[] }
+  | { status: 'error'; message: string };
+export type Failed = Extract&lt;Load, { status: 'error' }&gt;;
+
+const isFailed = (s: Load): s is Failed =&gt; s.status === 'error';
+
+export function failed(states: readonly Load[]): Failed[] {
+  return states.filter(isFailed);
+}
+
+const list: Load[] = [{ status: 'loading' }, { status: 'error', message: 'Сеть' }];
+console.log(failed(list)[0]?.message);</code></pre>
+<p><code>Extract&lt;Load, { status: 'error' }&gt;</code> оставляет варианты, которые подходят под образец. С TypeScript 5.5 компилятор умеет выводить предикат из стрелки <code>s =&gt; s.status === 'error'</code> сам. Явный тип всё равно полезен: он документирует намерение и не сломается, если условие станет сложнее, чем умеет разобрать вывод.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="advanced-omit-union">Почему Omit и Exclude не взаимозаменяемы</h3>
 <p>Omit работает с ключами объекта, а Exclude — с вариантами union. <code>Exclude&lt;"a" | "b", "a"&gt;</code> даст "b". Если применить Exclude к объекту, передав строковое имя его поля, поле не исчезнет. У Omit над union могут потеряться свойства отдельных вариантов, поскольку операция не обязана распределяться по ним.</p>
 <p>Для начала достаточно различать операции: <code>Omit&lt;Article, "id"&gt;</code> исключает поле id, а <code>Exclude&lt;"loading" | "ready", "loading"&gt;</code> исключает вариант "loading". Сложный случай — отдельное преобразование каждого объекта в union — разберём <a href="#advanced-distribution">после условных типов</a>.</p>
