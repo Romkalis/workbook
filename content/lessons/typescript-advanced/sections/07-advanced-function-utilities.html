@@ -15,6 +15,30 @@ console.log(args[0], data.count);
 void load(...args).then(result =&gt; console.log(result.count));
 </code></pre>
 <p>Разберём результат по строкам: Args — кортеж <code>[id: string, limit?: number]</code>; Pending — <code>Promise&lt;{ id: string; count: number }&gt;</code>; Data — объект <code>{ id: string; count: number }</code> после успешного ожидания Promise. Проще говоря, <code>Parameters</code> отвечает «что функция принимает», <code>ReturnType</code> — «что возвращает», <code>Awaited</code> — «что получится после <code>await</code>». Awaited умеет раскрывать также вложенные Promise и объединения типов. Это помогает не дублировать сигнатуры. У перегруженной функции извлечение обычно ориентируется на последнюю сигнатуру, а не выбирает перегрузку по будущим аргументам.</p>
+<article class="task" id="tsa-function-types" data-task="typescript-advanced/tsa-function-types">
+<h4>Задача 16. Типы из чужой функции <span class="lvl">★☆☆ разминка</span></h4>
+<p>Функция <code>searchArticles</code> пришла из библиотеки, её типы не экспортированы. Получите, не переписывая руками: <code>SearchArgs</code> — кортеж аргументов, <code>SearchResult</code> — то, что окажется в переменной после <code>await</code>, и <code>Hit</code> — тип одного элемента <code>hits</code>. Напишите <code>firstHit(...args: SearchArgs): Promise&lt;Hit | undefined&gt;</code>.</p>
+<pre><code>export async function searchArticles(query: string, opts: { page: number; tags?: string[] }) {
+  return { total: 1, hits: [{ id: 'a1', title: `Найдено: ${query}`, page: opts.page }] };
+}</code></pre>
+<p class="why"><b>Зачем:</b> когда тип выведен из функции, он не может разойтись с ней. Библиотека добавит поле в ответ — и ваша обёртка узнает о нём сама, без правки дублирующего интерфейса.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export async function searchArticles(query: string, opts: { page: number; tags?: string[] }) {
+  return { total: 1, hits: [{ id: 'a1', title: `Найдено: ${query}`, page: opts.page }] };
+}
+
+export type SearchArgs = Parameters&lt;typeof searchArticles&gt;;
+export type SearchResult = Awaited&lt;ReturnType&lt;typeof searchArticles&gt;&gt;;
+export type Hit = SearchResult['hits'][number];
+
+export async function firstHit(...args: SearchArgs): Promise&lt;Hit | undefined&gt; {
+  const result = await searchArticles(...args);
+  return result.hits[0];
+}</code></pre>
+<p><code>ReturnType</code> асинхронной функции — это <code>Promise&lt;…&gt;</code>, а <code>Awaited</code> его разворачивает. <code>['hits'][number]</code> — индексный доступ дважды: сначала к полю, потом к «любому элементу массива». <code>typeof</code> здесь — оператор типов: он берёт тип значения <code>searchArticles</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="advanced-constructor-utilities">ConstructorParameters и InstanceType</h3>
 <pre><code>class Article {
   constructor(readonly title: string, readonly minutes: number) {}

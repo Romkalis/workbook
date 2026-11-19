@@ -16,6 +16,45 @@ router.post('/register', async (req, res) =&gt; {
   }
 });</code></pre>
 <p>Токен здесь ещё не создаётся. Мы просто сохраняем пользователя. Обратите внимание: в ответе нет пароля, даже хешированного.</p>
+<article class="task" id="jw-register" data-task="jwt-auth/jw-register">
+<h4>Задача 7. Регистрация: 201, 400 и 409 <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>createApp({ secret })</code> с маршрутом <code>POST /api/auth/register</code> (пользователи в <code>Map</code> внутри приложения). Правила:</p>
+<ul><li>email — строка с <code>@</code>, приводится к нижнему регистру; пароль — от 8 символов. Иначе 400;</li><li>занятый email — 409;</li><li>успех — 201 и <code>{ id, email }</code>, без хеша.</li></ul>
+<p class="why"><b>Зачем:</b> в уроке любая ошибка регистрации превращается в 400 с текстом исключения MongoDB. Клиенту так не понять, что делать: исправить поле или войти в существующий аккаунт. Разные коды дают интерфейсу возможность ответить правильно.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import bcrypt from 'bcryptjs';
+import express from 'express';
+
+export interface User {
+  id: string;
+  email: string;
+  passwordHash: string;
+}
+
+export function createApp(_opts: { secret: string }) {
+  const users = new Map&lt;string, User&gt;(); // ключ — email
+  const app = express();
+  app.use(express.json());
+
+  app.post('/api/auth/register', async (req, res) =&gt; {
+    const { email, password } = (req.body ?? {}) as Record&lt;string, unknown&gt;;
+    if (typeof email !== 'string' || !email.includes('@')) return res.status(400).json({ message: 'Неверный email' });
+    if (typeof password !== 'string' || password.length &lt; 8) {
+      return res.status(400).json({ message: 'Пароль: минимум 8 символов' });
+    }
+    const normalized = email.trim().toLowerCase();
+    if (users.has(normalized)) return res.status(409).json({ message: 'Email уже зарегистрирован' });
+    const user: User = { id: String(users.size + 1), email: normalized, passwordHash: await bcrypt.hash(password, 4) };
+    users.set(normalized, user);
+    res.status(201).json({ id: user.id, email: user.email });
+  });
+  return app;
+}</code></pre>
+<p>Нормализация email обязательна: без неё <code>Anna@Example.com</code> и <code>anna@example.com</code> — два разных аккаунта, и человек не сможет войти. В MongoDB ту же роль играют <code>lowercase: true</code> в схеме и уникальный индекс. Индекс надёжнее проверки <code>has</code>: два одновременных запроса могли бы оба пройти проверку. Ответ строится белым списком полей, поэтому хеш не утечёт, даже если в модели появятся новые поля. Стоимость bcrypt 4 — только для скорости тестов.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="jwt-login-login">Вход — здесь появляется токен</h3>
 <pre><code>router.post('/login', async (req, res) =&gt; {
   try {
@@ -41,6 +80,73 @@ router.post('/register', async (req, res) =&gt; {
 module.exports = router;</code></pre>
 <p>Почему сообщение одинаковое и для «нет такого email», и для «неверный пароль»? Если бы они различались, по ответу можно было бы узнать, какие email зарегистрированы.</p>
 <p>В исходном материале у маршрута входа нет <code>try/catch</code>. В Express 4 ошибка внутри <code>async</code>-обработчика (например, упала база) не попадёт в обработчик ошибок, и запрос просто повиснет. Express 5 такие ошибки ловит сам, но <code>try/catch</code> работает в обеих версиях.</p>
+<article class="task" id="jw-login" data-task="jwt-auth/jw-login">
+<h4>Задача 8. Вход: одинаковый ответ на обе ошибки <span class="lvl">★★☆ практика</span></h4>
+<p>Добавьте <code>POST /api/auth/login</code>. При успехе — 200 и <code>{ token }</code>, где в payload лежит <code>sub</code> (id пользователя) и срок жизни один час. Неизвестный email и неверный пароль — <b>одинаковый</b> ответ 401 с одним и тем же текстом. Чтобы тест мог создать пользователя, приложение принимает начальный список: <code>createApp({ secret, users })</code>.</p>
+<p class="why"><b>Зачем:</b> разные сообщения («нет такого email» и «неверный пароль») позволяют перебором узнать, кто зарегистрирован на сайте. Поле <code>sub</code> (subject, «о ком токен») — стандартное имя из спецификации JWT. Другие библиотеки и сервисы понимают его без договорённостей.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import bcrypt from 'bcryptjs';
+import express from 'express';
+import jwt from 'jsonwebtoken';
+
+export interface User {
+  id: string;
+  email: string;
+  passwordHash: string;
+}
+
+export function createApp({ secret, users }: { secret: string; users: User[] }) {
+  const app = express();
+  app.use(express.json());
+  const fail = { message: 'Неверный email или пароль' };
+
+  app.post('/api/auth/login', async (req, res) =&gt; {
+    const { email, password } = (req.body ?? {}) as Record&lt;string, unknown&gt;;
+    if (typeof email !== 'string' || typeof password !== 'string') return res.status(400).json({ message: 'Нужны email и пароль' });
+    const user = users.find((u) =&gt; u.email === email.trim().toLowerCase());
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) return res.status(401).json(fail);
+    const token = jwt.sign({ sub: user.id }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+    res.json({ token });
+  });
+  return app;
+}</code></pre>
+<p><code>expiresIn: '1h'</code> библиотека превращает в поле <code>exp = iat + 3600</code>, и тест проверяет именно эту разницу. Отсутствующие поля — 400, а не 401: это ошибка формы запроса, а не неудачная попытка входа. Остаётся одна утечка, через время ответа: для неизвестного email bcrypt не вызывается, и ответ приходит заметно быстрее. Её закрывает следующая задача.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="jw-timing" data-task="jwt-auth/jw-timing">
+<h4>Задача 9. Утечка через время ответа <span class="lvl">★★★ с подвохом</span></h4>
+<p>Даже с одинаковым текстом ответа вход выдаёт, есть ли пользователь: без него bcrypt не вызывается, и ответ приходит в десятки раз быстрее. Перепишите проверку так, чтобы сравнение пароля выполнялось <b>всегда</b>. Напишите функцию <code>authenticate(users, email, password, compare)</code>, где <code>compare</code> передаётся параметром. Так в тесте можно посчитать вызовы.</p>
+<p class="why"><b>Зачем:</b> это пример того, что безопасность — свойство поведения, а не текста ответа. Задача тренирует ещё и тестируемость: если зависимость передаётся параметром, тест проверяет «сколько раз вызвали сравнение» без замеров времени, которые в CI нестабильны.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Заранее посчитайте хеш какого-нибудь пароля с той же стоимостью. Если пользователь не найден, сравнивайте с ним, а результат игнорируйте.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import bcrypt from 'bcryptjs';
+
+export interface User {
+  id: string;
+  email: string;
+  passwordHash: string;
+}
+type Compare = (plain: string, hash: string) =&gt; Promise&lt;boolean&gt;;
+
+// Хеш с той же стоимостью, что и у настоящих паролей: время проверки одинаковое
+const DUMMY_HASH = bcrypt.hashSync('dummy-password', 10);
+
+export async function authenticate(
+  users: readonly User[],
+  email: string,
+  password: string,
+  compare: Compare = bcrypt.compare,
+): Promise&lt;User | null&gt; {
+  const user = users.find((u) =&gt; u.email === email);
+  const ok = await compare(password, user?.passwordHash ?? DUMMY_HASH);
+  return user &amp;&amp; ok ? user : null;
+}</code></pre>
+<p>Обратите внимание на <code>user &amp;&amp; ok</code>. Даже если кто-то угадает пароль, от которого посчитан <code>DUMMY_HASH</code>, без пользователя функция вернёт <code>null</code>. Стоимость хеша-заглушки должна совпадать с настоящей, иначе время снова будет различаться. Защиту дополняют ограничением числа попыток входа (rate limiting). Это из общих знаний, в материалах модуля этого нет.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="jwt-login-sign">Что делает jwt.sign</h3>
 <ol>
 <li>Кодирует header <code>{"alg":"HS256","typ":"JWT"}</code> в base64url.</li>

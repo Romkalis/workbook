@@ -10,6 +10,53 @@ const status: Status = &quot;ready&quot;;
 console.log(config.mode, status);
 </code></pre>
 <p>Const-переменная не делает все свойства объекта литеральными. As const сохраняет литералы и readonly для литеральной структуры; satisfies проверяет совместимость, сохраняя полезную конкретику вывода. Ни то ни другое не заменяет runtime-валидацию.</p>
+<article class="task" id="tsa-as-const" data-task="typescript-advanced/tsa-as-const">
+<h4>Задача 21. Параметр из адреса — в узкий тип <span class="lvl">★☆☆ разминка</span></h4>
+<p>Сортировка приходит из адресной строки как <code>string</code>. Объявите массив <code>SORTS = ["new", "popular", "discussed"] as const</code>, получите из него тип <code>Sort</code> и напишите <code>parseSort(raw: string | null): Sort</code>: неизвестное значение превращается в <code>"new"</code>.</p>
+<p class="why"><b>Зачем:</b> список вариантов и тип живут в одном месте. Добавили вариант в массив — он появился и в типе, и в проверке. Задача ещё и знакомит с частым неудобством: <code>SORTS.includes(raw)</code> не компилируется.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p><code>includes</code> у массива <code>readonly ("new" | …)[]</code> принимает только эти литералы. Расширьте массив при проверке: <code>(SORTS as readonly string[]).includes(raw)</code>, и оформите это предикатом.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export const SORTS = ['new', 'popular', 'discussed'] as const;
+export type Sort = (typeof SORTS)[number];
+
+function isSort(value: string): value is Sort {
+  return (SORTS as readonly string[]).includes(value);
+}
+
+export function parseSort(raw: string | null): Sort {
+  return raw !== null &amp;&amp; isSort(raw) ? raw : 'new';
+}</code></pre>
+<p><code>(typeof SORTS)[number]</code> — «тип любого элемента кортежа», то есть <code>"new" | "popular" | "discussed"</code>. Расширение до <code>readonly string[]</code> безопасно: мы только читаем. А предикат возвращает узкий тип обратно. Этот приём пригодится в <a href="/lessons/dom-state">состоянии в адресной строке</a>: любое значение из URL сначала проверяется, потом используется.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="tsa-satisfies" data-task="typescript-advanced/tsa-satisfies">
+<h4>Задача 22. Карта маршрутов через satisfies <span class="lvl">★★☆ практика</span></h4>
+<p>Опишите объект <code>routes</code> с путями приложения (<code>home: "/"</code>, <code>article: "/articles/:id"</code>, <code>search: "/search"</code>). Требования: каждый путь начинается с <code>/</code> (опечатку <code>"search"</code> должен поймать компилятор), а тип <code>RouteName = keyof typeof routes</code> состоит из точных имён, а не <code>string</code>.</p>
+<p class="why"><b>Зачем:</b> аннотация <code>: Record&lt;string, …&gt;</code> проверила бы значения, но стёрла бы имена ключей, и <code>keyof</code> дал бы <code>string</code>. <code>satisfies</code> проверяет объект, не меняя его выведенный тип. Получаем и контроль, и точность.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export const routes = {
+  home: '/',
+  article: '/articles/:id',
+  search: '/search',
+} satisfies Record&lt;string, `/${string}`&gt;;
+
+export type RouteName = keyof typeof routes;
+
+export function href(name: RouteName): string {
+  return routes[name];
+}
+
+if (false) {
+  const bad = {
+    // @ts-expect-error: путь без слеша
+    search: 'search',
+  } satisfies Record&lt;string, `/${string}`&gt;;
+}</code></pre>
+<p>Шаблонный литеральный тип <code><code>/${string}</code></code> описывает «любую строку, которая начинается со слеша». Попробуйте заменить <code>satisfies</code> на аннотацию <code>const routes: Record&lt;string, <code>/${string}</code>&gt;</code>: проверка <code>c1</code> в тесте упадёт, потому что <code>RouteName</code> станет <code>string</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="advanced-template-events">Сборка имён и строковые преобразования</h3>
 <pre><code>type Field = &quot;title&quot; | &quot;author&quot;;
 type Action = &quot;changed&quot; | &quot;cleared&quot;;
@@ -55,4 +102,42 @@ if (false) {
 </code></pre>
 <p>В Events ключ <code>countChanged</code> связан с number, а <code>titleChanged</code> — со string. В send параметр K выбирает имя события, и <code>Events[K]</code> получает соответствующий тип данных. Поэтому число 2 подходит для countChanged, а строка "two" — нет.</p>
 
+<article class="task" id="tsa-emitter" data-task="typescript-advanced/tsa-emitter">
+<h4>Задача 23. Типизированные события <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>createEmitter&lt;Events&gt;()</code> с методами <code>on(name, handler)</code> и <code>emit(name, payload)</code>. <code>on</code> возвращает функцию отписки. Тип <code>payload</code> зависит от имени события. Для карты событий <code>{ "cart:add": { id: string }; "cart:clear": undefined }</code> вызов <code>emit("cart:add", { id: 1 })</code> должен быть ошибкой компиляции.</p>
+<p class="why"><b>Зачем:</b> события — способ связать части интерфейса, не делая их зависимыми друг от друга (вспомните <a href="/lessons/dom-events">CustomEvent</a> и <a href="/lessons/design-patterns">паттерн «Наблюдатель»</a>). Без типов имя события — строка, и опечатка или неверные данные обнаруживаются только при клике.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Храните обработчики в <code>Map&lt;keyof Events, Set&lt;(payload: never) =&gt; void&gt;&gt;</code>, а снаружи давайте строгую сигнатуру <code>on&lt;K extends keyof Events&gt;(name: K, handler: (payload: Events[K]) =&gt; void)</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type Handler&lt;P&gt; = (payload: P) =&gt; void;
+
+export function createEmitter&lt;Events extends Record&lt;string, unknown&gt;&gt;() {
+  const handlers = new Map&lt;keyof Events, Set&lt;Handler&lt;never&gt;&gt;&gt;();
+  return {
+    on&lt;K extends keyof Events&gt;(name: K, handler: Handler&lt;Events[K]&gt;): () =&gt; void {
+      const set = handlers.get(name) ?? new Set();
+      set.add(handler);
+      handlers.set(name, set);
+      return () =&gt; set.delete(handler);
+    },
+    emit&lt;K extends keyof Events&gt;(name: K, payload: Events[K]): void {
+      for (const h of handlers.get(name) ?? []) (h as Handler&lt;Events[K]&gt;)(payload);
+    },
+  };
+}
+
+type CartEvents = { 'cart:add': { id: string }; 'cart:clear': undefined };
+const bus = createEmitter&lt;CartEvents&gt;();
+bus.on('cart:add', (p) =&gt; console.log(p.id));
+bus.emit('cart:add', { id: 'a1' });
+bus.emit('cart:clear', undefined);
+if (false) {
+  // @ts-expect-error: id должен быть строкой
+  bus.emit('cart:add', { id: 1 });
+  // @ts-expect-error: такого события нет
+  bus.on('cart:remove', () =&gt; {});
+}</code></pre>
+<p>Хранилище внутри не может знать, какой тип у каждого набора: связь «ключ → тип» существует только в сигнатурах. Поэтому внутри одно приведение, а снаружи всё строго. Тот же приём, что в <code>sortBy</code>. Отписка удаляет функцию из <code>Set</code>. Поэтому для отписки нужна та же ссылка на обработчик, и анонимную стрелку без сохранённой функции отписки уже не снять. Обход <code>for…of</code> по <code>Set</code> безопасен, даже если обработчик отпишется во время вызова.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

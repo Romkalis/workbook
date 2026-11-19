@@ -16,6 +16,28 @@ if (false) {
 }
 </code></pre>
 <p>Infer даёт имя найденной части типа. Здесь Item становится типом string. Для Result проверка «является ли number массивом» не проходит, поэтому выбирается ветка после двоеточия — исходный number. Запись extends встречается также в ограничении параметра типа, например <code>T extends { id: string }</code>: там она задаёт требования к T, а не выбирает одну из двух веток.</p>
+<article class="task" id="tsa-infer" data-task="typescript-advanced/tsa-infer">
+<h4>Задача 19. Что вернёт сервер <span class="lvl">★★☆ практика</span></h4>
+<p>У API-клиента все методы асинхронные. Напишите условный тип <code>Data&lt;F&gt;</code>: если <code>F</code> — функция, возвращающая <code>Promise&lt;X&gt;</code>, результат <code>X</code>, иначе <code>never</code>. Затем <code>ApiData&lt;A&gt;</code>: объект «имя метода → данные этого метода».</p>
+<pre><code>export const api = {
+  articles: async () =&gt; [{ id: 'a1', title: 'TS' }],
+  me: async () =&gt; ({ id: 'u1', email: 'anna@example.com' }),
+};</code></pre>
+<p class="why"><b>Зачем:</b> кэш, состояние загрузки и моки для тестов должны знать, какие данные вернёт каждый метод. Выводить это из самого клиента — значит никогда не держать две версии одного описания.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export const api = {
+  articles: async () =&gt; [{ id: 'a1', title: 'TS' }],
+  me: async () =&gt; ({ id: 'u1', email: 'anna@example.com' }),
+};
+
+export type Data&lt;F&gt; = F extends (...args: never[]) =&gt; Promise&lt;infer X&gt; ? X : never;
+export type ApiData&lt;A&gt; = { [K in keyof A]: Data&lt;A[K]&gt; };
+
+export type Loaded = ApiData&lt;typeof api&gt;;</code></pre>
+<p><code>infer X</code> — «если подходит, назови найденную часть X». Почему параметры <code>never[]</code>, а не <code>any[]</code>? Функция с любыми параметрами совместима с <code>(...args: never[]) =&gt; …</code>, ведь передать ей <code>never</code> невозможно. Так мы обходимся без <code>any</code>. Встроенное решение тоже есть: <code>Awaited&lt;ReturnType&lt;F&gt;&gt;</code>. Свой тип полезен, чтобы понять, как оно устроено, и чтобы получить <code>never</code> для синхронных функций.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="advanced-distribution">Распределение по union и как его отключить</h3>
 <pre><code>type Each&lt;T&gt; = T extends string ? &quot;text&quot; : &quot;other&quot;;
 type Whole&lt;T&gt; = [T] extends [string] ? &quot;text&quot; : &quot;other&quot;;
@@ -38,4 +60,18 @@ console.log(payload);
 </code></pre>
 <p>Теперь можно прочитать DropKind по шагам: T extends unknown запускает распределение, Omit убирает kind у каждого варианта отдельно, затем результаты объединяются. Получаются два варианта данных: координата x либо нажатая клавиша key. Это дополнительный приём для случаев, когда обычный Omit теряет поля отдельных вариантов.</p>
 </div></details>
+<article class="task" id="tsa-distribution" data-task="typescript-advanced/tsa-distribution">
+<h4>Задача 20. Почему получился boolean <span class="lvl">★★★ с подвохом</span></h4>
+<p>Коллега написал <code>type IsString&lt;T&gt; = T extends string ? true : false</code> и удивился: <code>IsString&lt;string | number&gt;</code> — это <code>boolean</code>. Объясните результат и напишите <code>AllStrings&lt;T&gt;</code>, которая отвечает на вопрос «весь union состоит из строк?». Отдельно проверьте <code>never</code>.</p>
+<p class="why"><b>Зачем:</b> распределение по union — источник самых загадочных результатов в условных типах. Если понимать механизм, такой «баг» читается за секунду, а не за вечер.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type IsString&lt;T&gt; = T extends string ? true : false;
+// string | number → (string extends string ? true : false) | (number extends string ? true : false)
+//                 → true | false → boolean
+
+export type AllStrings&lt;T&gt; = [T] extends [string] ? true : false;</code></pre>
+<p>Голый параметр <code>T</code> слева от <code>extends</code> заставляет компилятор применить условие к каждому варианту отдельно и объединить ответы: <code>true | false</code> и есть <code>boolean</code>. Обёртка в кортеж <code>[T]</code> выключает распределение. С <code>never</code> есть ловушка: <code>IsString&lt;never&gt;</code> — тоже <code>never</code>, ведь это распределение по пустому union. А <code>AllStrings&lt;never&gt;</code> даёт <code>true</code>, потому что пустое множество — подмножество чего угодно.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

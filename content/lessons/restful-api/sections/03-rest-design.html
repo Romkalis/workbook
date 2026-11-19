@@ -17,12 +17,111 @@
 <li>Адреса в нижнем регистре, слова через дефис: <code>/order-items</code>.</li>
 <li><code>GET</code> никогда не меняет данные: поисковые роботы и предзагрузка браузера могут вызвать его сами.</li>
 </ul>
+<article class="task" id="rs-naming" data-task="restful-api/rs-naming">
+<h4>Задача 7. Переименуйте маршруты <span class="lvl">★☆☆ разминка</span></h4>
+<p>Перепишите маршруты в стиле REST: ресурсы — существительные во множественном числе, действие — метод. Отметьте маршрут, который опасен независимо от названия.</p>
+<pre><code>app.get('/getAllOrders', list);
+app.post('/createOrder', create);
+app.get('/order/:id/cancel', cancel);
+app.post('/updateOrderStatus', updateStatus); // { id, status } в теле
+app.get('/deleteOrder', remove);              // ?id=5
+app.get('/user/:id/getOrders', userOrders);</code></pre>
+<p class="why"><b>Зачем:</b> единые правила адресов делают API предсказуемым: зная один ресурс, можно угадать остальные. Опасность GET, который меняет данные, вполне реальна: браузер, поисковый робот или предзагрузка ссылок могут вызвать его без участия пользователя.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// routes.ts
+app.get('/orders', list);
+app.post('/orders', create);
+app.patch('/orders/:id', updateStatus);  // { status: 'cancelled' } — отмена это смена статуса
+app.delete('/orders/:id', remove);
+app.get('/users/:id/orders', userOrders);</code></pre>
+<p>Опасны <code>GET /order/:id/cancel</code> и <code>GET /deleteOrder</code>: они меняют данные через GET. Отмена — не отдельный «глагол», а изменение поля <code>status</code>, поэтому она уходит в PATCH. Если у отмены сложная логика (возврат денег, письмо), допустим и <code>POST /orders/:id/cancellation</code>: создаётся «запрос на отмену». Это тоже существительное. <code>id</code> переехал из тела и строки запроса в путь: он указывает, <b>какой</b> ресурс, а тело описывает, <b>что</b> с ним сделать.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="rest-query">Фильтры, сортировка, пагинация</h3>
 <p>Выборку из коллекции уточняют строкой запроса, а не новыми адресами:</p>
 <pre><code>GET /employees?role=developer          фильтр
 GET /employees?_sort=-salary           сортировка по убыванию
 GET /employees?_page=2&amp;_per_page=10    вторая страница по 10</code></pre>
 <p>Имена параметров каждый API выбирает сам — они описаны в его документации. Подчёркивание в <code>_page</code> и <code>_sort</code> — соглашение json-server, чтобы служебные параметры не путались с полями данных. Клиенту для пагинации нужно знать общее число записей или страниц: сервер сообщает его в теле ответа или заголовком (раздел о json-server).</p>
+<article class="task" id="rs-query" data-task="restful-api/rs-query">
+<h4>Задача 8. Параметры списка: проверить и нормализовать <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>parseListQuery(params: URLSearchParams)</code> для <code>GET /employees</code>. Результат: <code>{ role?: string; sort: { field: "name" | "salary"; dir: "asc" | "desc" }; page: number; perPage: number }</code>. Правила:</p>
+<ul><li><code>sort=-salary</code> — по убыванию, без минуса — по возрастанию, по умолчанию <code>name</code>;</li><li><code>page</code> — целое от 1, по умолчанию 1;</li><li><code>perPage</code> — от 1 до 100, по умолчанию 10, больше 100 обрезается до 100;</li><li>неизвестное поле сортировки или нечисловая страница — ошибка <code>RangeError</code> с понятным текстом.</li></ul>
+<p class="why"><b>Зачем:</b> строка запроса — это пользовательский ввод: её можно набрать руками. Без верхней границы <code>perPage=1000000</code> заставит сервер выгрузить всю таблицу. А разбор в одном месте даёт обработчику уже проверенные данные нужных типов.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>const FIELDS = ['name', 'salary'] as const;
+type Field = (typeof FIELDS)[number];
+export interface ListQuery {
+  role?: string;
+  sort: { field: Field; dir: 'asc' | 'desc' };
+  page: number;
+  perPage: number;
+}
+
+function int(raw: string | null, name: string, fallback: number): number {
+  if (raw === null || raw === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n &lt; 1) throw new RangeError(`${name}: ожидалось целое число от 1`);
+  return n;
+}
+
+export function parseListQuery(params: URLSearchParams): ListQuery {
+  const rawSort = params.get('sort') ?? 'name';
+  const dir = rawSort.startsWith('-') ? 'desc' : 'asc';
+  const field = rawSort.replace(/^-/, '');
+  if (!(FIELDS as readonly string[]).includes(field)) {
+    throw new RangeError(`sort: допустимо ${FIELDS.join(', ')}`);
+  }
+  const query: ListQuery = {
+    sort: { field: field as Field, dir },
+    page: int(params.get('page'), 'page', 1),
+    perPage: Math.min(int(params.get('perPage'), 'perPage', 10), 100),
+  };
+  const role = params.get('role');
+  if (role) query.role = role;
+  return query;
+}</code></pre>
+<p>Почему слишком большой <code>perPage</code> обрезается, а неверная страница — ошибка? <code>perPage=500</code> выражает понятное желание «побольше», и его можно выполнить в разумных пределах. А <code>page=abc</code> — явная ошибка клиента, и угадывать за него опасно. Текст ошибки перечисляет допустимые значения: тот, кто пишет клиент, исправит запрос, не открывая документацию. В Express такой <code>RangeError</code> превращается в ответ 400. Ту же работу короче делает схема <a href="/lessons/zod">Zod</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="rs-apply" data-task="restful-api/rs-apply">
+<h4>Задача 9. Применить фильтр, сортировку и страницу <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>applyQuery(items, query)</code>, где <code>query</code> — результат прошлой задачи. Порядок: отфильтровать по <code>role</code>, отсортировать, отрезать страницу. Ответ: <code>{ data, total, page, pages }</code>, где <code>total</code> — число записей <b>после фильтра</b>. Исходный массив не меняется.</p>
+<p class="why"><b>Зачем:</b> порядок операций важен. Сначала отрезать страницу, а потом сортировать — значит отсортировать десять случайных записей вместо всей выборки. Это частая ошибка, когда пагинацию добавляют позже остального.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  salary: number;
+}
+export interface ListQuery {
+  role?: string;
+  sort: { field: 'name' | 'salary'; dir: 'asc' | 'desc' };
+  page: number;
+  perPage: number;
+}
+
+export function applyQuery(items: readonly Employee[], q: ListQuery) {
+  const filtered = q.role === undefined ? [...items] : items.filter((e) =&gt; e.role === q.role);
+  const sign = q.sort.dir === 'asc' ? 1 : -1;
+  filtered.sort((a, b) =&gt;
+    sign * (q.sort.field === 'name' ? a.name.localeCompare(b.name, 'ru') : a.salary - b.salary),
+  );
+  const start = (q.page - 1) * q.perPage;
+  return {
+    data: filtered.slice(start, start + q.perPage),
+    total: filtered.length,
+    page: q.page,
+    pages: Math.ceil(filtered.length / q.perPage),
+  };
+}</code></pre>
+<p><code>filter</code> уже возвращает новый массив, а в ветке без фильтра копию делает <code>[...items]</code>. Поэтому <code>sort</code> на месте никого не задевает. В настоящей базе данных тот же порядок задают в запросе: <code>WHERE</code> → <code>ORDER BY</code> → <code>LIMIT/OFFSET</code>. Делать это в памяти можно только для небольших учебных наборов.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="rest-versioning">Версии API</h3>
 <p>API меняется, а старые клиенты (мобильные приложения, которые пользователи не обновили) должны продолжать работать. Статья <a href="https://restfulapi.net/versioning/">restfulapi.net о версиях</a> советует повышать версию только при <b>ломающих изменениях</b>: поменялся формат ответа, тип поля (целое стало дробным), удалена часть API. Добавление нового адреса или нового поля в ответ ничего не ломает. Три способа указать версию:</p>
 <ul>
@@ -31,6 +130,41 @@ GET /employees?_page=2&amp;_per_page=10    вторая страница по 10
 <li><b>Через <code>Accept</code>:</b> <code>Accept: application/vnd.example.v1+json</code> — адреса чистые, но клиент должен знать нужный заголовок.</li>
 </ul>
 <p>Статья приводит в пример версию в адресе <code>api.github.com/v3/repos</code>. Это неточно: GitHub не пишет версию в путь, а принимает её заголовком <code>X-GitHub-Api-Version</code> (из общих знаний). Хорошая практика — объявлять об устаревании версии заранее и отключать её постепенно.</p>
+<article class="task" id="rs-versions" data-task="restful-api/rs-versions">
+<h4>Задача 10. Две версии API на одних данных <span class="lvl">★★☆ практика</span></h4>
+<p>В версии 1 сотрудник отдаётся как <code>{ id, name }</code>. В версии 2 имя разделили: <code>{ id, firstName, lastName }</code>. Сделайте Express-приложение, где <code>/api/v1/employees</code> и <code>/api/v2/employees</code> работают одновременно на одних данных. Каждую версию оформите отдельным <code>Router</code>.</p>
+<p class="why"><b>Зачем:</b> мобильное приложение, которое пользователь не обновил, продолжит ходить в v1. Если поменять формат без версии, оно сломается у реальных людей. Отдельные роутеры поверх общих данных позволяют поддерживать обе версии, не копируя логику хранения.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { Router } from 'express';
+
+interface Employee {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+const employees: Employee[] = [{ id: '1', firstName: 'Анна', lastName: 'Смирнова' }];
+
+const v1 = Router();
+v1.get('/employees', (_req, res) =&gt; {
+  res.json(employees.map((e) =&gt; ({ id: e.id, name: `${e.firstName} ${e.lastName}` })));
+});
+
+const v2 = Router();
+v2.get('/employees', (_req, res) =&gt; {
+  res.json(employees);
+});
+
+export function createApp() {
+  const app = express();
+  app.use('/api/v1', v1);
+  app.use('/api/v2', v2);
+  return app;
+}</code></pre>
+<p>Данные хранятся в новом, более точном формате, а v1 — это <b>представление</b> для старых клиентов. Обратный путь (хранить <code>name</code> и пытаться резать его на имя и фамилию) ненадёжен: «Анна Мария Смирнова» разрежется неправильно. Роутер монтируется на префикс, поэтому внутри маршруты пишутся без версии, и перенос в <code>/v3</code> — одна строка.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="rest-alternatives">Альтернативы</h3>
 <p>Статья tutsplus сравнивает REST с <b>SOAP</b> — протоколом со строгим форматом XML-сообщений, который до сих пор живёт в банках и госсистемах, — и с <b>GraphQL</b>: клиент одним запросом к одному адресу описывает, какие поля ему нужны, и получает ровно их. REST проще и лучше кешируется, GraphQL удобнее, когда экранам нужны данные из многих ресурсов сразу.</p>
 </section>

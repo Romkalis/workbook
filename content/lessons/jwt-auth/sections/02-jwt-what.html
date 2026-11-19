@@ -31,4 +31,97 @@ console.log(Buffer.from(payload, 'base64url').toString());
 <li>доверять данным из токена можно, только если сервер проверил подпись.</li>
 </ul>
 <p>Фраза «я шифрую id пользователя в JWT» поэтому неточна: id не шифруют, а подписывают. Зашифрованные JWT тоже существуют (стандарт JWE), но в учебных и большинстве рабочих проектов токены только подписывают.</p>
+<article class="task" id="jw-decode" data-task="jwt-auth/jw-decode">
+<h4>Задача 1. Прочитать токен без библиотеки <span class="lvl">★☆☆ разминка</span></h4>
+<p>Задачи урока решаются на TypeScript с ES-модулями, как в уроке <a href="/lessons/express-typescript">Express + TypeScript</a>. Код урока написан на CommonJS, но идеи те же.</p>
+<p>Напишите <code>readPayload(token: string): unknown</code>, которая раскодирует вторую часть токена. Если частей не три или это не JSON, бросьте <code>TypeError</code>. Проверьте на токене, подписанном <code>jwt.sign</code>.</p>
+<p class="why"><b>Зачем:</b> так своими руками проверяется главная мысль урока: содержимое токена читает любой, секрет для этого не нужен. После этой задачи мысль «положу в токен пароль» уже не появится.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function readPayload(token: string): unknown {
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts[1] === undefined) throw new TypeError('JWT состоит из трёх частей');
+  try {
+    return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  } catch {
+    throw new TypeError('Payload не является JSON');
+  }
+}</code></pre>
+<p>Результат — <code>unknown</code>, и это честно. Функция ничего не проверяет: подделанный токен она прочитает так же охотно, как настоящий. Поэтому на сервере её использовать для решений нельзя, только <code>jwt.verify</code>. На клиенте такое чтение уместно, например чтобы заранее узнать <code>exp</code> и обновить токен до истечения. Кодировка <code>base64url</code> отличается от обычной base64 заменой <code>+/</code> на <code>-_</code> и отсутствием <code>=</code> в конце, чтобы токен можно было передать в адресе.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="jw-hmac" data-task="jwt-auth/jw-hmac">
+<h4>Задача 2. Подпись HS256 своими руками <span class="lvl">★★★ с подвохом</span></h4>
+<p>Повторите <code>jwt.sign</code> и <code>jwt.verify</code> для алгоритма HS256 на модуле <code>node:crypto</code>: <code>sign(payload, secret)</code> и <code>verify(token, secret)</code>. Шаги перечислены в разделе «Что делает jwt.sign». Ваш токен должна принять библиотека <code>jsonwebtoken</code>, а ваш <code>verify</code> — отвергнуть токен с изменённым payload. Сроки (<code>exp</code>) пока не проверяйте.</p>
+<p class="why"><b>Зачем:</b> когда подпись собрана руками, исчезает магия: становится видно, что это HMAC от двух первых частей и что без секрета её не пересчитать. В рабочем коде пишите <code>jsonwebtoken</code>, а не свою версию: там учтены алгоритмы, сроки и десятки пограничных случаев.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p><code>createHmac("sha256", secret).update(<code>${h}.${p}</code>).digest("base64url")</code>. Подписи сравнивайте через <code>timingSafeEqual</code> из того же модуля, предварительно сравнив длины.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import { createHmac, timingSafeEqual } from 'node:crypto';
+
+const encode = (value: object) =&gt; Buffer.from(JSON.stringify(value)).toString('base64url');
+const hmac = (data: string, secret: string) =&gt; createHmac('sha256', secret).update(data).digest('base64url');
+
+export function sign(payload: object, secret: string): string {
+  const head = encode({ alg: 'HS256', typ: 'JWT' });
+  const body = encode({ ...payload, iat: Math.floor(Date.now() / 1000) });
+  return `${head}.${body}.${hmac(`${head}.${body}`, secret)}`;
+}
+
+export function verify(token: string, secret: string): Record&lt;string, unknown&gt; {
+  const [head, body, signature, ...rest] = token.split('.');
+  if (!head || !body || !signature || rest.length &gt; 0) throw new Error('jwt malformed');
+  const header: unknown = JSON.parse(Buffer.from(head, 'base64url').toString());
+  if (typeof header !== 'object' || header === null || !('alg' in header) || header.alg !== 'HS256') {
+    throw new Error('invalid algorithm');
+  }
+  const expected = Buffer.from(hmac(`${head}.${body}`, secret));
+  const actual = Buffer.from(signature);
+  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) throw new Error('invalid signature');
+  return JSON.parse(Buffer.from(body, 'base64url').toString()) as Record&lt;string, unknown&gt;;
+}</code></pre>
+<p>Почему не <code>===</code>? Обычное сравнение строк останавливается на первом несовпавшем символе. Замеряя время ответа, можно в теории подбирать подпись по символу. <code>timingSafeEqual</code> всегда сравнивает всё. Проверка <code>alg</code> — защита от известной атаки: токен с заголовком <code>"alg": "none"</code> и пустой подписью. Если сервер берёт алгоритм из самого токена, он принимает подделку. Ровно поэтому в уроке у <code>jwt.verify</code> указано <code>algorithms: ['HS256']</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="jw-tamper-test" data-task="jwt-auth/jw-tamper-test">
+<h4>Задача 3. Тест, который ловит доверие к decode <span class="lvl">★★☆ практика</span></h4>
+<p>Функция <code>userIdFrom(token, secret)</code> должна возвращать <code>id</code> из <b>проверенного</b> токена. Напишите тесты, которые падают, если внутри кто-то заменил <code>jwt.verify</code> на <code>jwt.decode</code>: подделанный payload, чужой секрет, просроченный токен.</p>
+<pre><code>// user-id.ts
+import jwt from 'jsonwebtoken';
+export function userIdFrom(token: string, secret: string): string {
+  const payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
+  if (typeof payload !== 'object' || typeof payload.id !== 'string') throw new Error('invalid payload');
+  return payload.id;
+}</code></pre>
+<p class="why"><b>Зачем:</b> <code>jwt.decode</code> и <code>jwt.verify</code> возвращают одно и то же на правильном токене. Разница видна только на неправильном. Если тесты проверяют только счастливый путь, такая замена пройдёт ревью и откроет вход под любым пользователем.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// user-id.test.ts
+import jwt from 'jsonwebtoken';
+import { expect, it } from 'vitest';
+import { userIdFrom } from './user-id.js';
+
+const SECRET = 's'.repeat(32);
+
+it('принимает свой токен', () =&gt; {
+  expect(userIdFrom(jwt.sign({ id: 'u1' }, SECRET), SECRET)).toBe('u1');
+});
+
+it('отвергает изменённый payload', () =&gt; {
+  const [head, , sig] = jwt.sign({ id: 'u1' }, SECRET).split('.');
+  const forged = Buffer.from(JSON.stringify({ id: 'admin' })).toString('base64url');
+  expect(() =&gt; userIdFrom(`${head}.${forged}.${sig}`, SECRET)).toThrow();
+});
+
+it('отвергает токен с чужим секретом', () =&gt; {
+  expect(() =&gt; userIdFrom(jwt.sign({ id: 'u1' }, 'чужой'), SECRET)).toThrow();
+});
+
+it('отвергает просроченный токен', () =&gt; {
+  const old = jwt.sign({ id: 'u1', exp: Math.floor(Date.now() / 1000) - 10 }, SECRET);
+  expect(() =&gt; userIdFrom(old, SECRET)).toThrow('jwt expired');
+});</code></pre>
+<p>Просроченный токен делается без ожидания: <code>exp</code> можно передать прямо в payload, задав время в прошлом. Это быстрее и надёжнее, чем подменять часы. Каждый тест проверяет одну причину отказа. Если упадёт, по названию сразу видно, какая защита пропала. Попробуйте сами: замените в функции <code>verify</code> на <code>decode</code>, и три теста из четырёх покраснеют.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

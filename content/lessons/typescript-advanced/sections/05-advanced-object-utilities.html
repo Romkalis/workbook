@@ -13,6 +13,65 @@ if (false) {
 }
 </code></pre>
 <p>В примере patch — частичное обновление профиля: менять имя можно, передавать все остальные поля не требуется. Full — полностью заполненный профиль. View ссылается на тот же объект, но его тип разрешает только чтение. Partial делает свойства необязательными, Required убирает знак ?, Readonly запрещает присваивание через этот тип. Они работают на первом уровне: <code>Readonly&lt;{ meta: { title: string } }&gt;</code> не делает meta.title неизменяемым. Для обновления профиля безопаснее <code>Partial&lt;Pick&lt;Profile, "name" | "bio"&gt;&gt;</code>, чтобы не разрешать менять id.</p>
+<article class="task" id="tsa-update" data-task="typescript-advanced/tsa-update">
+<h4>Задача 11. Неизменяемое обновление статьи <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>updateArticle(article, patch)</code>. Статья приходит как <code>Readonly&lt;Article&gt;</code>, патч может содержать любые поля, кроме <code>id</code>. Функция возвращает новый объект и не меняет исходный. Попытку передать <code>id</code> в патче покажите строкой с <code>@ts-expect-error</code>.</p>
+<pre><code>export interface Article {
+  id: string;
+  title: string;
+  description?: string;
+}</code></pre>
+<p class="why"><b>Зачем:</b> тип параметра — это документация, которую проверяет компилятор. <code>Readonly</code> обещает вызывающему, что его объект не тронут. <code>Partial&lt;Omit&lt;…&gt;&gt;</code> отвечает на вопрос «что разрешено менять» без отдельного интерфейса, который забудут обновить.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Article {
+  id: string;
+  title: string;
+  description?: string;
+}
+export type ArticlePatch = Partial&lt;Omit&lt;Article, 'id'&gt;&gt;;
+
+export function updateArticle(article: Readonly&lt;Article&gt;, patch: ArticlePatch): Article {
+  return { ...article, ...patch };
+}
+
+const a: Article = { id: 'a1', title: 'TS' };
+updateArticle(a, { title: 'TS Advanced' });
+if (false) {
+  // @ts-expect-error: id менять нельзя
+  updateArticle(a, { id: 'other' });
+}</code></pre>
+<p>Утилиты читаются изнутри наружу: <code>Omit</code> убирает <code>id</code>, <code>Partial</code> делает остальное необязательным. Добавится поле <code>tags</code> — и патч узнает о нём сам. Оговорка: <code>{ title: undefined }</code> тип пропустит и затрёт название. Как это закрыть, разбирается в задаче про <code>exactOptionalPropertyTypes</code> ниже.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="tsa-defaults" data-task="typescript-advanced/tsa-defaults">
+<h4>Задача 12. Значения по умолчанию и коварный undefined <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>withDefaults(options: SearchOptions): Required&lt;SearchOptions&gt;</code>, где все поля необязательны, а значения по умолчанию: <code>pageSize = 20</code>, <code>sort = "new"</code>, <code>query = ""</code>. Очевидное решение <code>{ ...DEFAULTS, ...options }</code> проходит проверку типов. Найдите вызов, на котором оно ломается, и напишите правильное.</p>
+<pre><code>export interface SearchOptions {
+  pageSize?: number;
+  sort?: 'new' | 'popular';
+  query?: string;
+}</code></pre>
+<p class="why"><b>Зачем:</b> опции часто собирают из формы или адреса страницы, и там легко получить <code>{ pageSize: undefined }</code>. Spread копирует ключ вместе с <code>undefined</code> и затирает значение по умолчанию, а тип <code>Required</code> уверяет, что там число. Это пример того, как типы и реальность расходятся.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Попробуйте <code>withDefaults({ pageSize: undefined }).pageSize</code>. Затем соберите результат по полям через <code>??</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface SearchOptions {
+  pageSize?: number;
+  sort?: 'new' | 'popular';
+  query?: string;
+}
+
+export function withDefaults(options: SearchOptions): Required&lt;SearchOptions&gt; {
+  return {
+    pageSize: options.pageSize ?? 20,
+    sort: options.sort ?? 'new',
+    query: options.query ?? '',
+  };
+}</code></pre>
+<p>При обычных настройках <code>pageSize?: number</code> означает <code>number | undefined</code>, поэтому явный <code>undefined</code> разрешён, и spread его копирует. Сборка по полям надёжнее: каждое значение по умолчанию стоит рядом с полем, и компилятор не даст забыть новое поле, ведь результат обязан быть <code>Required</code>. Второе решение — флаг <code>exactOptionalPropertyTypes</code>: с ним <code>{ pageSize: undefined }</code> вообще не скомпилируется.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="advanced-pick-omit-record">Pick, Omit и Record</h3>
 <pre><code>interface Article { id: string; title: string; secret: string }
 type Card = Pick&lt;Article, &quot;id&quot; | &quot;title&quot;&gt;;
@@ -27,4 +86,54 @@ console.log(&quot;secret&quot; in typed, &quot;secret&quot; in card, labels.read
 </code></pre>
 <p>Pick выбирает ключи, Omit исключает, Record описывает значения по набору ключей. Omit не удалил secret во время выполнения; для публичного ответа сформируйте новый объект из нужных полей. Record с конечным union требует все перечисленные ключи; произвольный строковый словарь не гарантирует существование каждого ключа.</p>
 <div class="tbl"><table><thead><tr><th scope="col">Тип</th><th scope="col">Когда полезен</th></tr></thead><tbody><tr><td>Partial&lt;T&gt;</td><td>Частичное обновление разрешённых полей</td></tr><tr><td>Required&lt;T&gt;</td><td>Полная конфигурация после заполнения пропусков</td></tr><tr><td>Readonly&lt;T&gt;</td><td>Контракт чтения без присваиваний</td></tr><tr><td>Pick&lt;T, K&gt;</td><td>Узкое представление с выбранными полями</td></tr><tr><td>Omit&lt;T, K&gt;</td><td>Контракт без перечисленных полей</td></tr><tr><td>Record&lt;K, V&gt;</td><td>Словарь значений V по ключам K</td></tr></tbody></table></div>
+<article class="task" id="tsa-public-user" data-task="typescript-advanced/tsa-public-user">
+<h4>Задача 13. Omit не удаляет поле <span class="lvl">★★☆ практика</span></h4>
+<p>Есть пользователь с <code>passwordHash</code>. Напишите <code>toPublicUser(user: User): PublicUser</code>, где <code>PublicUser = Omit&lt;User, "passwordHash"&gt;</code>. Вариант <code>return user</code> компилируется. Объясните, почему он опасен, и напишите функцию, которая действительно убирает поле.</p>
+<pre><code>export interface User {
+  id: string;
+  email: string;
+  passwordHash: string;
+}</code></pre>
+<p class="why"><b>Зачем:</b> типы стираются при сборке. <code>Omit</code> лишь запрещает <b>обращаться</b> к полю в коде, а <code>res.json(user)</code> отправит хеш пароля клиенту. Эта ошибка встречается в учебных проектах с <a href="/lessons/jwt-auth">JWT-авторизацией</a> постоянно.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface User {
+  id: string;
+  email: string;
+  passwordHash: string;
+}
+export type PublicUser = Omit&lt;User, 'passwordHash'&gt;;
+
+export function toPublicUser(user: User): PublicUser {
+  const { passwordHash: _hidden, ...rest } = user;
+  return rest;
+}</code></pre>
+<p>Деструктуризация с остатком создаёт новый объект без поля, и тип <code>rest</code> компилятор выводит сам: ровно <code>Omit&lt;User, 'passwordHash'&gt;</code>. Подчёркивание в имени <code>_hidden</code> — соглашение «переменная не используется намеренно». Ещё надёжнее белый список: <code>{ id: user.id, email: user.email }</code>. При нём новое секретное поле в <code>User</code> не утечёт само по себе.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="tsa-record" data-task="typescript-advanced/tsa-record">
+<h4>Задача 14. Подписи, которые нельзя забыть <span class="lvl">★☆☆ разминка</span></h4>
+<p>Есть тип <code>Status = "draft" | "published" | "archived"</code>. Опишите объект подписей через <code>Record</code> и функцию <code>statusLabel(s)</code>. Затем добавьте в <code>Status</code> вариант <code>"review"</code> и посмотрите, где компилятор потребует правку.</p>
+<p class="why"><b>Зачем:</b> словарь через <code>Record&lt;Status, string&gt;</code> обязан содержать все ключи. Новый статус не останется без подписи: ошибка появится в момент добавления, а не когда пользователь увидит <code>undefined</code> на экране.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type Status = 'draft' | 'published' | 'archived';
+
+const LABELS: Record&lt;Status, string&gt; = {
+  draft: 'Черновик',
+  published: 'Опубликована',
+  archived: 'В архиве',
+};
+
+export function statusLabel(status: Status): string {
+  return LABELS[status];
+}
+
+if (false) {
+  // @ts-expect-error: нет подписи для archived
+  const partial: Record&lt;Status, string&gt; = { draft: 'Черновик', published: 'Опубликована' };
+}</code></pre>
+<p>Сравните с <code>{ [key: string]: string }</code>: такой словарь примет любой набор ключей и ничего не потребует. <code>Record</code> с конечным union работает как чек-лист. Проверка лишних ключей тоже есть: опечатка <code>publised</code> будет ошибкой.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

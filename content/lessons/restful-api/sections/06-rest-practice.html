@@ -9,6 +9,76 @@
 <li>Спроектируйте адреса API для блога: пользователи, статьи, комментарии. Какие методы и коды ответов нужны?</li>
 <li>Определите, какая версия json-server стоит в проекте Async Race, и какие параметры пагинации там работают.</li>
 </ol>
+<article class="task" id="rs-express" data-task="restful-api/rs-express">
+<h4>Задача 14. Свой ресурс на Express вместо json-server <span class="lvl">★★★ с подвохом</span></h4>
+<p>Соберите на Express то, что json-server делал сам, для <code>/api/employees</code>: список, один, создание, PATCH, удаление. Требования:</p>
+<ul><li>POST проверяет тело (<code>name</code> — непустая строка, <code>salary</code> — неотрицательное целое) и отвечает 400 с текстом ошибки;</li><li>успешный POST — 201, созданный объект и заголовок <code>Location: /api/employees/&lt;id&gt;</code>;</li><li>DELETE — 204 без тела; повторный DELETE — 404;</li><li>все ошибки — JSON вида <code>{ "message": "…" }</code>.</li></ul>
+<p class="why"><b>Зачем:</b> json-server удобен, пока не нужны правила: он сохранит сотрудника с зарплатой <code>"много"</code>. Своя реализация показывает, какую работу на самом деле делает бэкенд. Дальше по этой же схеме строится проект в уроке <a href="/lessons/express-typescript">Express + TypeScript</a>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { type Request, type Response } from 'express';
+
+interface Employee {
+  id: string;
+  name: string;
+  salary: number;
+}
+type Input = Omit&lt;Employee, 'id'&gt;;
+
+function parseInput(body: unknown, partial: boolean): Partial&lt;Input&gt; | string {
+  if (typeof body !== 'object' || body === null) return 'Тело должно быть объектом';
+  const out: Partial&lt;Input&gt; = {};
+  if ('name' in body) {
+    if (typeof body.name !== 'string' || body.name.trim() === '') return 'name: непустая строка';
+    out.name = body.name.trim();
+  } else if (!partial) return 'name: обязательное поле';
+  if ('salary' in body) {
+    if (!Number.isInteger(body.salary) || (body.salary as number) &lt; 0) return 'salary: неотрицательное целое';
+    out.salary = body.salary as number;
+  } else if (!partial) return 'salary: обязательное поле';
+  return out;
+}
+
+export function createApp() {
+  const store = new Map&lt;string, Employee&gt;();
+  let nextId = 1;
+  const app = express();
+  app.use(express.json());
+  const notFound = (res: Response) =&gt; res.status(404).json({ message: 'Сотрудник не найден' });
+
+  app.get('/api/employees', (_req, res) =&gt; {
+    res.json([...store.values()]);
+  });
+  app.get('/api/employees/:id', (req: Request&lt;{ id: string }&gt;, res) =&gt; {
+    const e = store.get(req.params.id);
+    return e ? res.json(e) : notFound(res);
+  });
+  app.post('/api/employees', (req, res) =&gt; {
+    const input = parseInput(req.body, false);
+    if (typeof input === 'string') return res.status(400).json({ message: input });
+    const created = { ...(input as Input), id: String(nextId++) };
+    store.set(created.id, created);
+    res.status(201).location(`/api/employees/${created.id}`).json(created);
+  });
+  app.patch('/api/employees/:id', (req: Request&lt;{ id: string }&gt;, res) =&gt; {
+    const current = store.get(req.params.id);
+    if (!current) return notFound(res);
+    const input = parseInput(req.body, true);
+    if (typeof input === 'string') return res.status(400).json({ message: input });
+    const updated = { ...current, ...input };
+    store.set(current.id, updated);
+    res.json(updated);
+  });
+  app.delete('/api/employees/:id', (req: Request&lt;{ id: string }&gt;, res) =&gt; {
+    if (!store.delete(req.params.id)) return notFound(res);
+    res.status(204).end();
+  });
+  return app;
+}</code></pre>
+<p>Одна функция проверки обслуживает и POST, и PATCH. Отличается только флаг «обязательны ли поля»: для PATCH отсутствие поля нормально. <code>Map.delete</code> возвращает <code>true</code>, если элемент был, и это сразу даёт ветку 404. Заголовок <code>Location</code> говорит клиенту, где теперь живёт созданный ресурс. Это часть смысла кода 201. Хранилище создаётся внутри <code>createApp</code>, поэтому каждый тест получает чистые данные. Ручная проверка здесь громоздкая. В уроке Zod она заменяется схемой в несколько строк.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="rest-questions">Вопросы</h3>
 <details class="q"><summary>Чем REST отличается от HTTP?</summary><p>HTTP — протокол передачи. REST — архитектурный стиль, набор правил, как проектировать API поверх HTTP: ресурсы с адресами, действия через методы, отсутствие состояния на сервере.</p></details>
 <details class="q"><summary>Почему /deleteUser?id=5 — плохой адрес?</summary><p>Действие выражено в адресе, а не методом, и для удаления используется GET, который не должен менять данные. Правильно: <code>DELETE /users/5</code>.</p></details>

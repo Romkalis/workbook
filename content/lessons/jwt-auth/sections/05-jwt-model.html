@@ -25,8 +25,64 @@ module.exports = mongoose.model('User', userSchema);</code></pre>
 <p>Пароль никогда не хранится как есть. <code>bcrypt.hash</code> превращает <code>"1234"</code> в строку вида <code>$2b$10$N9qo8uLOickgx2ZMRZoMy…</code> длиной 60 символов. Обратно из неё пароль получить нельзя.</p>
 <p>Как же тогда проверить пароль при входе? Не расшифровкой, а сравнением: введённый пароль хешируется заново тем же способом, и результаты сравниваются. Это делает <code>bcrypt.compare</code>. Число 10 — «стоимость» хеширования: чем больше, тем медленнее подбирать пароли перебором.</p>
 <p>Даже если базу украдут, злоумышленник получит хеши, а не пароли.</p>
+<article class="task" id="jw-hash" data-task="jwt-auth/jw-hash">
+<h4>Задача 5. Хеш с солью <span class="lvl">★☆☆ разминка</span></h4>
+<p>С пакетом <code>bcryptjs</code> (замена <code>bcrypt</code> на чистом JavaScript, API тот же) напишите <code>hashPassword(plain)</code> и <code>checkPassword(plain, hash)</code>. Убедитесь тестом, что два хеша одного пароля <b>разные</b>, но оба проходят проверку.</p>
+<p class="why"><b>Зачем:</b> разные хеши одного пароля — это соль: случайная добавка, которая хранится прямо в строке хеша. Без соли одинаковые пароли давали бы одинаковые хеши, и утёкшую базу можно было бы расшифровать заранее подготовленной таблицей.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import bcrypt from 'bcryptjs';
+
+const COST = 10;
+
+export const hashPassword = (plain: string): Promise&lt;string&gt; =&gt; bcrypt.hash(plain, COST);
+export const checkPassword = (plain: string, hash: string): Promise&lt;boolean&gt; =&gt; bcrypt.compare(plain, hash);</code></pre>
+<p>Хеш вида <code>$2b$10$&lt;22 символа соли&gt;&lt;31 символ хеша&gt;</code> содержит всё нужное для проверки: алгоритм, стоимость и соль. Поэтому <code>compare</code> не нужна отдельная соль. <code>COST = 10</code> означает 2<sup>10</sup> раундов. Каждая единица удваивает время, и для злоумышленника перебор становится дорогим. В тестах ради скорости можно брать 4, минимум для bcrypt.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="jwt-model-hook">Почему function, а не стрелка</h3>
 <p>Внутри хука <code>this</code> — это документ, который сохраняется. У стрелочной функции своего <code>this</code> нет, поэтому здесь нужна обычная <code>function</code>.</p>
 <p><code>this.isModified('password')</code> защищает от двойного хеширования: если пользователь поменял только email, пароль уже хранится как хеш, и хешировать его снова нельзя, иначе войти больше не получится.</p>
 <div class="note"><b>Отличие от исходного материала</b><p>В исходнике хук написан как <code>async function (next)</code> с вызовами <code>next()</code>. Для асинхронной функции <code>next</code> не нужен: Mongoose сам ждёт, пока завершится Promise. Мы проверили оба варианта. В mongoose 8 работают оба. В mongoose 9 в хук больше не передаётся <code>next</code>, и код из исходника падает с ошибкой «next is not a function». Вариант без <code>next</code> работает в обеих версиях.</p></div>
+<article class="task" id="jw-rehash" data-task="jwt-auth/jw-rehash">
+<h4>Задача 6. Не захешировать хеш <span class="lvl">★★☆ практика</span></h4>
+<p>Без MongoDB повторите смысл хука <code>pre('save')</code> с <code>isModified</code>. Напишите репозиторий в памяти: <code>create(email, password)</code> хеширует пароль, <code>changeEmail(id, email)</code> меняет только почту, <code>changePassword(id, password)</code> хеширует новый пароль. Проверка: после смены почты старый пароль подходит.</p>
+<p class="why"><b>Зачем:</b> если хешировать пароль при каждом сохранении, после смены почты в базе окажется хеш от хеша, и пользователь больше не войдёт. Это самая частая ошибка с хуком <code>pre('save')</code>. Здесь она воспроизводится без базы, и видно, почему нужна проверка «пароль изменился».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import bcrypt from 'bcryptjs';
+
+export interface StoredUser {
+  id: string;
+  email: string;
+  passwordHash: string;
+}
+
+export function createUserRepo(cost = 4) {
+  const users = new Map&lt;string, StoredUser&gt;();
+  let next = 1;
+
+  return {
+    async create(email: string, password: string): Promise&lt;StoredUser&gt; {
+      const user = { id: String(next++), email, passwordHash: await bcrypt.hash(password, cost) };
+      users.set(user.id, user);
+      return user;
+    },
+    changeEmail(id: string, email: string): void {
+      const user = users.get(id);
+      if (user) users.set(id, { ...user, email });
+    },
+    async changePassword(id: string, password: string): Promise&lt;void&gt; {
+      const user = users.get(id);
+      if (user) users.set(id, { ...user, passwordHash: await bcrypt.hash(password, cost) });
+    },
+    async login(email: string, password: string): Promise&lt;StoredUser | null&gt; {
+      const user = [...users.values()].find((u) =&gt; u.email === email);
+      return user &amp;&amp; (await bcrypt.compare(password, user.passwordHash)) ? user : null;
+    },
+  };
+}</code></pre>
+<p>Поле называется <code>passwordHash</code>, а не <code>password</code>, и это тоже защита: по имени видно, что внутри не пароль, и никто не положит туда открытый текст. Хеширование происходит только в двух методах, которые получают <b>новый пароль</b>. В Mongoose ту же гарантию даёт <code>isModified('password')</code>. Явные методы, как здесь, проще проверить, но о них нужно помнить при каждом новом сценарии изменения.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

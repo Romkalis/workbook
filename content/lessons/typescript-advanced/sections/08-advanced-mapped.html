@@ -14,4 +14,51 @@ console.log(flags.title, editable.title);
 </code></pre>
 <p>Минус перед readonly или ? снимает модификатор, плюс добавляет; без знака добавление является обычным поведением. Простое отображение по keyof сохраняет существующие модификаторы, если явно не поменять их.</p>
 <p>Переименовывать ключи тоже можно. К этому <a href="#advanced-key-remapping">примеру с getTitle и getId</a> перейдём после условных типов и шаблонных строк: сначала разберём все части его записи.</p>
+<article class="task" id="tsa-validators" data-task="typescript-advanced/tsa-validators">
+<h4>Задача 17. Валидаторы для каждого поля формы <span class="lvl">★★☆ практика</span></h4>
+<p>Опишите mapped type <code>Validators&lt;T&gt;</code>: для каждого поля функция, которая принимает значение этого поля и возвращает текст ошибки или <code>null</code>. Напишите <code>validate(values, validators)</code>, возвращающую объект только с полями, где есть ошибка. Проверьте на форме статьи: заголовок не короче 3 символов, просмотры не отрицательные.</p>
+<p class="why"><b>Зачем:</b> форма меняется: добавили поле — компилятор сразу потребует для него валидатор, и тип аргумента в нём будет правильным. Это та же идея, что у <code>Record</code>, но тип значения зависит от ключа.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type Validators&lt;T&gt; = { [K in keyof T]: (value: T[K]) =&gt; string | null };
+export type Errors&lt;T&gt; = Partial&lt;Record&lt;keyof T, string&gt;&gt;;
+
+export function validate&lt;T extends object&gt;(values: T, validators: Validators&lt;T&gt;): Errors&lt;T&gt; {
+  const errors: Errors&lt;T&gt; = {};
+  for (const key of Object.keys(validators) as (keyof T)[]) {
+    const message = validators[key](values[key]);
+    if (message !== null) errors[key] = message;
+  }
+  return errors;
+}
+
+export interface ArticleForm {
+  title: string;
+  views: number;
+}
+export const articleValidators: Validators&lt;ArticleForm&gt; = {
+  title: (v) =&gt; (v.trim().length &gt;= 3 ? null : 'Минимум 3 символа'),
+  views: (v) =&gt; (v &gt;= 0 ? null : 'Не может быть отрицательным'),
+};</code></pre>
+<p>В валидаторе <code>title</code> параметр <code>v</code> имеет тип <code>string</code>, а в <code>views</code> — <code>number</code>. Аннотировать не нужно: тип берётся из <code>T[K]</code>. <code>Object.keys</code> всегда возвращает <code>string[]</code>, потому что у объекта во время выполнения могут быть и лишние ключи. Приведение к <code>(keyof T)[]</code> здесь безопасно: мы перебираем ключи объекта валидаторов, который сами описали по <code>T</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="tsa-draft" data-task="typescript-advanced/tsa-draft">
+<h4>Задача 18. Черновик: всё можно менять и можно не заполнять <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите mapped type <code>Draft&lt;T&gt;</code>: снимает <code>readonly</code> и делает все поля необязательными. Проверьте на интерфейсе с <code>readonly id</code> и обязательным <code>title</code>: черновик <code>{}</code> допустим, и в него можно записать <code>id</code>.</p>
+<p class="why"><b>Зачем:</b> модификаторы <code>-readonly</code> и <code>+?</code> объясняют, как устроены встроенные <code>Partial</code> и <code>Readonly</code>. Когда понятно, что это всего лишь mapped types, свои утилиты перестают пугать.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type Draft&lt;T&gt; = { -readonly [K in keyof T]+?: T[K] };
+
+interface Article {
+  readonly id: string;
+  title: string;
+}
+const draft: Draft&lt;Article&gt; = {};
+draft.id = 'a1';
+console.log(draft);</code></pre>
+<p>Плюс у <code>?</code> можно не писать: добавление — поведение по умолчанию. Минус снимает модификатор. Сравните со встроенными утилитами: <code>Partial&lt;T&gt;</code> — это <code>{ [K in keyof T]?: T[K] }</code>, а <code>Readonly&lt;T&gt;</code> — <code>{ readonly [K in keyof T]: T[K] }</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>
