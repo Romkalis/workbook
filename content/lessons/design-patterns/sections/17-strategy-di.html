@@ -18,6 +18,36 @@ console.log(shortest.ordered(lessons)[0].title); // Patterns
 console.log(longest.ordered(lessons)[0].title); // TS
 </code></pre>
 <p>Источник: <a href="https://refactoring.guru/design-patterns/strategy">Strategy</a>. Стратегия позволяет менять алгоритм независимо от клиента; цена — дополнительный контракт и место выбора. Для одного стабильного алгоритма она может быть лишней.</p>
+<article class="task" id="dp-strategy" data-task="design-patterns/dp-strategy">
+<h4>Задача 16. Стратегии скидок <span class="lvl">★☆☆ разминка</span></h4>
+<p>Скидка бывает процентной, фиксированной и «третий товар бесплатно». Опишите тип стратегии <code>(items: number[]) =&gt; number</code> (возвращает сумму скидки), три стратегии и функцию <code>checkout(items, strategy)</code>, которая возвращает итог. Скидка не может сделать сумму отрицательной.</p>
+<p class="why"><b>Зачем:</b> алгоритм, который меняется, выносится за интерфейс. Новая акция — новая функция, а <code>checkout</code> остаётся прежним и уже покрыт тестами. В JavaScript стратегия чаще всего — просто функция: класс с одним методом ничего не добавляет.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type Discount = (items: readonly number[]) =&gt; number;
+
+export const percent =
+  (p: number): Discount =&gt;
+  (items) =&gt;
+    (items.reduce((a, b) =&gt; a + b, 0) * p) / 100;
+
+export const fixed =
+  (amount: number): Discount =&gt;
+  () =&gt;
+    amount;
+
+export const thirdFree: Discount = (items) =&gt; {
+  const sorted = [...items].sort((a, b) =&gt; b - a);
+  return sorted.filter((_, i) =&gt; i % 3 === 2).reduce((a, b) =&gt; a + b, 0);
+};
+
+export function checkout(items: readonly number[], strategy: Discount): number {
+  const sum = items.reduce((a, b) =&gt; a + b, 0);
+  return Math.max(0, sum - strategy(items));
+}</code></pre>
+<p><code>percent(10)</code> и <code>fixed(500)</code> — фабрики стратегий: параметр акции фиксируется в замыкании. В <code>thirdFree</code> бесплатным становится каждый третий по цене, начиная с дорогих. Так магазин не дарит самый дорогой товар. Это бизнес-правило, и его стоит обсудить, а не угадать. Ограничение «не меньше нуля» стоит в <code>checkout</code>, а не в каждой стратегии: это общий инвариант.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="dependency-injection">Dependency Injection — внедрение зависимостей</h3>
 <p>Объект получает нужную зависимость снаружи вместо самостоятельного поиска или создания. Ниже Report не знает, откуда приходят названия уроков. Сборка приложения подставляет источник, тест — небольшой дублёр. Это внедрение через конструктор; DI-контейнер не обязателен.</p>
 <pre><code>interface Source { titles(): readonly string[] }
@@ -30,7 +60,97 @@ const report = new Report(testSource);
 console.log(report.render()); // TS, Patterns
 </code></pre>
 <p>Основа — <a href="https://martinfowler.com/articles/injection.html">статья Мартина Фаулера о DI</a>; она добавлена как первоисточник для практической темы. Если Report сам обращается к глобальному registry.get, это поиск зависимости через Service Locator. DI делает зависимость явной в контракте. Не путайте DI, конкретный способ передачи зависимости, с общим принципом инверсии зависимостей.</p>
+<article class="task" id="dp-di" data-task="design-patterns/dp-di">
+<h4>Задача 17. Внедрение зависимостей вместо импорта <span class="lvl">★★☆ практика</span></h4>
+<p>Сервис ниже сам импортирует время и хранилище, поэтому тест «скидка действует до конца дня» зависит от того, когда его запустили. Перепишите в класс <code>PromoService</code>, который получает <code>clock: () =&gt; Date</code> и <code>storage</code> через конструктор, и проверьте тестом обе стороны полуночи.</p>
+<pre><code>export function isPromoActive(): boolean {
+  const until = localStorage.getItem('promoUntil');
+  return until !== null &amp;&amp; new Date() &lt; new Date(until);
+}</code></pre>
+<p class="why"><b>Зачем:</b> скрытые зависимости (текущее время, <code>localStorage</code>, сеть) делают код непредсказуемым в тестах. Если передать их снаружи, поведение полностью определяется входными данными, а в тесте время — это просто аргумент.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface KeyValue {
+  getItem(key: string): string | null;
+}
+
+export class PromoService {
+  constructor(
+    private readonly storage: KeyValue,
+    private readonly clock: () =&gt; Date = () =&gt; new Date(),
+  ) {}
+
+  isActive(): boolean {
+    const until = this.storage.getItem('promoUntil');
+    return until !== null &amp;&amp; this.clock() &lt; new Date(until);
+  }
+}
+
+// в приложении: new PromoService(localStorage)</code></pre>
+<p>Значение по умолчанию для <code>clock</code> оставляет вызов в приложении коротким, а тест передаёт фиксированное время. Интерфейс <code>KeyValue</code> требует от хранилища только один метод. Подойдут <code>localStorage</code>, <code>Map</code>-обёртка или серверное хранилище. Это и есть принцип инверсии зависимостей: сервис зависит от маленького интерфейса, а не от конкретного глобального объекта.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="sortable-shapes">Sortable Shapes: полиморфный контракт</h3>
 <p>Подготовка из общих знаний: разные фигуры могут реализовать метод area. Сортировщик сравнивает площади через общий контракт и не обязан проверять вид фигуры. Для Codewars сначала прочитайте требуемый API: метод, поле и правила сравнения определяются конкретным условием, а не названием паттерна.</p>
 <p>Для числовой сортировки в JS нужен компаратор, возвращающий отрицательное число, ноль или положительное число. Сам sort меняет массив; в примере Strategy сначала делается копия. Не используйте boolean вместо числового результата сравнения.</p>
+<article class="task" id="dp-polymorphism" data-task="design-patterns/dp-polymorphism">
+<h4>Задача 18. Полиморфизм вместо switch <span class="lvl">★★☆ практика</span></h4>
+<p>Функция ниже считает площадь фигур через <code>switch</code> по типу. Перепишите на классы с общим абстрактным классом <code>Shape</code> и методом <code>area()</code>, добавьте треугольник и функцию <code>sortByArea(shapes)</code>, которая не меняет исходный массив и ничего не знает о конкретных фигурах.</p>
+<pre><code>function area(s: { type: string; a: number; b?: number }) {
+  switch (s.type) {
+    case 'square': return s.a * s.a;
+    case 'circle': return Math.PI * s.a * s.a;
+    case 'rect': return s.a * (s.b ?? 0);
+  }
+}</code></pre>
+<p class="why"><b>Зачем:</b> это суть задачи Sortable Shapes из практики: новая фигура добавляется новым классом, а не правкой <code>switch</code> во всех функциях. Код сортировки опирается только на контракт «у фигуры есть площадь».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export abstract class Shape {
+  abstract area(): number;
+}
+
+export class Square extends Shape {
+  constructor(private readonly side: number) {
+    super();
+  }
+  area() {
+    return this.side ** 2;
+  }
+}
+export class Circle extends Shape {
+  constructor(private readonly radius: number) {
+    super();
+  }
+  area() {
+    return Math.PI * this.radius ** 2;
+  }
+}
+export class Rectangle extends Shape {
+  constructor(
+    private readonly width: number,
+    private readonly height: number,
+  ) {
+    super();
+  }
+  area() {
+    return this.width * this.height;
+  }
+}
+export class Triangle extends Shape {
+  constructor(
+    private readonly base: number,
+    private readonly height: number,
+  ) {
+    super();
+  }
+  area() {
+    return (this.base * this.height) / 2;
+  }
+}
+
+export const sortByArea = (shapes: readonly Shape[]): Shape[] =&gt; [...shapes].sort((a, b) =&gt; a.area() - b.area());</code></pre>
+<p>Обратите внимание на исходный <code>switch</code>: у него нет ветки по умолчанию, и для неизвестного типа функция вернёт <code>undefined</code>. С классами такой ошибки нет: фигуру без <code>area()</code> компилятор не даст создать. Размеченный union с <code>switch</code> тоже законный подход, и его поддерживает проверка <code>never</code>. Выбор зависит от того, что чаще меняется. Если добавляются фигуры, удобнее классы. Если добавляются операции (площадь, периметр, отрисовка), удобнее union и <a href="#visitor">посетитель</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

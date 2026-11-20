@@ -38,4 +38,54 @@ console.log(editor.text); // TS
 <p>Источник: <a href="https://refactoring.guru/design-patterns/command">Command — Команда</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Разделите роли: Editor хранит текст, Append знает действие и снимок предыдущего текста, History хранит порядок выполненных команд. Undo берёт последнюю команду из истории и просит её восстановить предыдущее значение.</p>
+<article class="task" id="dp-command" data-task="design-patterns/dp-command">
+<h4>Задача 10. Команды с отменой <span class="lvl">★★☆ практика</span></h4>
+<p>Редактор корзины поддерживает «Отменить». Опишите команду <code>{ execute(): void; undo(): void }</code>, две команды — <code>addItem</code> и <code>changeQty</code> — и <code>History</code> с методами <code>run(cmd)</code> и <code>undo()</code>. Отмена при пустой истории ничего не делает.</p>
+<p class="why"><b>Зачем:</b> когда действие превращено в объект, его можно сохранить, отменить, повторить или отправить позже. Без команды каждая кнопка меняла бы корзину напрямую, и для отмены пришлось бы хранить снимки всего состояния или писать обратную логику в разных местах.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Command {
+  execute(): void;
+  undo(): void;
+}
+export type Cart = Map&lt;string, number&gt;;
+
+export function addItem(cart: Cart, id: string): Command {
+  return {
+    execute: () =&gt; void cart.set(id, (cart.get(id) ?? 0) + 1),
+    undo: () =&gt; {
+      const qty = (cart.get(id) ?? 0) - 1;
+      if (qty &lt;= 0) cart.delete(id);
+      else cart.set(id, qty);
+    },
+  };
+}
+
+export function changeQty(cart: Cart, id: string, qty: number): Command {
+  let previous: number | undefined;
+  return {
+    execute: () =&gt; {
+      previous = cart.get(id);
+      cart.set(id, qty);
+    },
+    undo: () =&gt; {
+      if (previous === undefined) cart.delete(id);
+      else cart.set(id, previous);
+    },
+  };
+}
+
+export class History {
+  private done: Command[] = [];
+  run(cmd: Command): void {
+    cmd.execute();
+    this.done.push(cmd);
+  }
+  undo(): void {
+    this.done.pop()?.undo();
+  }
+}</code></pre>
+<p><code>changeQty</code> запоминает прежнее значение <b>в момент выполнения</b>, а не при создании команды. Между созданием и запуском корзина могла измениться. История — стек: отменяется последнее действие. Для «Повторить» нужен второй стек: отменённые команды перекладываются туда, а любое новое действие его очищает.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

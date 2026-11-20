@@ -29,4 +29,28 @@ console.log(exhausted.done, [...list].join(&quot;, &quot;)); // true TS, Pattern
 it.next(); // { value: 10, done: false }
 it.next(); // { value: 20, done: false }
 it.next(); // { value: undefined, done: true }</code></pre>
+<article class="task" id="dp-iterator" data-task="design-patterns/dp-iterator">
+<h4>Задача 11. Итератор страниц API <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите асинхронный генератор <code>allItems(fetchPage)</code>, который сам запрашивает страницы <code>1, 2, 3…</code> и отдаёт элементы по одному. <code>fetchPage(n)</code> возвращает <code>{ items, pages }</code>. Код снаружи пишется так: <code>for await (const item of allItems(fetchPage))</code>. Если цикл прервали через <code>break</code>, лишние страницы запрашиваться не должны.</p>
+<p class="why"><b>Зачем:</b> итератор прячет, откуда берутся элементы: из массива, из страниц API или из файла. Код, который их обрабатывает, остаётся одинаковым. Ленивость генератора даёт экономию: прервали цикл — следующие запросы не уходят.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface PageData&lt;T&gt; {
+  items: T[];
+  pages: number;
+}
+
+export async function* allItems&lt;T&gt;(fetchPage: (n: number) =&gt; Promise&lt;PageData&lt;T&gt;&gt;): AsyncGenerator&lt;T&gt; {
+  let page = 1;
+  let pages = 1;
+  do {
+    const data = await fetchPage(page);
+    pages = data.pages;
+    yield* data.items;
+    page++;
+  } while (page &lt;= pages);
+}</code></pre>
+<p><code>yield*</code> отдаёт элементы массива по одному. Генератор останавливается на каждом <code>yield</code> и продолжает, только когда внешний цикл просит следующий элемент. Поэтому после <code>break</code> на первой странице вторая не запрашивается. Число страниц обновляется с каждым ответом: если данных стало больше, обход это учтёт.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

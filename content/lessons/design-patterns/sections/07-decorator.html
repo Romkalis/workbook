@@ -27,4 +27,35 @@ console.log(first.text(), second.text()); // ★ [TS] [★ TS]
 <p>Источник: <a href="https://refactoring.guru/design-patterns/decorator">Decorator — Декоратор</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Читайте вложенность изнутри: TitleLabel даёт TS, Brackets превращает его в [TS], Favorite добавляет звезду. Если переставить обёртки, скобки охватят и звезду. Одинаковое имя метода позволяет строить такую цепочку.</p>
+<article class="task" id="dp-decorator" data-task="design-patterns/dp-decorator">
+<h4>Задача 6. Декораторы для функции загрузки <span class="lvl">★★☆ практика</span></h4>
+<p>Есть функция <code>load(id): Promise&lt;T&gt;</code>. Напишите две обёртки с той же сигнатурой: <code>withLog(fn, log)</code> пишет в <code>log</code> строку <code>"load 42"</code> перед вызовом, а <code>withCache(fn)</code> запоминает результат по <code>id</code> и не вызывает <code>fn</code> повторно. Обёртки должны комбинироваться в любом порядке.</p>
+<p class="why"><b>Зачем:</b> декоратор добавляет поведение, не трогая исходный код и не меняя интерфейс. Каждая обёртка делает одно дело, а нужный набор собирается из кусочков. С наследованием на каждую комбинацию пришлось бы заводить класс: «с кешем», «с логом», «с кешем и логом».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type Loader&lt;T&gt; = (id: string) =&gt; Promise&lt;T&gt;;
+
+export function withLog&lt;T&gt;(fn: Loader&lt;T&gt;, log: (line: string) =&gt; void): Loader&lt;T&gt; {
+  return (id) =&gt; {
+    log(`load ${id}`);
+    return fn(id);
+  };
+}
+
+export function withCache&lt;T&gt;(fn: Loader&lt;T&gt;): Loader&lt;T&gt; {
+  const cache = new Map&lt;string, Promise&lt;T&gt;&gt;();
+  return (id) =&gt; {
+    const hit = cache.get(id);
+    if (hit) return hit;
+    const pending = fn(id).catch((err: unknown) =&gt; {
+      cache.delete(id);
+      throw err;
+    });
+    cache.set(id, pending);
+    return pending;
+  };
+}</code></pre>
+<p>В кеше хранится <b>промис</b>, а не результат. Поэтому два одновременных вызова с одним <code>id</code> получат один запрос, а не два. Ошибка из кеша удаляется, иначе неудачная загрузка «запомнилась» бы навсегда. Порядок обёрток меняет смысл: <code>withCache(withLog(load))</code> пишет в лог только настоящие загрузки, а <code>withLog(withCache(load))</code> — каждый вызов. Синтаксис <code>@decorator</code> в TypeScript — другая вещь с тем же названием. Паттерн реализуется обычными функциями.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

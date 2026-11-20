@@ -35,4 +35,52 @@ console.log(textFlow.run(&quot; TS &quot;), jsonFlow.run(&quot; TS &quot;));
 <p>Источник: <a href="https://refactoring.guru/design-patterns/factory-method">Factory Method — Фабричный метод</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Проследите JsonFlow.run: общий метод убирает пробелы, вызывает createExporter у текущего наследника, получает JsonExporter и вызывает encode. Клиент выбрал вид сценария один раз, а общий метод не проверяет тип экспортёра через if.</p>
+<article class="task" id="dp-factory" data-task="design-patterns/dp-factory">
+<h4>Задача 1. Фабрика уведомлений <span class="lvl">★☆☆ разминка</span></h4>
+<p>Магазин отправляет уведомления по email, SMS и в мессенджер. Опишите интерфейс <code>Notifier</code> с методом <code>send(to, text): string</code> (возвращает строку-отчёт) и функцию-фабрику <code>createNotifier(kind)</code>. Неизвестный вид — ошибка. Код, который рассылает сообщения, должен знать только интерфейс, а не классы.</p>
+<p class="why"><b>Зачем:</b> когда выбор класса спрятан в одном месте, новый канал добавляется одной веткой в фабрике, а код рассылки не меняется. Без фабрики <code>if (kind === "sms") new Sms()</code> расползается по всем местам, где нужно уведомление.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Notifier {
+  send(to: string, text: string): string;
+}
+
+class EmailNotifier implements Notifier {
+  send(to: string, text: string) {
+    return `email → ${to}: ${text}`;
+  }
+}
+class SmsNotifier implements Notifier {
+  send(to: string, text: string) {
+    return `sms → ${to}: ${text.slice(0, 70)}`;
+  }
+}
+class ChatNotifier implements Notifier {
+  send(to: string, text: string) {
+    return `chat → @${to}: ${text}`;
+  }
+}
+
+export type NotifierKind = 'email' | 'sms' | 'chat';
+
+export function createNotifier(kind: NotifierKind): Notifier {
+  switch (kind) {
+    case 'email':
+      return new EmailNotifier();
+    case 'sms':
+      return new SmsNotifier();
+    case 'chat':
+      return new ChatNotifier();
+    default: {
+      const never: never = kind;
+      throw new Error(`Неизвестный канал: ${String(never)}`);
+    }
+  }
+}
+
+export const broadcast = (kinds: NotifierKind[], to: string, text: string) =&gt;
+  kinds.map((k) =&gt; createNotifier(k).send(to, text));</code></pre>
+<p>В JavaScript «фабричный метод» чаще всего выглядит как обычная функция, а не как иерархия классов-создателей из книги GoF. Смысл тот же: клиент просит «нужен объект с таким интерфейсом» и не знает конкретного класса. Классы не экспортируются, и это проверка на честность: извне их нельзя создать в обход фабрики. Ветка <code>never</code> заставит компилятор напомнить про новый вид канала. Ошибка в рантайме нужна для данных из JS или JSON, где тип не гарантирован.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

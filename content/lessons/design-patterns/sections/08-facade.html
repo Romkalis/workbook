@@ -29,4 +29,46 @@ console.log(facade.open(1)); // Урок: TypeScript
 <p>Источник: <a href="https://refactoring.guru/design-patterns/facade">Facade — Фасад</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Вызов open скрывает два шага: получить заголовок из LessonStore и оформить его через Formatter. Клиенту нужен итоговый сценарий, а не знание, какой служебный объект вызвать первым.</p>
+<article class="task" id="dp-facade" data-task="design-patterns/dp-facade">
+<h4>Задача 7. Фасад оформления заказа <span class="lvl">★★☆ практика</span></h4>
+<p>Оформление заказа затрагивает три подсистемы: склад (<code>reserve</code>), оплату (<code>charge</code>) и уведомления (<code>notify</code>). Напишите фасад <code>createCheckout(deps)</code> с одним методом <code>placeOrder(order)</code>. Если оплата не прошла, резерв нужно снять (<code>release</code>), а ошибку пробросить дальше. Уведомление отправляется только после успешной оплаты.</p>
+<pre><code>// check-types.ts
+export interface CheckoutDeps {
+  reserve(items: string[]): Promise&lt;void&gt;;
+  release(items: string[]): Promise&lt;void&gt;;
+  charge(orderId: string, total: number): Promise&lt;void&gt;;
+  notify(orderId: string): Promise&lt;void&gt;;
+}</code></pre>
+<p class="why"><b>Зачем:</b> компонент кнопки «Оформить» не должен знать порядок шагов и что откатывать при сбое. Фасад даёт простой вход в сложную подсистему и держит правила согласованности в одном месте, где их легко проверить тестом.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Order {
+  id: string;
+  items: string[];
+  total: number;
+}
+export interface CheckoutDeps {
+  reserve(items: string[]): Promise&lt;void&gt;;
+  release(items: string[]): Promise&lt;void&gt;;
+  charge(orderId: string, total: number): Promise&lt;void&gt;;
+  notify(orderId: string): Promise&lt;void&gt;;
+}
+
+export function createCheckout(deps: CheckoutDeps) {
+  return {
+    async placeOrder(order: Order): Promise&lt;void&gt; {
+      await deps.reserve(order.items);
+      try {
+        await deps.charge(order.id, order.total);
+      } catch (err) {
+        await deps.release(order.items);
+        throw err;
+      }
+      await deps.notify(order.id);
+    },
+  };
+}</code></pre>
+<p>Подсистемы приходят параметром <code>deps</code>, и в тесте их легко заменить заглушками, которые записывают вызовы. Откат стоит в <code>catch</code> ровно вокруг оплаты: если упадёт уведомление, деньги уже списаны, и снимать резерв нельзя. Ошибка пробрасывается дальше: фасад упрощает вызов, но не прячет сбои. Риск фасада — превратиться в «божественный объект», который знает всё. Держите в нём координацию, а не бизнес-логику подсистем.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

@@ -25,4 +25,36 @@ console.log(label(adapted)); // 9 мин
 <p>Источник: <a href="https://refactoring.guru/design-patterns/adapter">Adapter — Адаптер</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Цепочка вызовов: клиент вызывает minutes у адаптера → адаптер вызывает getSeconds у старого объекта → делит секунды на 60 → возвращает минуты. Перевод единиц находится на границе между двумя API, а не разбросан по клиентскому коду.</p>
+<article class="task" id="dp-adapter" data-task="design-patterns/dp-adapter">
+<h4>Задача 5. Адаптер чужого API погоды <span class="lvl">★☆☆ разминка</span></h4>
+<p>Интерфейс ждёт <code>Weather = { city: string; tempC: number; text: string }</code>. Сторонний сервис отдаёт ответ в другом виде (ниже): температура в кельвинах, город во вложенном поле. Напишите адаптер <code>toWeather(raw)</code>. Температуру округлите до целого.</p>
+<pre><code>const raw = {
+  location: { name: 'Minsk' },
+  main: { temp: 271.15 },
+  weather: [{ description: 'snow' }],
+};</code></pre>
+<p class="why"><b>Зачем:</b> формат чужого API может поменяться в любой момент. Если его поля разбросаны по компонентам, правок будет много. Адаптер собирает знание о чужом формате в одной функции, а приложение работает со своим типом.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Weather {
+  city: string;
+  tempC: number;
+  text: string;
+}
+export interface RawWeather {
+  location: { name: string };
+  main: { temp: number };
+  weather: { description: string }[];
+}
+
+export function toWeather(raw: RawWeather): Weather {
+  return {
+    city: raw.location.name,
+    tempC: Math.round(raw.main.temp - 273.15),
+    text: raw.weather[0]?.description ?? 'нет данных',
+  };
+}</code></pre>
+<p>Адаптер не добавляет поведения, он только переводит один интерфейс в другой. В этом его отличие от декоратора. Пустой массив <code>weather</code> обработан через <code>?.</code> и <code>??</code>: чужой API может прислать и такое. Если данные приходят как <code>unknown</code>, перед адаптером ставят проверку (предикат или <a href="/lessons/zod">схему Zod</a>). Тот же приём — функция <code>toPage</code> в задачах урока <a href="/lessons/restful-api#rest-pagination">RESTful API</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

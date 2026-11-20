@@ -33,4 +33,36 @@ console.log(total); // 15
 <p>Источник: <a href="https://refactoring.guru/design-patterns/visitor">Visitor — Посетитель</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Проследите один элемент Video: accept получает посетителя и вызывает у него visitVideo(this). У Article такой же шаг приводит в visitArticle. Клиент обходит материалы единообразно, а специальные операции для разных видов собраны в посетителе.</p>
+<article class="task" id="dp-visitor" data-task="design-patterns/dp-visitor">
+<h4>Задача 15. Посетитель для дерева каталога <span class="lvl">★★★ с подвохом</span></h4>
+<p>Каталог — дерево из категорий и товаров: <code>{ kind: "category", name, children }</code> и <code>{ kind: "product", name, price }</code>. Напишите <code>visit(node, visitor)</code>, где <code>visitor</code> — объект с методами <code>category(node, childResults)</code> и <code>product(node)</code>. На его основе сделайте два «посетителя»: подсчёт суммы цен и список названий с отступами по уровню.</p>
+<p class="why"><b>Зачем:</b> посетитель отделяет обход структуры от операций над ней. Новая операция (экспорт в CSV, поиск самого дорогого) — новый объект-посетитель, а код дерева и обхода не меняется. В TypeScript роль двойной диспетчеризации из книги играет размеченный union.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type Node =
+  | { kind: 'category'; name: string; children: Node[] }
+  | { kind: 'product'; name: string; price: number };
+
+export interface Visitor&lt;R&gt; {
+  category(node: Extract&lt;Node, { kind: 'category' }&gt;, childResults: R[]): R;
+  product(node: Extract&lt;Node, { kind: 'product' }&gt;): R;
+}
+
+export function visit&lt;R&gt;(node: Node, visitor: Visitor&lt;R&gt;): R {
+  if (node.kind === 'product') return visitor.product(node);
+  return visitor.category(node, node.children.map((child) =&gt; visit(child, visitor)));
+}
+
+export const totalPrice: Visitor&lt;number&gt; = {
+  product: (p) =&gt; p.price,
+  category: (_c, sums) =&gt; sums.reduce((a, b) =&gt; a + b, 0),
+};
+
+export const outline: Visitor&lt;string[]&gt; = {
+  product: (p) =&gt; [p.name],
+  category: (c, lists) =&gt; [c.name, ...lists.flat().map((line) =&gt; '  ' + line)],
+};</code></pre>
+<p>Обход написан один раз в <code>visit</code>. Посетитель только решает, что делать с узлом и результатами детей. Отступы в <code>outline</code> накапливаются сами: каждая категория сдвигает строки своих детей на два пробела, поэтому глубина не передаётся параметром. Обратная сторона паттерна: новый <b>вид узла</b> (например, «набор») потребует правки всех посетителей. Это видно и в типах: компилятор подскажет, где не хватает метода.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

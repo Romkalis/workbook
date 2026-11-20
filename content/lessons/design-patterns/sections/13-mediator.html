@@ -30,4 +30,34 @@ console.log(form.button.enabled); // false
 <p>Источник: <a href="https://refactoring.guru/design-patterns/mediator">Mediator — Посредник</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>При вводе Field сообщает новое значение посреднику. Посредник проверяет строку и меняет enabled у Button. Сам Field не ищет кнопку и не знает правила её включения: это позволяет использовать поле с другой координацией.</p>
+<article class="task" id="dp-mediator" data-task="design-patterns/dp-mediator">
+<h4>Задача 12. Посредник для фильтров каталога <span class="lvl">★★☆ практика</span></h4>
+<p>На странице каталога три виджета: поиск, выбор категории и список. При изменении поиска или категории список должен перерисоваться, а при смене категории поиск — очиститься. Напишите посредника <code>createCatalogMediator(list)</code> с методом <code>notify(sender, value)</code>. Виджеты ничего не знают друг о друге, только о посреднике.</p>
+<p class="why"><b>Зачем:</b> когда каждый виджет вызывает методы соседей, связи растут как «каждый с каждым», и добавление четвёртого фильтра требует правок во всех. Посредник собирает правила взаимодействия в одно место, и виджеты становятся независимыми.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface ListView {
+  render(query: string, category: string): void;
+}
+export type Sender = 'search' | 'category';
+
+export function createCatalogMediator(list: ListView) {
+  const state = { query: '', category: 'all' };
+  return {
+    get state() {
+      return { ...state };
+    },
+    notify(sender: Sender, value: string): void {
+      if (sender === 'search') state.query = value;
+      if (sender === 'category') {
+        state.category = value;
+        state.query = '';
+      }
+      list.render(state.query, state.category);
+    },
+  };
+}</code></pre>
+<p>Правило «смена категории очищает поиск» живёт только в посреднике. Виджету категории не нужно знать, что поиск существует. Геттер <code>state</code> отдаёт копию, чтобы снаружи нельзя было поменять состояние в обход правил. Отличие от <a href="#observer">наблюдателя</a>: наблюдатель рассылает событие всем подписчикам без логики, а посредник решает, кого и как задеть. Риск тот же, что у фасада: посредник может разрастись. Держите в нём только связи между участниками.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

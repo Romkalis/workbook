@@ -30,4 +30,33 @@ console.log(log.join(&quot;, &quot;)); // progress:TS, stats:TS, stats:Patterns
 <p>Источник: <a href="https://refactoring.guru/design-patterns/observer">Observer — Наблюдатель</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Подписка означает регистрацию функции на будущие уведомления. Stop — обычная функция отписки, её нужно вызвать. Само получение stop не удаляет слушатель. В emit список слушателей копируется, после чего функции вызываются по очереди.</p>
+<article class="task" id="dp-observer" data-task="design-patterns/dp-observer">
+<h4>Задача 13. Наблюдатель с отпиской <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>createSubject&lt;T&gt;()</code> с методами <code>subscribe(fn)</code> (возвращает функцию отписки) и <code>next(value)</code>. Ошибка в одном подписчике не должна помешать остальным получить значение. Ошибки собирайте и передавайте в <code>onError</code>, который принимает фабрика.</p>
+<p class="why"><b>Зачем:</b> наблюдатель отвязывает источник события от тех, кто на него реагирует: корзина не знает про счётчик в шапке и про аналитику. Но если один подписчик упал и сломал рассылку, остальные части интерфейса тихо перестают обновляться. Изоляция ошибок здесь обязательна.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function createSubject&lt;T&gt;(onError: (err: unknown) =&gt; void = console.error) {
+  const subscribers = new Set&lt;(value: T) =&gt; void&gt;();
+  return {
+    subscribe(fn: (value: T) =&gt; void): () =&gt; void {
+      subscribers.add(fn);
+      return () =&gt; {
+        subscribers.delete(fn);
+      };
+    },
+    next(value: T): void {
+      for (const fn of [...subscribers]) {
+        try {
+          fn(value);
+        } catch (err) {
+          onError(err);
+        }
+      }
+    },
+  };
+}</code></pre>
+<p>Копия <code>[...subscribers]</code> защищает от подписчика, который в момент уведомления подписывает нового: тот получит значения начиная со следующего раза, а не посреди текущей рассылки. <code>Set</code> не даст подписать одну функцию дважды. Отписка обязательна: без неё удалённый со страницы компонент продолжит получать события, и память будет течь. Это то же самое, что <code>removeEventListener</code> в DOM.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

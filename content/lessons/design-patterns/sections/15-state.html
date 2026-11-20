@@ -40,4 +40,31 @@ console.log(statuses.join(&quot; → &quot;)); // draft → review → published
 <p>Источник: <a href="https://refactoring.guru/design-patterns/state">State — Состояние</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Контекст — здесь Article, объект с меняющимся поведением. Draft, Review и Published — отдельные объекты состояния. При publish контекст передаёт действие текущему состоянию; то выбирает следующий переход либо оставляет состояние прежним.</p>
+<article class="task" id="dp-state" data-task="design-patterns/dp-state">
+<h4>Задача 14. Состояния заказа <span class="lvl">★★☆ практика</span></h4>
+<p>Заказ проходит путь <code>new → paid → shipped → delivered</code>, а из <code>new</code> и <code>paid</code> его можно отменить (<code>cancelled</code>). Опишите разрешённые переходы <b>таблицей</b>, а не вложенными <code>if</code>, и напишите <code>transition(state, event)</code>. Недопустимый переход — ошибка с текстом «нельзя pay из shipped».</p>
+<p class="why"><b>Зачем:</b> когда правила переходов разбросаны по <code>if</code> в разных обработчиках, однажды заказ «доставят» без оплаты. Таблица состояний видна целиком: по ней легко проверить, что все пути разрешены сознательно, и нарисовать схему для заказчика.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type OrderState = 'new' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+export type OrderEvent = 'pay' | 'ship' | 'deliver' | 'cancel';
+
+const TRANSITIONS: Record&lt;OrderState, Partial&lt;Record&lt;OrderEvent, OrderState&gt;&gt;&gt; = {
+  new: { pay: 'paid', cancel: 'cancelled' },
+  paid: { ship: 'shipped', cancel: 'cancelled' },
+  shipped: { deliver: 'delivered' },
+  delivered: {},
+  cancelled: {},
+};
+
+export function transition(state: OrderState, event: OrderEvent): OrderState {
+  const next = TRANSITIONS[state][event];
+  if (!next) throw new Error(`нельзя ${event} из ${state}`);
+  return next;
+}
+
+export const canDo = (state: OrderState, event: OrderEvent): boolean =&gt; TRANSITIONS[state][event] !== undefined;</code></pre>
+<p>В книжном паттерне State каждое состояние — класс со своими методами. Для набора простых переходов таблица короче и нагляднее, а смысл тот же: поведение зависит от текущего состояния, и каждое состояние знает, куда можно перейти. <code>Record&lt;OrderState, …&gt;</code> заставит описать строку для нового состояния. <code>canDo</code> пригодится интерфейсу: кнопку «Отправить» просто не показывают, если переход невозможен.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

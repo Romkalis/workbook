@@ -23,4 +23,37 @@ console.log(search(&quot;  &quot;)); // Пустой запрос
 <p>Источник: <a href="https://refactoring.guru/design-patterns/chain-of-responsibility">Chain of Responsibility — Цепочка обязанностей</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Middleware — промежуточный обработчик. В примере next — функция следующего шага. NonEmpty либо возвращает ошибку сразу, либо передаёт очищенную строку дальше. Поэтому порядок обработчиков влияет и на данные, и на то, какие шаги вообще выполнятся.</p>
+<article class="task" id="dp-chain" data-task="design-patterns/dp-chain">
+<h4>Задача 9. Цепочка проверок заказа <span class="lvl">★★☆ практика</span></h4>
+<p>Перед оформлением заказ проходит проверки: корзина не пуста, сумма не меньше 500, адрес указан. Каждая проверка — функция <code>(order) =&gt; string | null</code> (текст ошибки или <code>null</code>). Напишите <code>runChain(checks, order)</code>: возвращает первую ошибку и <b>не вызывает</b> следующие проверки. Затем <code>collectAll</code>, которая возвращает все ошибки сразу. Подумайте, где нужна каждая.</p>
+<p class="why"><b>Зачем:</b> цепочка отделяет отправителя от обработчиков: проверку можно добавить, убрать или переставить, не трогая остальные. Вопрос «остановиться на первой или собрать все» — настоящее архитектурное решение, а не деталь реализации.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Order {
+  items: string[];
+  total: number;
+  address?: string;
+}
+export type Check = (order: Order) =&gt; string | null;
+
+export const checks: Check[] = [
+  (o) =&gt; (o.items.length === 0 ? 'Корзина пуста' : null),
+  (o) =&gt; (o.total &lt; 500 ? 'Минимальная сумма заказа — 500' : null),
+  (o) =&gt; (o.address?.trim() ? null : 'Укажите адрес'),
+];
+
+export function runChain(list: readonly Check[], order: Order): string | null {
+  for (const check of list) {
+    const error = check(order);
+    if (error !== null) return error;
+  }
+  return null;
+}
+
+export function collectAll(list: readonly Check[], order: Order): string[] {
+  return list.map((check) =&gt; check(order)).filter((e): e is string =&gt; e !== null);
+}</code></pre>
+<p>Остановка на первой ошибке нужна, когда следующие проверки бессмысленны или дороги: нет смысла проверять сумму пустой корзины или ходить на сервер за адресом, если пользователь не вошёл. Сбор всех ошибок нужен в форме: человек должен увидеть всё, что исправить, а не по одной ошибке за попытку. Цепочка middleware в Express устроена так же. Каждое звено решает, обработать запрос самому или вызвать <code>next()</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

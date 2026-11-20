@@ -33,4 +33,40 @@ console.log(plan.topics.join(&quot;, &quot;), next.topics.join(&quot;, &quot;));
 <p>Источник: <a href="https://refactoring.guru/design-patterns/builder">Builder — Строитель</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Цепочка named(...).add(...).build() — последовательные вызовы одного строителя. Возврат this позволяет сразу вызвать следующий шаг. Только build выдаёт готовый Plan; при пустом заголовке он бросает ошибку. Director — необязательный организатор повторяемой последовательности шагов.</p>
+<article class="task" id="dp-builder" data-task="design-patterns/dp-builder">
+<h4>Задача 3. Строитель запроса к каталогу <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите класс <code>QueryBuilder</code> с цепочкой методов: <code>where(field, value)</code>, <code>sort(field, dir)</code>, <code>page(n, size)</code> и завершающим <code>build()</code>, который возвращает строку запроса вида <code>/products?category=books&amp;sort=-price&amp;page=2&amp;perPage=20</code>. Повторный <code>where</code> с тем же полем заменяет значение. Номер страницы меньше 1 — ошибка уже в <code>page()</code>.</p>
+<p class="why"><b>Зачем:</b> когда у объекта много необязательных частей, конструктор с десятью параметрами превращается в угадайку. Строитель даёт имя каждому шагу и проверяет данные в момент вызова, а не когда запрос уже ушёл на сервер.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export class QueryBuilder {
+  private params = new URLSearchParams();
+
+  constructor(private readonly path: string) {}
+
+  where(field: string, value: string | number): this {
+    this.params.set(field, String(value));
+    return this;
+  }
+
+  sort(field: string, dir: 'asc' | 'desc' = 'asc'): this {
+    this.params.set('sort', dir === 'desc' ? `-${field}` : field);
+    return this;
+  }
+
+  page(n: number, size = 20): this {
+    if (!Number.isInteger(n) || n &lt; 1) throw new RangeError('Страница — целое число от 1');
+    this.params.set('page', String(n));
+    this.params.set('perPage', String(size));
+    return this;
+  }
+
+  build(): string {
+    const q = this.params.toString();
+    return q ? `${this.path}?${q}` : this.path;
+  }
+}</code></pre>
+<p>Каждый метод возвращает <code>this</code>: так строится цепочка. Тип результата <code>this</code>, а не <code>QueryBuilder</code>, чтобы цепочка сохраняла тип и у наследника. <code>set</code> вместо <code>append</code> даёт поведение «повтор заменяет». Когда строитель лишний: если частей две-три, хватит объекта настроек <code>{ category, sort, page }</code>. Это и есть «без лишнего паттерна» из раздела сравнения.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

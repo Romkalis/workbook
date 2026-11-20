@@ -24,4 +24,37 @@ console.log(first === second, second.count); // true 1
 <p>Источник: <a href="https://refactoring.guru/design-patterns/singleton">Singleton — Одиночка</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Сравнение first === second проверяет совпадение ссылок, а не равенство полей. После увеличения first.count меняется тот же объект, который доступен через second. Это полезный способ увидеть общее состояние и одновременно его риск.</p>
+<article class="task" id="dp-singleton" data-task="design-patterns/dp-singleton">
+<h4>Задача 4. Одиночка, который можно тестировать <span class="lvl">★★☆ практика</span></h4>
+<p>Ниже классический одиночка-конфигурация. Тесты с ним мешают друг другу: один тест поменял настройку, следующий получает изменённую. Перепишите так, чтобы в приложении по-прежнему был один экземпляр, но тест мог создать свой. Подсказка из раздела: модуль ES уже выполняется один раз.</p>
+<pre><code>export class Config {
+  private static instance: Config;
+  apiUrl = 'https://api.example.com';
+  private constructor() {}
+  static get(): Config {
+    if (!Config.instance) Config.instance = new Config();
+    return Config.instance;
+  }
+}</code></pre>
+<p class="why"><b>Зачем:</b> главная претензия к одиночке — скрытая глобальная зависимость: код вызывает <code>Config.get()</code> где угодно, и подменить конфигурацию в тесте нельзя. Если отделить «как создать» от «сколько штук», единственность сохраняется, а тестируемость возвращается.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Config {
+  apiUrl: string;
+}
+
+export function createConfig(overrides: Partial&lt;Config&gt; = {}): Config {
+  return { apiUrl: 'https://api.example.com', ...overrides };
+}
+
+// Единственный экземпляр для приложения: модуль выполняется один раз
+export const config = createConfig();
+
+// Код получает конфигурацию параметром, а не берёт глобальную
+export function productsUrl(cfg: Config = config): string {
+  return `${cfg.apiUrl}/products`;
+}</code></pre>
+<p>Единственность обеспечивает система модулей: сколько бы файлов ни импортировали <code>config</code>, это один и тот же объект. Фабрика <code>createConfig</code> позволяет тесту сделать собственный экземпляр. Функция <code>productsUrl</code> получает зависимость параметром со значением по умолчанию. Это простейшее внедрение зависимостей из раздела про <a href="#dependency-injection">DI</a>. Одиночка остаётся оправданным там, где второй экземпляр — настоящая ошибка, например второе подключение к базе.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

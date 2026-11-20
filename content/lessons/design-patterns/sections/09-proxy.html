@@ -31,4 +31,34 @@ console.log(proxy.title(1), proxy.title(1), source.calls); // Урок 1 Уро�
 <p>Источник: <a href="https://refactoring.guru/design-patterns/proxy">Proxy — Заместитель</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>Кэш — сохранённый результат предыдущего обращения. В первый вызов proxy идёт к source и запоминает строку. Во второй возвращает её из Map: поэтому счётчик обращений к source не увеличивается. При изменении исходных данных старый кэш нужно обновить или удалить.</p>
+<article class="task" id="dp-proxy" data-task="design-patterns/dp-proxy">
+<h4>Задача 8. Заместитель с проверкой доступа <span class="lvl">★★★ с подвохом</span></h4>
+<p>Есть сервис товаров с методами <code>list()</code> и <code>remove(id)</code>. Напишите заместитель <code>guarded(service, getRole)</code> с тем же интерфейсом: <code>list</code> доступен всем, <code>remove</code> только при роли <code>"admin"</code>, иначе бросается <code>ForbiddenError</code>. Роль читается функцией <code>getRole()</code> в момент вызова, а не при создании заместителя.</p>
+<p class="why"><b>Зачем:</b> заместитель контролирует доступ к объекту, не меняя его интерфейс: код, которому передали сервис, не знает, настоящий он или охраняемый. Роль читается при каждом вызове, иначе права зафиксируются на момент создания, и после выхода администратора удаление останется разрешённым.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface ProductService {
+  list(): string[];
+  remove(id: string): void;
+}
+
+export class ForbiddenError extends Error {
+  constructor(action: string) {
+    super(`Нет прав на действие: ${action}`);
+    this.name = 'ForbiddenError';
+  }
+}
+
+export function guarded(service: ProductService, getRole: () =&gt; 'user' | 'admin'): ProductService {
+  return {
+    list: () =&gt; service.list(),
+    remove(id) {
+      if (getRole() !== 'admin') throw new ForbiddenError('remove');
+      service.remove(id);
+    },
+  };
+}</code></pre>
+<p>Заместитель реализует тот же интерфейс <code>ProductService</code>, поэтому подставляется везде, где ждут сервис. От декоратора он отличается намерением: декоратор добавляет возможности, а заместитель управляет доступом к объекту (права, ленивое создание, кеш удалённых вызовов). Встроенный <code>Proxy</code> из JavaScript тоже подходит, но для двух методов явный объект понятнее и лучше типизируется. Проверка прав на клиенте — это удобство интерфейса, а не защита. Сервер обязан проверять роль сам, как в задачах урока <a href="/lessons/jwt-auth">JWT</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

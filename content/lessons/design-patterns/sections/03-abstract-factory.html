@@ -31,4 +31,29 @@ console.log(preview(new DarkTheme()));
 <p>Источник: <a href="https://refactoring.guru/design-patterns/abstract-factory">Abstract Factory — Абстрактная фабрика</a>. Пример авторский, адаптирован для учебного каталога.</p>
 
 <p>У одной фабрики несколько методов создания. Передав DarkTheme в preview, мы получаем и заголовок, и метку тёмного семейства. Интерфейс фабрики описывает именно семейство: заменить один продукт и заменить всю фабрику — разные изменения.</p>
+<article class="task" id="dp-abstract-factory" data-task="design-patterns/dp-abstract-factory">
+<h4>Задача 2. Согласованный набор: тема интерфейса <span class="lvl">★★☆ практика</span></h4>
+<p>Интерфейс рисуется в светлой и тёмной теме. Кнопка и карточка одной темы должны сочетаться. Опишите <code>UiFactory</code> с методами <code>button(label)</code> и <code>card(title)</code>, возвращающими строки HTML с классом темы, и две фабрики: <code>lightUi</code> и <code>darkUi</code>. Функция <code>renderPage(ui)</code> получает фабрику и не знает, какая тема выбрана.</p>
+<p class="why"><b>Зачем:</b> абстрактная фабрика гарантирует, что детали из разных наборов не перемешаются: нельзя случайно поставить тёмную кнопку на светлую карточку. Смена темы — замена одного объекта, а не правка каждого места создания.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface UiFactory {
+  button(label: string): string;
+  card(title: string): string;
+}
+
+const themed = (theme: 'light' | 'dark'): UiFactory =&gt; ({
+  button: (label) =&gt; `&lt;button class="btn btn--${theme}"&gt;${label}&lt;/button&gt;`,
+  card: (title) =&gt; `&lt;article class="card card--${theme}"&gt;&lt;h2&gt;${title}&lt;/h2&gt;&lt;/article&gt;`,
+});
+
+export const lightUi = themed('light');
+export const darkUi = themed('dark');
+
+export function renderPage(ui: UiFactory): string {
+  return ui.card('Корзина') + ui.button('Оформить');
+}</code></pre>
+<p>Обе фабрики сделаны одной функцией с параметром. Это нормально: паттерн описывает роль «семейство согласованных продуктов», а не обязательные классы. Если бы темы отличались не только классом, а разметкой, у каждой была бы своя реализация того же интерфейса. Главное в задаче — <code>renderPage</code>: в ней нет ни одного упоминания темы. Подставлять текст в HTML без экранирования можно только для своих строк, данные пользователя так вставлять нельзя (урок <a href="/lessons/dom-basics">DOM</a>).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>
