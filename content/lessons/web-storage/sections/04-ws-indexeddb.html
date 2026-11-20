@@ -1,0 +1,146 @@
+<section id="ws-indexeddb">
+<h2>IndexedDB</h2>
+<p>IndexedDB — настоящая база данных в браузере. Она хранит объекты (не только строки), умеет искать по индексам, работает асинхронно и транзакционно. Подходит для больших объёмов: список товаров для работы без сети, черновики с картинками, кеш ответов API.</p>
+<h3 id="ws-idb-open">Открытие базы и версии</h3>
+<p>Структура базы — какие есть <b>хранилища объектов</b> (object store, аналог таблицы) и индексы — меняется только в обработчике <code>upgradeneeded</code>. Он срабатывает, когда база открывается с номером версии больше текущего, в том числе при первом создании.</p>
+<pre><code>export function openDb(name: string): Promise&lt;IDBDatabase&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    const request = indexedDB.open(name, 1);
+    request.onupgradeneeded = () =&gt; {
+      const db = request.result;
+      const notes = db.createObjectStore('notes', { keyPath: 'id', autoIncrement: true });
+      notes.createIndex('byTag', 'tag');
+    };
+    request.onsuccess = () =&gt; resolve(request.result);
+    request.onerror = () =&gt; reject(request.error);
+  });
+}</code></pre>
+<p><code>keyPath: 'id'</code> — ключ берётся из поля объекта, <code>autoIncrement</code> — база сама выдаёт номера. API IndexedDB старше промисов и построен на событиях <code>success</code> и <code>error</code> у объекта-запроса, поэтому его почти всегда оборачивают в промисы. Готовая тонкая обёртка — библиотека <code>idb</code> (из общих знаний).</p>
+<article class="task" id="ws-t-idb-request" data-task="web-storage/ws-t-idb-request">
+<h4>Задача 8. Промис из IDBRequest <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>request&lt;T&gt;(req: IDBRequest&lt;T&gt;): Promise&lt;T&gt;</code> и <code>transactionDone(tx): Promise&lt;void&gt;</code>. На их основе напишите <code>countNotes(db)</code>, возвращающую число записей в хранилище <code>notes</code>.</p>
+<pre><code>// open.ts
+export function openNotes(name: string): Promise&lt;IDBDatabase&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    const r = indexedDB.open(name, 1);
+    r.onupgradeneeded = () =&gt; r.result.createObjectStore('notes', { keyPath: 'id', autoIncrement: true });
+    r.onsuccess = () =&gt; resolve(r.result);
+    r.onerror = () =&gt; reject(r.error);
+  });
+}</code></pre>
+<p class="why"><b>Зачем:</b> событийный API IndexedDB неудобно складывать в цепочки. Две маленькие обёртки превращают его в обычный асинхронный код с <code>await</code>, и дальше с базой можно работать как с любым асинхронным сервисом. Это тот же приём, что промисификация колбэков в уроке <a href="/lessons/async-js#as-promisify">Async JS</a>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function request&lt;T&gt;(req: IDBRequest&lt;T&gt;): Promise&lt;T&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    req.onsuccess = () =&gt; resolve(req.result);
+    req.onerror = () =&gt; reject(req.error);
+  });
+}
+
+export function transactionDone(tx: IDBTransaction): Promise&lt;void&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    tx.oncomplete = () =&gt; resolve();
+    // в момент error поле tx.error ещё пустое: ошибка лежит в запросе, который её вызвал
+    tx.onerror = (event) =&gt; reject((event.target as IDBRequest).error ?? tx.error);
+    tx.onabort = () =&gt; reject(tx.error ?? new Error('Транзакция отменена'));
+  });
+}
+
+export function countNotes(db: IDBDatabase): Promise&lt;number&gt; {
+  return request(db.transaction('notes').objectStore('notes').count());
+}</code></pre>
+<p>Тест на дубликат ключа поймал тонкость: событие <code>error</code> всплывает от запроса к транзакции, и в этот момент <code>tx.error</code> ещё <code>null</code>, оно заполнится только при <code>abort</code>. Поэтому ошибку берём из <code>event.target</code>, то есть из запроса. Для чтения достаточно дождаться запроса. Для записи надёжнее ждать <code>complete</code> транзакции: только тогда изменения зафиксированы. У <code>abort</code> поле <code>error</code> бывает <code>null</code>, если транзакцию отменили вызовом <code>tx.abort()</code>. Поэтому стоит запасная ошибка: промис не должен отклоняться значением <code>null</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ws-t-idb-migrate" data-task="web-storage/ws-t-idb-migrate">
+<h4>Задача 9. Миграция базы: версия 2 <span class="lvl">★★★ с подвохом</span></h4>
+<p>В версии 1 у хранилища <code>notes</code> не было индекса. В версии 2 нужен индекс <code>byCreated</code> по полю <code>createdAt</code>, а у старых записей этого поля нет: проставьте им <code>0</code>. Напишите <code>openV2(name)</code>, которая корректно работает и для новой базы, и для базы версии 1 с данными.</p>
+<p class="why"><b>Зачем:</b> у пользователей в браузере лежат базы всех версий, которые вы когда-либо выпускали. Миграция по шагам (<code>oldVersion &lt; 1</code>, <code>oldVersion &lt; 2</code>) — способ довести любую из них до текущей схемы. Это та же идея, что миграции на сервере.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function openV2(name: string): Promise&lt;IDBDatabase&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    const req = indexedDB.open(name, 2);
+    req.onupgradeneeded = (event) =&gt; {
+      const db = req.result;
+      const tx = req.transaction!;
+      if (event.oldVersion &lt; 1) {
+        db.createObjectStore('notes', { keyPath: 'id', autoIncrement: true });
+      }
+      if (event.oldVersion &lt; 2) {
+        const store = tx.objectStore('notes');
+        store.createIndex('byCreated', 'createdAt');
+        const cursorReq = store.openCursor();
+        cursorReq.onsuccess = () =&gt; {
+          const cursor = cursorReq.result;
+          if (!cursor) return;
+          if (cursor.value.createdAt === undefined) cursor.update({ ...cursor.value, createdAt: 0 });
+          cursor.continue();
+        };
+      }
+    };
+    req.onsuccess = () =&gt; resolve(req.result);
+    req.onerror = () =&gt; reject(req.error);
+  });
+}</code></pre>
+<p>Шаги проверяются через <code>&lt;</code>, а не через <code>===</code>: база версии 0 (новая) должна пройти все шаги подряд, а база версии 1 — только второй. В <code>upgradeneeded</code> уже есть открытая транзакция обновления <code>req.transaction</code>, и через неё можно и менять схему, и переписывать данные. Курсор обходит записи по одной: <code>continue()</code> запрашивает следующую, и тот же обработчик <code>onsuccess</code> срабатывает снова. Событие <code>success</code> у открытия наступит только после завершения всей миграции.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ws-idb-tx">Транзакции</h3>
+<p>Любое чтение и запись идут внутри <b>транзакции</b>: она указывает, с какими хранилищами работаем и в каком режиме (<code>readonly</code> или <code>readwrite</code>). Если внутри транзакции что-то пошло не так, все её изменения откатываются. Важное правило: транзакция закрывается сама, как только в ней не осталось запросов и управление вернулось в цикл событий. Если между запросами сделать <code>await fetch(...)</code>, транзакция успеет закрыться, и следующий запрос упадёт с <code>TransactionInactiveError</code>.</p>
+<pre><code>const done = (tx: IDBTransaction) =&gt;
+  new Promise&lt;void&gt;((resolve, reject) =&gt; {
+    tx.oncomplete = () =&gt; resolve();
+    tx.onerror = (event) =&gt; reject((event.target as IDBRequest).error); // ошибка запроса
+    tx.onabort = () =&gt; reject(tx.error);
+  });
+
+export async function addNote(db: IDBDatabase, note: { text: string; tag: string }): Promise&lt;void&gt; {
+  const tx = db.transaction('notes', 'readwrite');
+  tx.objectStore('notes').add(note);
+  await done(tx); // ждём завершения транзакции, а не только запроса
+}</code></pre>
+<p>Ждать стоит <code>complete</code> транзакции: успешный запрос ещё не значит, что данные записаны на диск.</p>
+<h3 id="ws-idb-index">Индексы и поиск</h3>
+<p>Индекс позволяет искать по полю, которое не является ключом: <code>store.index('byTag').getAll('work')</code> вернёт все заметки с тегом <code>work</code>. Для диапазонов есть <code>IDBKeyRange</code>: <code>IDBKeyRange.bound(a, b)</code> — от <code>a</code> до <code>b</code>, <code>lowerBound</code>, <code>upperBound</code>. Для обхода больших наборов по одному — курсор <code>openCursor()</code>.</p>
+<article class="task" id="ws-t-idb-repo" data-task="web-storage/ws-t-idb-repo">
+<h4>Задача 10. Репозиторий заметок на IndexedDB <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>createNotesRepo(name)</code>, который открывает базу (хранилище <code>notes</code>, ключ <code>id</code> с автоувеличением, индекс <code>byTag</code>) и возвращает методы <code>add(note): Promise&lt;number&gt;</code> (возвращает id), <code>byTag(tag)</code>, <code>remove(id)</code>. Код, который пользуется репозиторием, не должен видеть ни одного <code>IDBRequest</code>.</p>
+<p class="why"><b>Зачем:</b> это слой доступа к данным: остальное приложение говорит «добавь заметку», а не «открой транзакцию readwrite на хранилище notes». Когда-нибудь заметки переедут на сервер, и поменяется один модуль, а не весь интерфейс.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Note {
+  id?: number;
+  text: string;
+  tag: string;
+}
+
+const request = &lt;T&gt;(req: IDBRequest&lt;T&gt;) =&gt;
+  new Promise&lt;T&gt;((resolve, reject) =&gt; {
+    req.onsuccess = () =&gt; resolve(req.result);
+    req.onerror = () =&gt; reject(req.error);
+  });
+
+function open(name: string): Promise&lt;IDBDatabase&gt; {
+  const req = indexedDB.open(name, 1);
+  req.onupgradeneeded = () =&gt; {
+    const store = req.result.createObjectStore('notes', { keyPath: 'id', autoIncrement: true });
+    store.createIndex('byTag', 'tag');
+  };
+  return request(req);
+}
+
+export async function createNotesRepo(name: string) {
+  const db = await open(name);
+  const store = (mode: IDBTransactionMode) =&gt; db.transaction('notes', mode).objectStore('notes');
+  return {
+    add: (note: Omit&lt;Note, 'id'&gt;) =&gt; request(store('readwrite').add(note)) as Promise&lt;number&gt;,
+    byTag: (tag: string) =&gt; request(store('readonly').index('byTag').getAll(tag)) as Promise&lt;Note[]&gt;,
+    remove: (id: number) =&gt; request(store('readwrite').delete(id)),
+  };
+}</code></pre>
+<p>Каждый метод открывает свою короткую транзакцию. Это проще и безопаснее, чем держать одну долгую: она бы закрылась при первом <code>await</code> чего-то постороннего. <code>request(indexedDB.open(...))</code> работает, потому что <code>IDBOpenDBRequest</code> — разновидность <code>IDBRequest</code> с теми же событиями. <code>as Promise&lt;number&gt;</code> нужен потому, что <code>add</code> типизирован как возвращающий любой допустимый ключ, а мы знаем, что ключ числовой.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

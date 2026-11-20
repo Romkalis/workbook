@@ -1,0 +1,184 @@
+<section id="sec-api">
+<h2>Безопасность API</h2>
+<h3 id="sec-owasp">OWASP API Security Top 10 (2023)</h3>
+<p>Список самых частых уязвимостей API от OWASP. Главные для начинающего:</p>
+<div class="tbl"><table><thead><tr><th>Риск</th><th>Что это</th><th>Пример</th></tr></thead><tbody><tr><td>API1 Broken Object Level Authorization</td><td>нет проверки, что объект принадлежит пользователю</td><td><code>GET /orders/1052</code> отдаёт чужой заказ, если поменять число</td></tr><tr><td>API2 Broken Authentication</td><td>слабый вход</td><td>нет ограничения попыток, токены без срока</td></tr><tr><td>API3 Broken Object Property Level Authorization</td><td>лишние поля в ответе или запросе</td><td>ответ содержит <code>passwordHash</code>, запрос меняет <code>role</code></td></tr><tr><td>API4 Unrestricted Resource Consumption</td><td>нет ограничений ресурсов</td><td><code>?limit=1000000</code>, нет лимита запросов</td></tr><tr><td>API5 Broken Function Level Authorization</td><td>обычный пользователь вызывает админскую функцию</td><td><code>DELETE /users/7</code> без проверки роли</td></tr><tr><td>API8 Security Misconfiguration</td><td>неверные настройки</td><td>стек ошибки в ответе, CORS <code>*</code> с cookie</td></tr></tbody></table></div>
+<p>Остальные: API6 — злоупотребление бизнес-процессами (скупка товара ботами), API7 — SSRF (сервер по запросу клиента ходит на внутренние адреса), API9 — забытые старые версии API, API10 — слепое доверие сторонним API.</p>
+<article class="task" id="sec-t-bola" data-task="web-security/sec-t-bola">
+<h4>Задача 5. Чужой заказ по номеру <span class="lvl">★★☆ практика</span></h4>
+<p>Маршрут <code>GET /api/orders/:id</code> отдаёт заказ по номеру. Пользователь уже определён middleware и лежит в <code>res.locals.userId</code> (в задаче его ставит заглушка по заголовку <code>X-User</code>). Сделайте так, чтобы чужой заказ был неотличим от несуществующего: в обоих случаях 404. Администратор (<code>role: "admin"</code>) видит все заказы.</p>
+<p class="why"><b>Зачем:</b> это первое место в OWASP API Top 10. Аутентификация есть, токен проверен, а заказ 1053 отдаётся кому угодно, кто поменял число в адресе. Проверка владельца должна стоять в каждом маршруте, который работает с объектом по id.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { type Request } from 'express';
+
+export interface Order {
+  id: string;
+  ownerId: string;
+  total: number;
+}
+export interface User {
+  id: string;
+  role: 'user' | 'admin';
+}
+
+export function createApp(orders: Order[], users: User[]) {
+  const app = express();
+  app.use((req, res, next) =&gt; {
+    res.locals.user = users.find((u) =&gt; u.id === req.header('X-User'));
+    if (!res.locals.user) return res.status(401).json({ message: 'Нужен вход' });
+    next();
+  });
+  app.get('/api/orders/:id', (req: Request&lt;{ id: string }&gt;, res) =&gt; {
+    const user = res.locals.user as User;
+    const order = orders.find((o) =&gt; o.id === req.params.id);
+    const allowed = order &amp;&amp; (order.ownerId === user.id || user.role === 'admin');
+    if (!allowed) return res.status(404).json({ message: 'Заказ не найден' });
+    res.json(order);
+  });
+  return app;
+}</code></pre>
+<p>Почему 404, а не 403? Ответ 403 подтверждает, что заказ с таким номером существует, а это уже утечка: по ней можно оценить число заказов магазина. Для собственных объектов пользователя 404 честнее. Ещё надёжнее искать сразу с условием владельца: <code>WHERE id = ? AND owner_id = ?</code>. Тогда забыть проверку невозможно. Предсказуемые номера (1052, 1053) упрощают перебор, поэтому внешние id часто делают случайными (UUID), но это дополнение к проверке, а не замена.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="sec-rate-limit">Ограничение частоты запросов</h3>
+<p>Rate limiting защищает от перебора паролей, от ботов и от случайной перегрузки. Сервер считает запросы с одного ключа (IP, пользователь, токен) за окно времени и при превышении отвечает <code>429 Too Many Requests</code> с заголовком <code>Retry-After</code>. Алгоритмы:</p>
+<ul><li><b>Фиксированное окно</b> — счётчик на минуту; просто, но на границе окон можно сделать двойную пачку.</li><li><b>Скользящее окно</b> — учитываются запросы за последние N секунд.</li><li><b>Token bucket</b> («ведро жетонов») — ведро пополняется с постоянной скоростью, каждый запрос забирает жетон; разрешает короткие всплески, ограничивая среднюю скорость.</li></ul>
+<p>Для входа лимит строже, чем для чтения каталога: 5 попыток в минуту на аккаунт против сотен запросов на страницы.</p>
+<article class="task" id="sec-t-window" data-task="web-security/sec-t-window">
+<h4>Задача 6. Лимит: фиксированное окно <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>createFixedWindow({ limit, windowMs, now })</code> с методом <code>hit(key)</code>, который возвращает <code>{ allowed: boolean; retryAfterMs: number }</code>. В каждом окне длиной <code>windowMs</code> для одного ключа разрешено не больше <code>limit</code> запросов. Окно отсчитывается от первого запроса ключа.</p>
+<p class="why"><b>Зачем:</b> самый простой лимитер, и с него удобно начать: понятно, что считается, где хранится и когда сбрасывается. Его слабость — двойная пачка на стыке окон — станет мотивацией для следующей задачи.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function createFixedWindow({ limit, windowMs, now = Date.now }: { limit: number; windowMs: number; now?: () =&gt; number }) {
+  const windows = new Map&lt;string, { start: number; count: number }&gt;();
+  return {
+    hit(key: string): { allowed: boolean; retryAfterMs: number } {
+      const t = now();
+      let w = windows.get(key);
+      if (!w || t - w.start &gt;= windowMs) {
+        w = { start: t, count: 0 };
+        windows.set(key, w);
+      }
+      if (w.count &lt; limit) {
+        w.count++;
+        return { allowed: true, retryAfterMs: 0 };
+      }
+      return { allowed: false, retryAfterMs: w.start + windowMs - t };
+    },
+  };
+}</code></pre>
+<p>Отклонённый запрос не увеличивает счётчик: иначе настойчивый клиент сам продлевал бы себе блокировку, хотя срок окна от этого не меняется. <code>Map</code> в памяти работает, пока сервер один. Если серверов несколько, счётчики хранят в общем хранилище, обычно Redis (из общих знаний). Старые ключи здесь не удаляются. В рабочем коде их чистят по таймеру, иначе память растёт с каждым новым IP.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="sec-t-bucket" data-task="web-security/sec-t-bucket">
+<h4>Задача 7. Лимит: ведро жетонов <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>createTokenBucket({ capacity, refillPerSec, now })</code> с методом <code>take(key)</code>, возвращающим <code>boolean</code>. Новое ведро полное. Жетоны пополняются непрерывно (дробно) со скоростью <code>refillPerSec</code>, но не выше <code>capacity</code>. Таймеры не используйте: пополнение считается в момент запроса.</p>
+<p class="why"><b>Зачем:</b> ведро жетонов разрешает короткий всплеск (пользователь открыл страницу, и ушло десять запросов), но держит среднюю скорость. Ленивое пополнение «при запросе» — инженерный приём: миллион ключей не требует миллиона таймеров.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function createTokenBucket({ capacity, refillPerSec, now = Date.now }: { capacity: number; refillPerSec: number; now?: () =&gt; number }) {
+  const buckets = new Map&lt;string, { tokens: number; updatedAt: number }&gt;();
+  return {
+    take(key: string): boolean {
+      const t = now();
+      const b = buckets.get(key) ?? { tokens: capacity, updatedAt: t };
+      b.tokens = Math.min(capacity, b.tokens + ((t - b.updatedAt) / 1000) * refillPerSec);
+      b.updatedAt = t;
+      buckets.set(key, b);
+      if (b.tokens &lt; 1) return false;
+      b.tokens -= 1;
+      return true;
+    },
+  };
+}</code></pre>
+<p>Пополнение — это просто «сколько прошло времени × скорость», ограниченное сверху ёмкостью. Дробные жетоны важны: при скорости 2 в секунду через 250 мс накопится полжетона, и ещё через 250 мс запрос пройдёт. Если округлять, медленные клиенты никогда бы не получили жетон. Сравните с фиксированным окном: там на стыке окон можно сделать <code>2 × limit</code> запросов подряд, а здесь всплеск не больше ёмкости ведра.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="sec-t-rate-mw" data-task="web-security/sec-t-rate-mw">
+<h4>Задача 8. Middleware 429 для входа <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите middleware <code>rateLimit(limiter, keyFn)</code> для Express, где <code>limiter.hit(key)</code> — из задачи про фиксированное окно. При отказе ответ <code>429</code>, заголовок <code>Retry-After</code> в <b>секундах</b> (округление вверх) и JSON <code>{ message }</code>. Подключите к <code>POST /api/login</code> с ключом «IP + email»: 3 попытки за минуту.</p>
+<pre><code>// window.ts
+export function createFixedWindow({ limit, windowMs, now = Date.now }: { limit: number; windowMs: number; now?: () =&gt; number }) {
+  const w = new Map&lt;string, { start: number; count: number }&gt;();
+  return { hit(key: string) { const t = now(); let x = w.get(key); if (!x || t - x.start &gt;= windowMs) { x = { start: t, count: 0 }; w.set(key, x); }
+    if (x.count &lt; limit) { x.count++; return { allowed: true, retryAfterMs: 0 }; } return { allowed: false, retryAfterMs: x.start + windowMs - t }; } };
+}</code></pre>
+<p class="why"><b>Зачем:</b> перебор паролей — первая атака на любую форму входа. Ключ «IP + email» не даёт одному адресу перебирать пароль к одному аккаунту и при этом не блокирует весь офис за общим IP. <code>Retry-After</code> подсказывает честному клиенту, когда повторить.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { type Request, type RequestHandler } from 'express';
+import { createFixedWindow } from './window.js';
+
+type Limiter = { hit(key: string): { allowed: boolean; retryAfterMs: number } };
+
+export function rateLimit(limiter: Limiter, keyFn: (req: Request) =&gt; string): RequestHandler {
+  return (req, res, next) =&gt; {
+    const { allowed, retryAfterMs } = limiter.hit(keyFn(req));
+    if (allowed) return next();
+    res.set('Retry-After', String(Math.ceil(retryAfterMs / 1000)));
+    res.status(429).json({ message: 'Слишком много попыток, попробуйте позже' });
+  };
+}
+
+export function createApp(now?: () =&gt; number) {
+  const app = express();
+  app.use(express.json());
+  const loginLimiter = createFixedWindow({ limit: 3, windowMs: 60_000, now });
+  const byIpAndEmail = (req: Request) =&gt; `${req.ip}|${String(req.body?.email ?? '').toLowerCase()}`;
+  app.post('/api/login', rateLimit(loginLimiter, byIpAndEmail), (_req, res) =&gt; {
+    res.status(401).json({ message: 'Неверный email или пароль' });
+  });
+  return app;
+}</code></pre>
+<p>Лимитер стоит до проверки пароля, поэтому заблокированные попытки не тратят дорогой bcrypt. Email приводится к нижнему регистру: иначе <code>Anna@</code> и <code>anna@</code> дали бы два счётчика. За прокси (nginx, облако) <code>req.ip</code> — адрес прокси. Express нужно сказать <code>app.set('trust proxy', 1)</code>, иначе все пользователи окажутся под одним ключом (из общих знаний). В рабочих проектах берут готовый пакет <code>express-rate-limit</code>, но устроен он так же.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="sec-errors">Безопасные ошибки</h3>
+<p>Ответ с ошибкой не должен раскрывать устройство системы: стек вызовов, текст SQL, версии библиотек, пути к файлам. Клиенту — общий текст и код, в логи — подробности с идентификатором запроса, чтобы найти их по жалобе. Сообщения входа одинаковые для «нет такого email» и «неверный пароль» (разбор — в задачах урока <a href="/lessons/jwt-auth#jwt-login-login">JWT</a>).</p>
+<article class="task" id="sec-t-errors" data-task="web-security/sec-t-errors">
+<h4>Задача 9. Обработчик ошибок без утечек <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите обработчик ошибок Express (четыре параметра). Ошибка класса <code>HttpError</code> (со <code>status</code> и безопасным <code>message</code>) отдаётся как есть. Любая другая — <code>500</code> с текстом «Внутренняя ошибка» и <code>requestId</code>, а подробности (сообщение, стек) уходят в функцию <code>log</code> с тем же <code>requestId</code>. В ответе не должно быть стека и исходного текста ошибки.</p>
+<p class="why"><b>Зачем:</b> стек вызовов и текст вроде <code>duplicate key in collection users</code> рассказывают атакующему, какая у вас база, библиотеки и структура файлов (API8 в OWASP). А <code>requestId</code> позволяет по жалобе пользователя найти точную запись в логах.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import { randomUUID } from 'node:crypto';
+import express, { type ErrorRequestHandler } from 'express';
+
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export function errorHandler(log: (entry: object) =&gt; void): ErrorRequestHandler {
+  return (err, _req, res, _next) =&gt; {
+    if (err instanceof HttpError) return res.status(err.status).json({ message: err.message });
+    const requestId = randomUUID();
+    log({ requestId, message: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined });
+    res.status(500).json({ message: 'Внутренняя ошибка', requestId });
+  };
+}
+
+export function createApp(log: (entry: object) =&gt; void) {
+  const app = express();
+  app.get('/known', () =&gt; {
+    throw new HttpError(404, 'Товар не найден');
+  });
+  app.get('/boom', async () =&gt; {
+    throw new Error('duplicate key users.email_1 at /srv/app/db.js:42');
+  });
+  app.use(errorHandler(log));
+  return app;
+}</code></pre>
+<p>Express отличает обработчик ошибок по числу параметров, поэтому неиспользуемый <code>_next</code> обязателен. В Express 5 ошибка из <code>async</code>-обработчика сама попадает сюда. В Express 4 для этого нужна обёртка или <code>next(err)</code>. Разделение «известная ошибка с безопасным текстом» и «всё остальное» — тот же подход, что в уроке <a href="/lessons/error-handling">Error handling</a>: свои классы для ожидаемых ситуаций, общий ответ для непредвиденных.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

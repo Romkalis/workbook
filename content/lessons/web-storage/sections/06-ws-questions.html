@@ -1,0 +1,9 @@
+<section id="ws-questions">
+<h2>Вопросы и словарь</h2>
+<details class="q"><summary>Что вернёт <code>localStorage.getItem('missing')</code>?</summary><div class="a"><p><code>null</code>.</p></div></details>
+<details class="q"><summary>Сработает ли событие <code>storage</code> во вкладке, которая сделала <code>setItem</code>?</summary><div class="a"><p>Нет, только в других вкладках того же источника.</p></div></details>
+<details class="q"><summary>Почему после <code>document.cookie = 'a=1'</code> остальные cookie не пропали?</summary><div class="a"><p>Присваивание добавляет или обновляет одну cookie, а не заменяет строку целиком.</p></div></details>
+<details class="q"><summary>Как удалить cookie, поставленную с <code>path=/app</code>?</summary><div class="a"><p>Записать её с <code>max-age=0</code> и тем же <code>path=/app</code>.</p></div></details>
+<details class="q"><summary>Почему после <code>await fetch</code> внутри транзакции IndexedDB следующий запрос падает?</summary><div class="a"><p>Транзакция закрылась, пока ждали сеть: она живёт, только пока в ней есть запросы.</p></div></details>
+<dl class="gloss"><dt>Origin (источник)</dt><dd>схема, домен и порт; все хранилища разделены по источникам.</dd><dt>Квота</dt><dd>предел объёма хранилища для источника; при превышении запись бросает <code>QuotaExceededError</code>.</dd><dt>Object store</dt><dd>хранилище объектов в IndexedDB, аналог таблицы.</dd><dt>Транзакция</dt><dd>группа операций, которые выполняются целиком или откатываются целиком.</dd><dt>Индекс</dt><dd>структура для быстрого поиска по полю, которое не является ключом.</dd></dl>
+</section>

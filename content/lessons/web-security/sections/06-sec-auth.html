@@ -1,0 +1,109 @@
+<section id="sec-auth">
+<h2>Способы аутентификации</h2>
+<h3 id="sec-basic">Basic и Bearer</h3>
+<p><b>Basic</b> — заголовок <code>Authorization: Basic base64(логин:пароль)</code>. Base64 — не шифрование: пароль читается любым, кто видит запрос, и отправляется с <b>каждым</b> запросом. Допустим только по HTTPS и для служебных инструментов. <b>Bearer</b> — <code>Authorization: Bearer &lt;токен&gt;</code>: «кто предъявил — тот и владелец». Токен заменяет пароль, поэтому должен быть коротко живущим и передаваться только по HTTPS.</p>
+<article class="task" id="sec-t-basic" data-task="web-security/sec-t-basic">
+<h4>Задача 10. Разбор Basic-аутентификации <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>parseBasic(header)</code>: из <code>"Basic YW5uYTpwOnc="</code> получается <code>{ user: "anna", pass: "p:w" }</code>, для неверного заголовка — <code>null</code>. Двоеточие в пароле допустимо, в имени — нет. Строка в UTF-8. Затем <code>checkBasic(header, expectedUser, expectedPass)</code> со сравнением, не зависящим по времени от совпадающего префикса.</p>
+<p class="why"><b>Зачем:</b> разобрав Basic вручную, видишь главное: пароль в заголовке просто закодирован, и любой, кто видит трафик без HTTPS, читает его за секунду. Basic до сих пор используют для служебных панелей и вебхуков, поэтому разбирать его правильно полезно.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import { createHash, timingSafeEqual } from 'node:crypto';
+
+export function parseBasic(header: string | undefined): { user: string; pass: string } | null {
+  const match = /^Basic ([A-Za-z0-9+/=]+)$/.exec(header ?? '');
+  if (!match) return null;
+  const decoded = Buffer.from(match[1]!, 'base64').toString('utf8');
+  const colon = decoded.indexOf(':');
+  if (colon &lt;= 0) return null;
+  return { user: decoded.slice(0, colon), pass: decoded.slice(colon + 1) };
+}
+
+const digest = (s: string) =&gt; createHash('sha256').update(s).digest();
+
+export function checkBasic(header: string | undefined, user: string, pass: string): boolean {
+  const creds = parseBasic(header);
+  if (!creds) return false;
+  const userOk = timingSafeEqual(digest(creds.user), digest(user));
+  const passOk = timingSafeEqual(digest(creds.pass), digest(pass));
+  return userOk &amp;&amp; passOk;
+}</code></pre>
+<p>Делим по <b>первому</b> двоеточию: стандарт запрещает его в имени, а в пароле оно может быть. <code>timingSafeEqual</code> требует буферы одной длины. Сравнение хешей SHA-256 решает это и заодно не раскрывает длину пароля. Обе проверки выполняются всегда, без раннего выхода на неверном имени. Для паролей пользователей в базе нужен bcrypt. Здесь сравнивается служебный пароль из конфигурации, и быстрого хеша достаточно.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="sec-jwt">JWT</h3>
+<p>JSON Web Token — подписанный токен с данными (id, срок). Подпись гарантирует, что данные не подделаны, но не скрывает их. Устройство, выдача и проверка — в уроке <a href="/lessons/jwt-auth">JWT-авторизация</a>.</p>
+<h3 id="sec-oauth">OAuth 2.0</h3>
+<p>OAuth — протокол <b>делегирования доступа</b>: пользователь разрешает приложению действовать от его имени в другом сервисе, не отдавая пароль. Кнопка «Войти через GitHub» — это OAuth (точнее, OpenID Connect поверх него). Роли: <b>владелец ресурса</b> (пользователь), <b>клиент</b> (ваше приложение), <b>сервер авторизации</b> (страница входа GitHub), <b>сервер ресурсов</b> (API GitHub).</p>
+<p>Основной поток — <b>Authorization Code</b>:</p>
+<ol><li>Приложение отправляет пользователя на сервер авторизации с <code>client_id</code>, <code>redirect_uri</code>, нужными <code>scope</code> и случайным <code>state</code>.</li><li>Пользователь входит и соглашается.</li><li>Сервер возвращает его на <code>redirect_uri</code> с одноразовым <code>code</code> и тем же <code>state</code>.</li><li>Приложение проверяет <code>state</code> (защита от CSRF) и меняет <code>code</code> на access-токен запросом с сервера.</li></ol>
+<p>Для приложений без бэкенда (SPA, мобильные) добавляется <b>PKCE</b>: клиент придумывает секрет <code>code_verifier</code>, отправляет в шаге 1 его хеш, а в шаге 4 — сам секрет. Перехваченный <code>code</code> без секрета бесполезен. Устаревший поток Implicit (токен сразу в адресе) больше не рекомендуется.</p>
+<article class="task" id="sec-t-pkce" data-task="web-security/sec-t-pkce">
+<h4>Задача 11. OAuth: state и PKCE <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите клиентскую часть Authorization Code с PKCE:</p>
+<ul><li><code>createPkce()</code> → <code>{ verifier, challenge }</code>: <code>verifier</code> — 32 случайных байта в base64url, <code>challenge</code> — base64url от SHA-256 этого verifier;</li><li><code>buildAuthorizeUrl({ authorizeUrl, clientId, redirectUri, scope, state, challenge })</code> с <code>response_type=code</code> и <code>code_challenge_method=S256</code>;</li><li><code>readCallback(url, expectedState)</code> → <code>code</code>, или ошибка, если <code>state</code> не совпал или сервер вернул <code>error</code>.</li></ul>
+<p>Используйте Web Crypto (<code>crypto.subtle</code>): он есть и в браузере, и в Node.</p>
+<p class="why"><b>Зачем:</b> OAuth чаще всего ломают на клиенте: забытая проверка <code>state</code> (CSRF при входе) или отсутствие PKCE в SPA, где нет секрета клиента. Задача собирает поток из шагов раздела, а тест сверяет хеш с контрольным примером из RFC 7636.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>const b64url = (bytes: Uint8Array) =&gt; Buffer.from(bytes).toString('base64url');
+
+export async function challengeFor(verifier: string): Promise&lt;string&gt; {
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return b64url(new Uint8Array(hash));
+}
+
+export async function createPkce(): Promise&lt;{ verifier: string; challenge: string }&gt; {
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  return { verifier, challenge: await challengeFor(verifier) };
+}
+
+export function buildAuthorizeUrl(o: { authorizeUrl: string; clientId: string; redirectUri: string; scope: string[]; state: string; challenge: string }): string {
+  const url = new URL(o.authorizeUrl);
+  url.search = new URLSearchParams({
+    response_type: 'code',
+    client_id: o.clientId,
+    redirect_uri: o.redirectUri,
+    scope: o.scope.join(' '),
+    state: o.state,
+    code_challenge: o.challenge,
+    code_challenge_method: 'S256',
+  }).toString();
+  return url.href;
+}
+
+export function readCallback(callbackUrl: string, expectedState: string): string {
+  const params = new URL(callbackUrl).searchParams;
+  if (params.get('state') !== expectedState) throw new Error('state не совпал: возможна атака CSRF');
+  const error = params.get('error');
+  if (error) throw new Error(`Отказ авторизации: ${error}`);
+  const code = params.get('code');
+  if (!code) throw new Error('В ответе нет code');
+  return code;
+}</code></pre>
+<p>Проверка <code>state</code> идёт первой: если ответ не наш, его содержимое не важно, даже ошибка. <code>verifier</code> и <code>state</code> до возврата пользователя хранят в <code>sessionStorage</code>: они нужны только этой вкладке и только на время входа. Тест сверяет <code>challengeFor</code> с примером из RFC 7636 (приложение B). Обмен <code>code</code> на токен (POST на token endpoint с <code>code_verifier</code>) в задачу не входит: для него нужен настоящий сервер авторизации.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="sec-passwords">Пароли</h3>
+<ul><li>Хранить только хеш медленной функцией с солью: bcrypt, scrypt, Argon2. Никогда — открытым текстом или быстрым хешем вроде SHA-256 без соли.</li><li>Длина важнее правил «заглавная + цифра»: OWASP советует минимум 8 символов при 2FA и разрешать длинные пароли, пробелы и любые символы. Проверять по списку утёкших паролей.</li><li>Ограничение попыток входа и, где можно, второй фактор.</li><li>Сброс пароля — одноразовой ссылкой с коротким сроком, без раскрытия, есть ли такой email.</li></ul>
+<article class="task" id="sec-t-password" data-task="web-security/sec-t-password">
+<h4>Задача 12. Проверка пароля по рекомендациям OWASP <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>passwordProblems(password, { leaked, email })</code>, которая возвращает список проблем: короче 8 символов, длиннее 128, есть в списке утёкших (без учёта регистра), совпадает с email или его частью до <code>@</code>. Никаких требований «заглавная + цифра + спецсимвол». Длину считайте в символах Юникода, а не в единицах UTF-16.</p>
+<p class="why"><b>Зачем:</b> правила состава заставляют людей писать <code>Password1!</code>. Он формально проходит, а в словарях взлома стоит в первой сотне. Современные рекомендации проще и сильнее: длинный пароль, которого нет в утечках. А длина в символах важна, потому что эмодзи — это два «символа» для <code>.length</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function passwordProblems(password: string, { leaked, email }: { leaked: ReadonlySet&lt;string&gt;; email: string }): string[] {
+  const problems: string[] = [];
+  const length = [...password].length;
+  if (length &lt; 8) problems.push('Минимум 8 символов');
+  if (length &gt; 128) problems.push('Максимум 128 символов');
+  const lower = password.toLowerCase();
+  if (leaked.has(lower)) problems.push('Этот пароль встречался в утечках');
+  const local = email.toLowerCase().split('@')[0] ?? '';
+  if (lower === email.toLowerCase() || (local.length &gt; 0 &amp;&amp; lower === local)) problems.push('Пароль не должен совпадать с email');
+  return problems;
+}</code></pre>
+<p><code>[...password].length</code> считает кодовые точки: <code>'🔑'.length</code> равно 2, а <code>[...'🔑'].length</code> — 1. Верхний предел нужен не для безопасности, а против отказа в обслуживании: хеширование мегабайтного «пароля» дорого, а bcrypt вообще учитывает только первые 72 байта (из общих знаний). Список утечек в реальности огромный, и его проверяют через сервис Have I Been Pwned по первым символам хеша, не отправляя сам пароль.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

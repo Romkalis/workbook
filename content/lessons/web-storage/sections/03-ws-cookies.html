@@ -1,0 +1,65 @@
+<section id="ws-cookies">
+<h2>Cookie</h2>
+<p>Cookie придумали для сервера: он ставит её заголовком <code>Set-Cookie</code>, а браузер возвращает с каждым следующим запросом на этот сайт в заголовке <code>Cookie</code>. Так работают сессии и вход. Из JavaScript cookie доступны через <code>document.cookie</code>, у которого странный интерфейс:</p>
+<pre><code>document.cookie = 'theme=dark; max-age=31536000; path=/; samesite=lax';
+document.cookie = 'lang=ru';
+document.cookie; // 'theme=dark; lang=ru' — все cookie одной строкой, без атрибутов</code></pre>
+<p>Присваивание <b>не заменяет</b> все cookie, а добавляет или обновляет одну. Чтение возвращает пары <code>имя=значение</code> через <code>; </code>, и разбирать их приходится вручную. Значения кодируют через <code>encodeURIComponent</code>: пробелы, <code>;</code> и <code>=</code> иначе сломают строку.</p>
+<h3 id="ws-cookie-attrs">Атрибуты</h3>
+<div class="tbl"><table><thead><tr><th>Атрибут</th><th>Что делает</th></tr></thead><tbody><tr><td><code>expires=дата</code> / <code>max-age=секунды</code></td><td>срок жизни; без них cookie сеансовая и удаляется при закрытии браузера</td></tr><tr><td><code>path=/</code></td><td>для каких путей отправлять; по умолчанию — текущий путь</td></tr><tr><td><code>domain=example.com</code></td><td>отправлять и поддоменам; по умолчанию — только текущему домену</td></tr><tr><td><code>secure</code></td><td>только по HTTPS</td></tr><tr><td>`samesite=strict \</td><td>lax \</td><td>none`</td><td>отправлять ли с запросами с чужих сайтов (защита от CSRF); <code>none</code> требует <code>secure</code></td></tr><tr><td><code>httponly</code></td><td>недоступна JavaScript; ставится <b>только сервером</b></td></tr></tbody></table></div>
+<p>Удалить cookie — записать её с <code>max-age=0</code>. Но с тем же <code>path</code> и <code>domain</code>, иначе браузер посчитает это другой cookie. Значение по умолчанию для <code>samesite</code> в Chrome — <code>lax</code> (из общих знаний: в других браузерах поведение разное, лучше указывать явно).</p>
+<article class="task" id="ws-t-cookie-set" data-task="web-storage/ws-t-cookie-set">
+<h4>Задача 7. Записать и удалить cookie <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>serializeCookie(name, value, options)</code>, которая собирает строку для <code>document.cookie</code>: значение кодируется, опции — <code>maxAge</code> (секунды), <code>path</code> (по умолчанию <code>/</code>), <code>sameSite</code> (по умолчанию <code>lax</code>), <code>secure</code>. <code>sameSite: "none"</code> без <code>secure</code> — ошибка. Имя с <code>;</code>, <code>=</code> или пробелом — ошибка. Добавьте <code>deleteCookie(name, path)</code>, которая возвращает строку удаления.</p>
+<p class="why"><b>Зачем:</b> одна функция вместо ручной склейки строк в разных местах — меньше шансов забыть <code>path</code> и получить cookie, которую потом не удалить. Правило «<code>none</code> только с <code>secure</code>» браузеры применяют молча: cookie просто не сохранится, и без проверки об этом не узнать.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface CookieOptions {
+  maxAge?: number;
+  path?: string;
+  sameSite?: 'strict' | 'lax' | 'none';
+  secure?: boolean;
+}
+
+export function serializeCookie(name: string, value: string, options: CookieOptions = {}): string {
+  if (!/^[^\s;=,]+$/.test(name)) throw new TypeError(`Недопустимое имя cookie: "${name}"`);
+  const { maxAge, path = '/', sameSite = 'lax', secure = false } = options;
+  if (sameSite === 'none' &amp;&amp; !secure) throw new TypeError('SameSite=None требует Secure');
+  const parts = [`${name}=${encodeURIComponent(value)}`, `path=${path}`, `samesite=${sameSite}`];
+  if (maxAge !== undefined) parts.push(`max-age=${Math.floor(maxAge)}`);
+  if (secure) parts.push('secure');
+  return parts.join('; ');
+}
+
+export const deleteCookie = (name: string, path = '/'): string =&gt; serializeCookie(name, '', { maxAge: 0, path });</code></pre>
+<p><code>deleteCookie</code> использует ту же функцию с <code>max-age=0</code> и тем же <code>path</code>. Это и есть причина держать сборку в одном месте. <code>httponly</code> в опциях нет намеренно: из JavaScript его поставить нельзя, браузер такую cookie через <code>document.cookie</code> не примет. Тест проверяет и запись в настоящий <code>document.cookie</code> в jsdom.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ws-cookie-when">Когда cookie, а когда нет</h3>
+<p>Cookie нужны, когда значение должен видеть <b>сервер</b>: сессия, язык для серверного рендеринга. Каждая cookie едет с каждым запросом, даже за картинкой, поэтому хранить в них данные «для себя» — лишний трафик. Токен входа безопаснее хранить в cookie с <code>httponly</code>: скрипт на странице, даже внедрённый злоумышленником, его не прочитает. Разбор вариантов — в уроке <a href="/lessons/jwt-auth#jwt-storage-cookie">JWT</a>.</p>
+<article class="task" id="ws-t-cookie-parse" data-task="web-storage/ws-t-cookie-parse">
+<h4>Задача 6. Разобрать document.cookie <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>parseCookies(header: string): Record&lt;string, string&gt;</code>. Пары разделены <code>; </code>, значение может содержать <code>=</code> (например, base64) и закодировано через <code>encodeURIComponent</code>. Пустая строка даёт пустой объект.</p>
+<p class="why"><b>Зачем:</b> <code>document.cookie</code> отдаёт одну строку, и стандартного разборщика в браузере нет (новый <code>cookieStore</code> поддерживается не везде). Две ловушки — <code>=</code> внутри значения и кодирование — ломают наивный <code>split('=')</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function parseCookies(header: string): Record&lt;string, string&gt; {
+  const result: Record&lt;string, string&gt; = {};
+  for (const part of header.split(';')) {
+    const pair = part.trim();
+    if (!pair) continue;
+    const eq = pair.indexOf('=');
+    const name = eq === -1 ? pair : pair.slice(0, eq);
+    const raw = eq === -1 ? '' : pair.slice(eq + 1);
+    try {
+      result[name] = decodeURIComponent(raw);
+    } catch {
+      result[name] = raw;
+    }
+  }
+  return result;
+}</code></pre>
+<p>Делим по <b>первому</b> <code>=</code>: всё после него — значение, даже если там ещё знаки равенства. <code>decodeURIComponent</code> бросает ошибку на некорректной последовательности вроде <code>%E0</code>, а cookie могли поставить другие скрипты без кодирования. Поэтому при ошибке берём строку как есть. Тот же разбор нужен на сервере для заголовка <code>Cookie</code>, и именно это делает пакет <code>cookie-parser</code> из урока JWT.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

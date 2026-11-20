@@ -1,0 +1,40 @@
+<section id="sec-https">
+<h2>HTTPS и заголовки безопасности</h2>
+<p>HTTPS шифрует трафик и подтверждает, что вы говорите с настоящим сервером. Без него пароли, токены и cookie читаются в публичной Wi-Fi-сети. Заголовок <code>Strict-Transport-Security</code> (HSTS) велит браузеру больше никогда не открывать сайт по HTTP. Набор полезных заголовков ответа:</p>
+<div class="tbl"><table><thead><tr><th>Заголовок</th><th>Зачем</th></tr></thead><tbody><tr><td><code>Strict-Transport-Security: max-age=31536000</code></td><td>только HTTPS</td></tr><tr><td><code>Content-Security-Policy</code></td><td>откуда можно грузить скрипты и кто может встраивать страницу</td></tr><tr><td><code>X-Content-Type-Options: nosniff</code></td><td>не угадывать тип файла (скрипт под видом картинки)</td></tr><tr><td><code>Referrer-Policy: strict-origin-when-cross-origin</code></td><td>не отдавать полный адрес чужим сайтам</td></tr></tbody></table></div>
+<p>В Express их ставит пакет <code>helmet</code> одной строкой (из общих знаний).</p>
+<article class="task" id="sec-t-headers" data-task="web-security/sec-t-headers">
+<h4>Задача 13. Заголовки безопасности <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите middleware <code>securityHeaders()</code>, который ставит HSTS на год, <code>X-Content-Type-Options: nosniff</code>, <code>Referrer-Policy: strict-origin-when-cross-origin</code> и CSP: всё только со своего источника, никаких плагинов (<code>object-src 'none'</code>), запрет встраивания в чужие фреймы. Уберите заголовок <code>X-Powered-By</code>, который Express ставит сам.</p>
+<p class="why"><b>Зачем:</b> пять заголовков закрывают целые классы атак: понижение до HTTP, кликджекинг, подмену типа файла, утечку адресов. Это дешёвая защита, которую часто забывают. <code>X-Powered-By: Express</code> бесплатно сообщает атакующему, какие уязвимости пробовать.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// app.ts
+import express, { type RequestHandler } from 'express';
+
+export function securityHeaders(): RequestHandler {
+  const csp = ["default-src 'self'", "object-src 'none'", "frame-ancestors 'none'", "base-uri 'self'"].join('; ');
+  return (_req, res, next) =&gt; {
+    res.set({
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Content-Security-Policy': csp,
+    });
+    next();
+  };
+}
+
+export function createApp() {
+  const app = express();
+  app.disable('x-powered-by');
+  app.use(securityHeaders());
+  app.get('/', (_req, res) =&gt; {
+    res.send('ok');
+  });
+  return app;
+}</code></pre>
+<p><code>base-uri 'self'</code> не даёт внедрённому тегу <code>&lt;base&gt;</code> перенаправить все относительные ссылки на чужой домен (из общих знаний: рекомендация шпаргалки OWASP по CSP). HSTS действует только для ответов по HTTPS. Браузер игнорирует его на HTTP, иначе злоумышленник мог бы его подделать. Готовый вариант — пакет <code>helmet</code>: он ставит эти и ещё около десятка заголовков, но полезно один раз написать их руками и понимать, что каждый делает.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

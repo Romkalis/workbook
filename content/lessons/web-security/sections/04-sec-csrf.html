@@ -1,0 +1,8 @@
+<section id="sec-csrf">
+<h2>CSRF и кликджекинг</h2>
+<p><b>Cross-Site Request Forgery</b>: пользователь вошёл на <code>bank.example</code>, открыл сайт злоумышленника, и тот отправил форму на <code>bank.example/transfer</code>. Браузер приложил cookie сессии — и банк считает запрос настоящим. Защита:</p>
+<ul><li>атрибут cookie <code>SameSite=Lax</code> или <code>Strict</code> — браузер не отправит cookie с запросом, начатым на чужом сайте (подробнее — урок <a href="/lessons/web-storage#ws-cookie-attrs">Web Storage</a>);</li><li>CSRF-токен — случайное значение в форме, которое сервер сверяет с сессией;</li><li>изменения только методами POST/PUT/PATCH/DELETE, никогда GET.</li></ul>
+<p>Если токен передаётся в заголовке <code>Authorization</code>, а не в cookie, CSRF не страшен: чужой сайт не может добавить заголовок к запросу без разрешения CORS.</p>
+<h3 id="sec-clickjacking">Кликджекинг</h3>
+<p>Злоумышленник встраивает ваш сайт в невидимый <code>iframe</code> поверх своей кнопки «Получить приз», и пользователь нажимает «Удалить аккаунт» на вашем сайте. Защита — запретить встраивание: <code>Content-Security-Policy: frame-ancestors 'none'</code> (современный способ) или старый заголовок <code>X-Frame-Options: DENY</code>.</p>
+</section>

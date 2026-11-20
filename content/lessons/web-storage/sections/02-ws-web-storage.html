@@ -1,0 +1,177 @@
+<section id="ws-web-storage">
+<h2>localStorage и sessionStorage</h2>
+<p>У обоих одинаковый API — пары «ключ — значение», где и ключ, и значение строки:</p>
+<pre><code>export function demo(storage: Storage): string[] {
+  storage.setItem('theme', 'dark');
+  storage.setItem('visits', String(3));
+  const out = [storage.getItem('theme') ?? '', String(storage.length)];
+  storage.removeItem('theme');
+  out.push(String(storage.getItem('theme'))); // 'null' — ключа нет
+  storage.clear();
+  return out; // ['dark', '2', 'null']
+}</code></pre>
+<p><code>getItem</code> для отсутствующего ключа возвращает <code>null</code>, а не <code>undefined</code>. <code>key(i)</code> и <code>length</code> позволяют перебрать все ключи. Можно писать и как в объект (<code>localStorage.theme = 'dark'</code>), но так легко затереть встроенный метод: ключ <code>'setItem'</code> через свойство сломает хранилище. Пользуйтесь методами.</p>
+<h3 id="ws-json">Только строки: JSON и его ловушки</h3>
+<p>Всё, что не строка, превращается в строку: <code>setItem('n', 5)</code> сохранит <code>'5'</code>, а объект — <code>'[object Object]'</code>. Объекты сохраняют через <code>JSON.stringify</code> и читают через <code>JSON.parse</code>. Прочитанное нужно проверять: значение могли поменять руками в DevTools, его могла записать старая версия вашего кода, а <code>JSON.parse</code> на испорченной строке бросает <code>SyntaxError</code>. Проверка формы и версия формата подробно разобраны в уроке <a href="/lessons/dom-state#st-persist">Состояние и отрисовка</a>.</p>
+<article class="task" id="ws-t-ttl" data-task="web-storage/ws-t-ttl">
+<h4>Задача 2. Значение со сроком годности <span class="lvl">★★☆ практика</span></h4>
+<p>У <code>localStorage</code> нет срока жизни. Напишите <code>setWithTtl(storage, key, value, ttlMs, now)</code> и <code>getWithTtl(storage, key, now)</code>: значение хранится вместе со временем истечения, а после истечения <code>getWithTtl</code> удаляет ключ и возвращает <code>null</code>. Время передаётся функцией <code>now</code>, по умолчанию <code>Date.now</code>.</p>
+<p class="why"><b>Зачем:</b> кеш ответов API или «не показывать баннер неделю» требуют срока. Такой обёрткой сохраняют то, что можно получить заново, но не хочется дёргать сервер на каждой загрузке. Внедрённое время делает проверку истечения детерминированной.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type Now = () =&gt; number;
+interface Entry&lt;T&gt; {
+  value: T;
+  expiresAt: number;
+}
+
+export function setWithTtl&lt;T&gt;(storage: Storage, key: string, value: T, ttlMs: number, now: Now = Date.now): void {
+  const entry: Entry&lt;T&gt; = { value, expiresAt: now() + ttlMs };
+  storage.setItem(key, JSON.stringify(entry));
+}
+
+export function getWithTtl&lt;T&gt;(storage: Storage, key: string, now: Now = Date.now): T | null {
+  const raw = storage.getItem(key);
+  if (raw === null) return null;
+  try {
+    const entry = JSON.parse(raw) as Entry&lt;T&gt;;
+    if (typeof entry.expiresAt !== 'number' || now() &gt;= entry.expiresAt) {
+      storage.removeItem(key);
+      return null;
+    }
+    return entry.value;
+  } catch {
+    storage.removeItem(key);
+    return null;
+  }
+}</code></pre>
+<p>Хранится момент истечения, а не время записи и срок отдельно: так проверка — одно сравнение, и смена срока в коде не продлевает уже сохранённые записи. Удаление при чтении — «ленивая» уборка. Записи, которые никто не читает, останутся, и для них можно раз при запуске пройти по всем ключам. Испорченная запись тоже удаляется, чтобы не спотыкаться о неё каждый раз.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ws-quota">Квота и ошибки записи</h3>
+<p>При переполнении <code>setItem</code> бросает <code>QuotaExceededError</code>. В Safari в приватном режиме раньше любая запись бросала эту ошибку (из общих знаний), а в некоторых встроенных браузерах хранилище вообще недоступно. Поэтому запись оборачивают в <code>try...catch</code>: если сохранить не удалось, приложение должно продолжить работу, просто без сохранения.</p>
+<p>Ещё один нюанс — <b>синхронность</b>. <code>localStorage</code> читает и пишет в главном потоке. Записать пару ключей — мгновенно, а сериализовать мегабайтный объект на каждое нажатие клавиши — заметная задержка. Для больших данных подходит IndexedDB.</p>
+<article class="task" id="ws-t-safe" data-task="web-storage/ws-t-safe">
+<h4>Задача 3. Хранилище, которое не роняет приложение <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>createJsonStore(storage)</code> с методами <code>get(key, fallback)</code> и <code>set(key, value): boolean</code>. <code>get</code> возвращает <code>fallback</code>, если ключа нет или там испорченный JSON. <code>set</code> возвращает <code>false</code>, если запись не удалась (квота, недоступное хранилище), и не бросает ошибку.</p>
+<p class="why"><b>Зачем:</b> сохранение — удобство, а не основная функция. Испорченное значение или переполненная квота не должны превращать страницу в белый экран. Обёртка в одном месте — и весь остальной код может не думать о <code>try...catch</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function createJsonStore(storage: Pick&lt;Storage, 'getItem' | 'setItem'&gt;) {
+  return {
+    get&lt;T&gt;(key: string, fallback: T): T {
+      try {
+        const raw = storage.getItem(key);
+        return raw === null ? fallback : (JSON.parse(raw) as T);
+      } catch {
+        return fallback;
+      }
+    },
+    set(key: string, value: unknown): boolean {
+      try {
+        storage.setItem(key, JSON.stringify(value));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  };
+}</code></pre>
+<p><code>get</code> обёрнут целиком, а не только <code>JSON.parse</code>: в некоторых окружениях исключение бросает уже само обращение к <code>getItem</code>. <code>as T</code> здесь — честное допущение «верим, что там то, что мы сами записали». Если данные могли поменяться между версиями приложения, вместо него нужна проверка формы (урок <a href="/lessons/dom-state#st-persist">Состояние и отрисовка</a>). Параметр <code>storage</code> позволяет использовать и <code>localStorage</code>, и <code>sessionStorage</code>, и заглушку в тестах.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ws-session">sessionStorage: данные одной вкладки</h3>
+<p><code>sessionStorage</code> живёт столько, сколько открыта <b>вкладка</b>: переживает перезагрузку, но не закрытие. У каждой вкладки своё хранилище, даже у двух вкладок одного сайта. При дублировании вкладки браузер копирует её <code>sessionStorage</code> в новую, дальше они расходятся. Подходит для черновика формы, шага мастера оформления, позиции прокрутки — всего, что относится к текущему «сеансу работы» и не должно появиться в соседней вкладке.</p>
+<article class="task" id="ws-t-draft" data-task="web-storage/ws-t-draft">
+<h4>Задача 4. Черновик формы во вкладке <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>persistDraft(form, storage = sessionStorage)</code>: при загрузке восстанавливает значения полей из хранилища, при каждом вводе (<code>input</code>) сохраняет все поля формы, при отправке (<code>submit</code>) очищает черновик. Ключ — <code>draft:</code> плюс <code>id</code> формы. Возвращает функцию отписки.</p>
+<p class="why"><b>Зачем:</b> перезагрузка страницы или случайное обновление не должны стирать длинный отзыв. <code>sessionStorage</code> здесь правильнее <code>localStorage</code>: черновик принадлежит этой вкладке, и он не должен всплыть в другой вкладке или через неделю.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function persistDraft(form: HTMLFormElement, storage: Storage = sessionStorage): () =&gt; void {
+  const key = `draft:${form.id}`;
+  const saved = storage.getItem(key);
+  if (saved !== null) {
+    try {
+      const values = JSON.parse(saved) as Record&lt;string, string&gt;;
+      for (const [name, value] of Object.entries(values)) {
+        const field = form.elements.namedItem(name);
+        if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) field.value = value;
+      }
+    } catch {
+      storage.removeItem(key);
+    }
+  }
+  const controller = new AbortController();
+  form.addEventListener(
+    'input',
+    () =&gt; {
+      const values = Object.fromEntries([...new FormData(form)].filter(([, v]) =&gt; typeof v === 'string'));
+      storage.setItem(key, JSON.stringify(values));
+    },
+    { signal: controller.signal },
+  );
+  form.addEventListener('submit', () =&gt; storage.removeItem(key), { signal: controller.signal });
+  return () =&gt; controller.abort();
+}</code></pre>
+<p>Обработчик <code>input</code> один на всю форму, и событие всплывает от любого поля: это делегирование из урока <a href="/lessons/dom-events#ev-delegation">События и формы</a>. <code>FormData</code> собирает значения по атрибутам <code>name</code>. Файлы (<code>File</code>) отфильтрованы: в JSON их не сохранить. Поля паролей тоже не стоит сохранять в черновик, и <code>FormData</code> их включает. В рабочем коде их исключают по типу поля. Отписка через <code>AbortController</code> снимает оба обработчика разом.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ws-storage-event">Событие storage: синхронизация вкладок</h3>
+<p>Когда одна вкладка меняет <code>localStorage</code>, в <b>остальных</b> вкладках того же источника срабатывает событие <code>storage</code> на <code>window</code>. В самой вкладке, которая сделала запись, оно не срабатывает. В событии есть <code>key</code>, <code>oldValue</code>, <code>newValue</code> и <code>storageArea</code>. При <code>clear()</code> <code>key</code> равен <code>null</code>.</p>
+<pre><code>window.addEventListener('storage', (event) =&gt; {
+  if (event.key === 'cart') renderCart(JSON.parse(event.newValue ?? '[]'));
+});</code></pre>
+<p>Так корзина обновляется во всех открытых вкладках, а выход из аккаунта в одной вкладке разлогинивает остальные. Для <code>sessionStorage</code> событие тоже существует, но вкладки его почти не разделяют, поэтому на практике полезно только для <code>localStorage</code>.</p>
+<article class="task" id="ws-t-namespace" data-task="web-storage/ws-t-namespace">
+<h4>Задача 1. Своё пространство ключей <span class="lvl">★★☆ практика</span></h4>
+<p>На одном домене живут несколько приложений, и <code>localStorage.clear()</code> одного стирает данные другого. Напишите <code>namespaced(storage, prefix)</code> с методами <code>get</code>, <code>set</code>, <code>remove</code>, <code>keys()</code> и <code>clear()</code>, которые работают только с ключами вида <code>prefix:ключ</code>.</p>
+<p class="why"><b>Зачем:</b> хранилище общее для всего источника, а значит, это глобальное состояние. Префикс — простейшее разделение ответственности. Задача ещё и про перебор: удалять ключи во время обхода по индексу — классическая ошибка.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Сначала соберите список своих ключей через <code>key(i)</code> и <code>length</code>, потом удаляйте. Если удалять внутри цикла по индексам, индексы сдвинутся, и часть ключей пропустится.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function namespaced(storage: Storage, prefix: string) {
+  const full = (key: string) =&gt; `${prefix}:${key}`;
+  const ownKeys = (): string[] =&gt; {
+    const result: string[] = [];
+    for (let i = 0; i &lt; storage.length; i++) {
+      const key = storage.key(i);
+      if (key !== null &amp;&amp; key.startsWith(`${prefix}:`)) result.push(key);
+    }
+    return result;
+  };
+  return {
+    get: (key: string) =&gt; storage.getItem(full(key)),
+    set: (key: string, value: string) =&gt; storage.setItem(full(key), value),
+    remove: (key: string) =&gt; storage.removeItem(full(key)),
+    keys: () =&gt; ownKeys().map((k) =&gt; k.slice(prefix.length + 1)),
+    clear: () =&gt; ownKeys().forEach((k) =&gt; storage.removeItem(k)),
+  };
+}</code></pre>
+<p>Сначала собираем, потом удаляем: так перебор не зависит от изменений, которые он сам вносит. Двоеточие в конце префикса важно. Без него префикс <code>shop</code> захватил бы и ключи приложения <code>shop2</code>. Порядок ключей в <code>key(i)</code> стандартом не гарантирован, поэтому в тесте ключи сортируются.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ws-t-sync" data-task="web-storage/ws-t-sync">
+<h4>Задача 5. Корзина во всех вкладках <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>watchKey(key, onChange, target = window)</code>: вызывает <code>onChange(value)</code> с разобранным JSON, когда <b>другая вкладка</b> меняет этот ключ в <code>localStorage</code>. Удаление ключа или <code>clear()</code> вызывает <code>onChange(null)</code>. Изменения других ключей и <code>sessionStorage</code> игнорируются. Возвращает функцию отписки.</p>
+<p class="why"><b>Зачем:</b> пользователь добавил товар в одной вкладке, переключился на другую — и видит старую корзину. Событие <code>storage</code> решает это без сервера. Главное — не забыть, что в своей вкладке оно не приходит, поэтому интерфейс там обновляют обычным путём.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function watchKey&lt;T&gt;(key: string, onChange: (value: T | null) =&gt; void, target: Window = window): () =&gt; void {
+  const handler = (event: StorageEvent) =&gt; {
+    if (event.storageArea !== localStorage) return;
+    if (event.key !== null &amp;&amp; event.key !== key) return;
+    if (event.newValue === null) return onChange(null);
+    try {
+      onChange(JSON.parse(event.newValue) as T);
+    } catch {
+      onChange(null);
+    }
+  };
+  target.addEventListener('storage', handler);
+  return () =&gt; target.removeEventListener('storage', handler);
+}</code></pre>
+<p><code>event.key === null</code> означает <code>clear()</code>: удалены все ключи, и наш тоже. Поэтому такое событие пропускается к обработчику, и <code>newValue</code> у него <code>null</code>. Проверка <code>storageArea</code> отсекает <code>sessionStorage</code>. В тесте событие создаётся вручную через <code>new StorageEvent</code>: так проверяется реакция без второй вкладки.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>
