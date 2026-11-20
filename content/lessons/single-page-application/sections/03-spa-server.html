@@ -1,0 +1,6 @@
+<section id="spa-server">
+<h2>Сервер для SPA с History API</h2>
+<p>Пользователь открыл <code>/products/42</code> из закладки — браузер запросил этот путь у сервера. Файла <code>products/42</code> на сервере нет, и без настройки придёт 404. Решение — <b>fallback</b>: на любой неизвестный путь отдавать <code>index.html</code>, а дальше роутер на клиенте разберётся. Как это настраивается:</p>
+<ul><li>Vite в режиме разработки делает это сам;</li><li>Netlify — файл <code>_redirects</code> со строкой <code>/* /index.html 200</code>;</li><li>nginx — <code>try_files $uri /index.html;</code>;</li><li>Express — после статики маршрут <code>app.get('/{*path}', (req, res) =&gt; res.sendFile(...index.html))</code> (Express 5).</li></ul>
+<p>GitHub Pages такой настройки не умеет: для него выбирают hash-роутинг или трюк с копией <code>index.html</code> под именем <code>404.html</code> (из общих знаний). Важно: API-маршруты (<code>/api/...</code>) не должны попадать под fallback, иначе вместо ошибки 404 клиент получит HTML и упадёт на разборе JSON.</p>
+</section>

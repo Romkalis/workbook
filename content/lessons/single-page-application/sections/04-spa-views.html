@@ -1,0 +1,122 @@
+<section id="spa-views">
+<h2>Экраны и их жизненный цикл</h2>
+<p>Экран в SPA живёт дольше, чем кажется: он подписался на события стора, запустил таймер, начал загрузку. Когда пользователь ушёл на другой экран, всё это должно остановиться. Иначе подписки копятся, старые экраны продолжают реагировать на события, а ответ запоздавшего запроса рисуется поверх нового экрана.</p>
+<pre><code>export interface View {
+  mount(root: HTMLElement): void;
+  unmount(): void;
+}
+
+export function createClockView(): View {
+  let timer: ReturnType&lt;typeof setInterval&gt; | undefined;
+  return {
+    mount(root) {
+      const p = document.createElement('p');
+      root.replaceChildren(p);
+      const tick = () =&gt; (p.textContent = new Date().toLocaleTimeString('ru-RU'));
+      tick();
+      timer = setInterval(tick, 1000);
+    },
+    unmount() {
+      clearInterval(timer);
+    },
+  };
+}</code></pre>
+<p>Роутер при переходе вызывает <code>unmount</code> текущего экрана и только потом <code>mount</code> нового. Для отмены сразу всего, что экран запустил (обработчики, запросы), удобен один <code>AbortController</code> на экран: его <code>signal</code> передают в <code>addEventListener</code> и <code>fetch</code>, а в <code>unmount</code> вызывают <code>abort()</code>.</p>
+<h3 id="spa-state">Состояние между экранами</h3>
+<p>Данные, которые нужны нескольким экранам, хранятся вне экранов — в сторе. Экран при <code>mount</code> подписывается и рисует текущее состояние, при <code>unmount</code> отписывается. Что именно положить в адрес, а что в стор: всё, чем пользователь хочет поделиться ссылкой (страница, фильтры, открытый товар), — в адрес; временное (открыт ли выпадающий список, введённый, но не отправленный текст) — в состояние экрана.</p>
+<article class="task" id="spa-t-lifecycle" data-task="single-page-application/spa-t-lifecycle">
+<h4>Задача 8. Экран, который убирает за собой <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите экран <code>createCartView(store, api)</code>: при <code>mount</code> подписывается на стор и рисует число товаров, запускает загрузку рекомендаций (<code>api.recommendations(signal)</code>) и вешает обработчик на кнопку «Очистить». При <code>unmount</code> всё отменяется одним <code>AbortController</code>: подписка, обработчик и запрос. Ответ, пришедший после <code>unmount</code>, не должен ничего рисовать.</p>
+<p class="why"><b>Зачем:</b> это самая частая утечка в SPA: пользователь ушёл со страницы, а её подписка продолжает перерисовывать удалённые элементы, и запоздавший ответ показывает рекомендации на чужом экране. Один контроллер на экран — простое правило, которое закрывает все три случая.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Store {
+  get(): { count: number };
+  subscribe(fn: () =&gt; void): () =&gt; void;
+  clear(): void;
+}
+export interface Api {
+  recommendations(signal: AbortSignal): Promise&lt;string[]&gt;;
+}
+
+export function createCartView(store: Store, api: Api) {
+  let controller: AbortController | null = null;
+  return {
+    mount(root: HTMLElement) {
+      controller = new AbortController();
+      const { signal } = controller;
+      const count = document.createElement('p');
+      const button = document.createElement('button');
+      button.textContent = 'Очистить';
+      const recs = document.createElement('ul');
+      root.replaceChildren(count, button, recs);
+
+      const draw = () =&gt; (count.textContent = `Товаров: ${store.get().count}`);
+      draw();
+      const unsubscribe = store.subscribe(draw);
+      signal.addEventListener('abort', unsubscribe);
+      button.addEventListener('click', () =&gt; store.clear(), { signal });
+
+      api
+        .recommendations(signal)
+        .then((items) =&gt; {
+          if (signal.aborted) return;
+          recs.replaceChildren(...items.map((t) =&gt; Object.assign(document.createElement('li'), { textContent: t })));
+        })
+        .catch(() =&gt; {});
+    },
+    unmount() {
+      controller?.abort();
+      controller = null;
+    },
+  };
+}</code></pre>
+<p>Подписка стора не умеет принимать <code>signal</code>, поэтому её отписка вешается на событие <code>abort</code> самого сигнала. Так все виды уборки собираются в одном месте. Проверка <code>signal.aborted</code> в <code>then</code> нужна, даже если API честно отменяет запрос: ответ мог прийти за мгновение до отмены. <code>catch</code> глотает ошибку отмены. В рабочем коде настоящие ошибки сети стоит отличать и показывать.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="spa-t-query" data-task="single-page-application/spa-t-query">
+<h4>Задача 9. Фильтры каталога в адресе <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>readFilters(search)</code> и <code>writeFilters(filters)</code> для фильтров <code>{ q: string; sort: "new" | "price"; page: number }</code>. Значения по умолчанию (<code>""</code>, <code>"new"</code>, <code>1</code>) в адрес не пишутся. Неверные значения из адреса заменяются значениями по умолчанию. Затем <code>applyFilters(filters)</code>: при смене <code>q</code> или <code>sort</code> страница сбрасывается на 1, адрес обновляется через <code>replaceState</code> для поиска и <code>pushState</code> для смены страницы.</p>
+<p class="why"><b>Зачем:</b> адрес — публичный интерфейс экрана: им делятся и его сохраняют в закладки. Короткие адреса без значений по умолчанию читаются лучше, а выбор между <code>push</code> и <code>replace</code> решает, сколько раз пользователю жать «Назад»: никто не хочет откатывать поиск по одной букве.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Filters {
+  q: string;
+  sort: 'new' | 'price';
+  page: number;
+}
+const DEFAULTS: Filters = { q: '', sort: 'new', page: 1 };
+
+export function readFilters(search: string): Filters {
+  const p = new URLSearchParams(search);
+  const sort = p.get('sort');
+  const page = Number(p.get('page'));
+  return {
+    q: p.get('q')?.trim() ?? DEFAULTS.q,
+    sort: sort === 'new' || sort === 'price' ? sort : DEFAULTS.sort,
+    page: Number.isInteger(page) &amp;&amp; page &gt;= 1 ? page : DEFAULTS.page,
+  };
+}
+
+export function writeFilters(f: Filters): string {
+  const p = new URLSearchParams();
+  if (f.q !== DEFAULTS.q) p.set('q', f.q);
+  if (f.sort !== DEFAULTS.sort) p.set('sort', f.sort);
+  if (f.page !== DEFAULTS.page) p.set('page', String(f.page));
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+export function applyFilters(next: Filters): Filters {
+  const prev = readFilters(location.search);
+  const resetPage = next.q !== prev.q || next.sort !== prev.sort;
+  const final = resetPage ? { ...next, page: 1 } : next;
+  const url = location.pathname + writeFilters(final);
+  if (resetPage) history.replaceState(null, '', url);
+  else if (final.page !== prev.page) history.pushState(null, '', url);
+  return final;
+}</code></pre>
+<p>Чтение прощает всё: <code>?page=abc</code> или <code>?sort=hack</code> превращаются в значения по умолчанию, а не в ошибку экрана. Сброс страницы при новом поиске обязателен: на десятой странице результатов нового запроса может не быть. <code>replaceState</code> для поиска означает, что «Назад» вернёт на предыдущий экран, а не на предыдущую букву запроса. Подробнее об адресе как состоянии — в уроке <a href="/lessons/dom-state#st-url">Состояние и отрисовка</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

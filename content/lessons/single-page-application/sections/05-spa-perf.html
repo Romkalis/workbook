@@ -1,0 +1,46 @@
+<section id="spa-perf">
+<h2>Скорость и удобство</h2>
+<h3 id="spa-lazy">Ленивая загрузка экранов</h3>
+<p>Если весь код приложения в одном файле, пользователь качает админку, чтобы посмотреть главную. Динамический <code>import('./views/admin.js')</code> возвращает промис модуля, и сборщик (Vite, Webpack) выносит такой модуль в отдельный файл, который загрузится при первом переходе. Загруженный модуль кешируется: второй <code>import</code> того же файла не скачивает его снова.</p>
+<article class="task" id="spa-t-lazy" data-task="single-page-application/spa-t-lazy">
+<h4>Задача 10. Ленивая загрузка экрана с кешем <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>lazy(loader)</code>, где <code>loader</code> — функция вида <code>() =&gt; import('./views/admin.js')</code>, возвращающая модуль с экспортом <code>default</code>. <code>lazy</code> возвращает функцию, которая отдаёт промис экрана. Модуль загружается один раз, даже при двух одновременных вызовах. Если загрузка упала (сеть), следующий вызов пробует снова.</p>
+<p class="why"><b>Зачем:</b> динамический <code>import</code> сам кеширует успешные загрузки, но обёртка нужна, чтобы задать поведение явно и тестируемо, а ещё чтобы между вызовами можно было показать индикатор загрузки. Повтор после ошибки — то, о чём часто забывают: один обрыв связи ломает раздел до перезагрузки страницы.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function lazy&lt;T&gt;(loader: () =&gt; Promise&lt;{ default: T }&gt;): () =&gt; Promise&lt;T&gt; {
+  let pending: Promise&lt;T&gt; | null = null;
+  return () =&gt; {
+    pending ??= loader()
+      .then((m) =&gt; m.default)
+      .catch((err: unknown) =&gt; {
+        pending = null;
+        throw err;
+      });
+    return pending;
+  };
+}</code></pre>
+<p>Как и в задаче про декоратор кеша в уроке <a href="/lessons/design-patterns#decorator">Design Patterns</a>, хранится промис, а не результат: два одновременных перехода разделят одну загрузку. При ошибке промис сбрасывается, и следующий вызов вызовет <code>loader</code> снова. В роутере это выглядит как <code>{ path: '/admin', view: lazy(() =&gt; import('./views/admin.js')) }</code>, а Vite при сборке вынесет <code>admin.js</code> в отдельный файл.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="spa-a11y">Доступность переходов</h3>
+<p>При обычном переходе браузер сообщает читалке о новой странице и ставит фокус в начало. В SPA этого не происходит, и незрячий пользователь не узнает, что экран сменился. Минимум для каждого перехода:</p>
+<ul><li>обновить <code>document.title</code>;</li><li>перенести фокус на заголовок <code>h1</code> нового экрана (с <code>tabindex="-1"</code>, чтобы на него можно было сфокусироваться программно);</li><li>при переходе вперёд прокрутить в начало, при «Назад» — восстановить прокрутку (браузер делает это сам, если <code>history.scrollRestoration</code> равно <code>'auto'</code> и содержимое отрисовано синхронно).</li></ul>
+<article class="task" id="spa-t-a11y" data-task="single-page-application/spa-t-a11y">
+<h4>Задача 11. Заголовок вкладки и фокус после перехода <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>afterNavigate(root, title)</code>, которую роутер вызывает после отрисовки экрана: ставит <code>document.title</code> в формате «Название — Магазин», находит в <code>root</code> первый <code>h1</code>, делает его фокусируемым (<code>tabindex="-1"</code>) и переносит на него фокус. Если <code>h1</code> нет, фокус переносится на сам <code>root</code>.</p>
+<p class="why"><b>Зачем:</b> без этого незрячий пользователь нажимает ссылку и не слышит ничего: страница не перезагрузилась, фокус остался на ссылке, которой уже нет. Две строки кода возвращают поведение, которое браузер даёт обычным сайтам бесплатно.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function afterNavigate(root: HTMLElement, title: string, site = 'Магазин'): void {
+  document.title = `${title} — ${site}`;
+  const target = root.querySelector('h1') ?? root;
+  if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+  target.focus();
+}</code></pre>
+<p><code>tabindex="-1"</code> позволяет сфокусировать элемент программно, но не добавляет его в порядок обхода клавишей Tab. Заголовок не станет лишней остановкой при навигации. Фокус на <code>h1</code> заставляет читалку произнести название нового экрана. Видимую рамку фокуса на заголовке обычно убирают стилем <code>h1:focus:not(:focus-visible) { outline: none }</code>, чтобы она не мешала тем, кто пользуется мышью.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="spa-markup">Создание разметки на JS</h3>
+<p>Без фреймворка разметку собирают через <code>document.createElement</code> или <code>&lt;template&gt;</code>. Удобна маленькая функция-помощник <code>el(tag, props, ...children)</code>, которая создаёт элемент, ставит свойства и добавляет детей; её вариант есть в дополнительных материалах модуля. Данные вставляются как текст, а не через <code>innerHTML</code> — см. урок <a href="/lessons/dom-basics">DOM</a> и <a href="/lessons/web-security#sec-xss-defense">Web Security</a>.</p>
+</section>

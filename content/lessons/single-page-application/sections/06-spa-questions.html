@@ -1,0 +1,9 @@
+<section id="spa-questions">
+<h2>Вопросы и словарь</h2>
+<details class="q"><summary>Почему после <code>pushState</code> экран не меняется сам?</summary><div class="a"><p><code>pushState</code> только меняет адрес и историю; событие <code>popstate</code> при этом не срабатывает. Рисовать новый экран должен роутер.</p></div></details>
+<details class="q"><summary>Почему при обновлении страницы <code>/products/42</code> получаем 404?</summary><div class="a"><p>Сервер ищет файл по этому пути. Нужен fallback на <code>index.html</code>.</p></div></details>
+<details class="q"><summary>Почему переходы делают ссылками, а не кнопками?</summary><div class="a"><p>Ссылки работают с новой вкладкой, копированием адреса, средней кнопкой мыши и читалками.</p></div></details>
+<details class="q"><summary>Что будет, если экран не отписывается в <code>unmount</code>?</summary><div class="a"><p>Обработчики копятся, старые экраны реагируют на события и обращаются к удалённому DOM, растёт память.</p></div></details>
+<details class="q"><summary>Зачем переносить фокус после перехода?</summary><div class="a"><p>Иначе пользователь клавиатуры и читалки остаётся «на старой странице» и не узнаёт о смене экрана.</p></div></details>
+<dl class="gloss"><dt>SPA</dt><dd>приложение, которое загружает HTML один раз и меняет экраны с помощью JavaScript.</dd><dt>Роутер</dt><dd>часть приложения, сопоставляющая адрес с экраном.</dd><dt>History API</dt><dd><code>pushState</code>, <code>replaceState</code> и событие <code>popstate</code> для управления адресом без перезагрузки.</dd><dt>Fallback</dt><dd>настройка сервера: на неизвестный путь отдавать <code>index.html</code>.</dd><dt>Code splitting</dt><dd>разбиение кода на файлы, которые загружаются по мере надобности.</dd></dl>
+</section>

@@ -1,0 +1,238 @@
+<section id="spa-routing">
+<h2>Маршрутизация: hash и History API</h2>
+<p>Адрес в SPA — это часть состояния: по нему пользователь делится ссылкой, добавляет закладку, возвращается назад. Есть два способа менять адрес без перезагрузки.</p>
+<h3 id="spa-hash">Hash-роутинг</h3>
+<p>Часть адреса после <code>#</code> браузер не отправляет на сервер и при её смене не перезагружает страницу. Смена вызывает событие <code>hashchange</code>:</p>
+<pre><code>window.addEventListener('hashchange', () =&gt; render(location.hash.slice(1) || '/'));
+// ссылки: &lt;a href="#/products/42"&gt;</code></pre>
+<p>Плюс — не нужна настройка сервера: любой адрес приходит на тот же <code>index.html</code>. Поэтому hash-роутинг удобен для GitHub Pages и учебных проектов. Минусы — адреса с <code>#</code> выглядят непривычно, и сервер не видит путь (нельзя отрендерить страницу заранее).</p>
+<article class="task" id="spa-t-hash" data-task="single-page-application/spa-t-hash">
+<h4>Задача 2. Hash-роутер для GitHub Pages <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>createHashRouter(render)</code>: вызывает <code>render(path)</code> при старте и на каждый <code>hashchange</code>, где <code>path</code> — часть после <code>#</code> (пустой hash → <code>/</code>). Метод <code>navigate(path)</code> меняет <code>location.hash</code>. Возвращает также <code>destroy()</code>.</p>
+<p class="why"><b>Зачем:</b> для учебного проекта на GitHub Pages hash-роутинг — честный выбор: сервер ничего не знает о маршрутах, и прямой заход на любой экран работает без настроек. Полезно увидеть, насколько он проще History API.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function createHashRouter(render: (path: string) =&gt; void) {
+  const current = () =&gt; location.hash.slice(1) || '/';
+  const onChange = () =&gt; render(current());
+  window.addEventListener('hashchange', onChange);
+  onChange();
+  return {
+    navigate(path: string) {
+      location.hash = path;
+    },
+    destroy() {
+      window.removeEventListener('hashchange', onChange);
+    },
+  };
+}</code></pre>
+<p><code>navigate</code> не вызывает <code>render</code> сам: смена <code>location.hash</code> вызывает <code>hashchange</code>, и отрисовка пройдёт по тому же пути, что и «Назад». В отличие от <code>pushState</code>, здесь событие срабатывает и при программной смене. Присвоение того же значения hash событие не вызывает, так что повторный клик на текущий экран ничего не сломает. Ссылки при hash-роутинге пишут как <code>href="#/products/42"</code>, и перехватывать клики не нужно.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="spa-history">History API</h3>
+<p><code>history.pushState(state, '', url)</code> меняет адрес и добавляет запись в историю без перезагрузки. <code>history.replaceState</code> меняет текущую запись, не добавляя новую. Кнопки «Назад» и «Вперёд» вызывают событие <code>popstate</code>, а сам <code>pushState</code> — нет: после него роутер должен отрисовать экран сам.</p>
+<pre><code>export function createHistoryRouter(render: (path: string) =&gt; void) {
+  const navigate = (path: string) =&gt; {
+    history.pushState(null, '', path);
+    render(path);
+  };
+  const onPop = () =&gt; render(location.pathname);
+  window.addEventListener('popstate', onPop);
+  render(location.pathname);
+  return { navigate, destroy: () =&gt; window.removeEventListener('popstate', onPop) };
+}</code></pre>
+<p>Адреса становятся обычными (<code>/products/42</code>), но появляется требование к серверу — раздел ниже.</p>
+<article class="task" id="spa-t-router" data-task="single-page-application/spa-t-router">
+<h4>Задача 3. Свой роутер на History API <span class="lvl">★★★ с подвохом</span></h4>
+<p>Соберите <code>createRouter({ routes, root })</code> из прошлых задач. Маршрут — <code>{ path, view }</code>, где <code>view(params)</code> возвращает объект экрана с <code>mount(root)</code> и необязательным <code>unmount()</code>. Требования: <code>navigate(url)</code> делает <code>pushState</code> и отрисовку; кнопка «Назад» (<code>popstate</code>) перерисовывает экран; переход на тот же адрес не создаёт новую запись истории; перед новым экраном вызывается <code>unmount</code> старого; <code>start()</code> рисует текущий адрес.</p>
+<pre><code>// match.ts
+export function matchRoute(pattern: string, path: string): Record&lt;string, string&gt; | null {
+  const p = pattern.split('/').filter(Boolean), s = path.split('/').filter(Boolean);
+  if (p.length !== s.length) return null;
+  const r: Record&lt;string, string&gt; = {};
+  for (let i = 0; i &lt; p.length; i++) { if (p[i]!.startsWith(':')) r[p[i]!.slice(1)] = decodeURIComponent(s[i]!); else if (p[i] !== s[i]) return null; }
+  return r;
+}</code></pre>
+<p class="why"><b>Зачем:</b> роутер связывает все идеи урока: адрес как состояние, история, жизненный цикл экранов. Написав его один раз, вы поймёте, что делают React Router и Vue Router, и сможете читать их документацию как описание знакомых решений.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import { matchRoute } from './match.js';
+
+export interface Screen {
+  mount(root: HTMLElement): void;
+  unmount?(): void;
+}
+export interface RouteDef {
+  path: string;
+  view: (params: Record&lt;string, string&gt;) =&gt; Screen;
+}
+
+export function createRouter({ routes, root }: { routes: RouteDef[]; root: HTMLElement }) {
+  let current: Screen | null = null;
+
+  const render = () =&gt; {
+    const path = location.pathname;
+    let screen: Screen | null = null;
+    for (const route of routes) {
+      const params = route.path === '*' ? null : matchRoute(route.path, path);
+      if (params) {
+        screen = route.view(params);
+        break;
+      }
+    }
+    screen ??= routes.find((r) =&gt; r.path === '*')?.view({}) ?? { mount: (el) =&gt; el.replaceChildren('Страница не найдена') };
+    current?.unmount?.();
+    current = screen;
+    screen.mount(root);
+  };
+
+  const navigate = (url: string) =&gt; {
+    const next = new URL(url, location.href);
+    if (next.href === location.href) return;
+    history.pushState(null, '', next);
+    render();
+  };
+
+  return {
+    navigate,
+    start() {
+      window.addEventListener('popstate', render);
+      render();
+    },
+    stop() {
+      window.removeEventListener('popstate', render);
+      current?.unmount?.();
+      current = null;
+    },
+  };
+}</code></pre>
+<p>Один путь отрисовки <code>render</code> для трёх случаев: старт, <code>navigate</code> и «Назад». Он всегда читает адрес из <code>location</code>, так что разойтись адрес и экран не могут. Сравнение с текущим адресом не даёт засорить историю: десять кликов по «Главной» не потребуют десяти нажатий «Назад». Если маршрута <code>*</code> нет, рисуется простая заглушка, но лучше требовать его явно, как в задаче про таблицу маршрутов.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="spa-t-guard" data-task="single-page-application/spa-t-guard">
+<h4>Задача 4. Защита маршрута: вход и несохранённые изменения <span class="lvl">★★★ с подвохом</span></h4>
+<p>Добавьте в роутер «охранников»: функция <code>guard(to)</code> вызывается перед переходом и возвращает <code>true</code> (продолжить), <code>false</code> (остаться) или строку (перейти на другой адрес вместо запрошенного). Напишите <code>runGuards(guards, to)</code>, возвращающую итоговое решение, и два охранника: <code>requireAuth(isLoggedIn)</code> — для путей <code>/account…</code> без входа отправляет на <code>/login?next=…</code>; <code>confirmLeave(isDirty, confirm)</code> — при несохранённых изменениях спрашивает подтверждение.</p>
+<p class="why"><b>Зачем:</b> проверка входа на клиенте — удобство, а не защита (данные всё равно защищает сервер). Но без неё пользователь видит пустой экран и ошибки 401. Параметр <code>next</code> возвращает его туда, куда он шёл, после входа. А «Вы уверены?» спасает заполненную форму от случайного клика.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type GuardResult = boolean | string;
+export type Guard = (to: string) =&gt; GuardResult;
+
+export function runGuards(guards: readonly Guard[], to: string): GuardResult {
+  for (const guard of guards) {
+    const result = guard(to);
+    if (result !== true) return result;
+  }
+  return true;
+}
+
+export const requireAuth =
+  (isLoggedIn: () =&gt; boolean): Guard =&gt;
+  (to) =&gt;
+    to.startsWith('/account') &amp;&amp; !isLoggedIn() ? `/login?next=${encodeURIComponent(to)}` : true;
+
+export const confirmLeave =
+  (isDirty: () =&gt; boolean, confirm: (message: string) =&gt; boolean): Guard =&gt;
+  () =&gt;
+    !isDirty() || confirm('Есть несохранённые изменения. Уйти со страницы?');</code></pre>
+<p>Охранники выполняются по порядку, и первый «не <code>true</code>» останавливает цепочку. Это цепочка обязанностей из урока <a href="/lessons/design-patterns#chain-of-responsibility">Design Patterns</a>. <code>next</code> кодируется, иначе <code>?</code> и <code>&amp;</code> из исходного адреса сломают строку запроса страницы входа. После входа значение <code>next</code> стоит проверить: оно должно начинаться с <code>/</code>, иначе это открытый редирект на чужой сайт. Для закрытия вкладки нужен ещё обработчик <code>beforeunload</code>: роутер его не видит.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="spa-params">Параметры пути</h3>
+<p>Маршрут описывают шаблоном: <code>/products/:id</code> совпадает с <code>/products/42</code>, и <code>id</code> равен <code>'42'</code>. Шаблон превращают в регулярное выражение с именованными группами или сравнивают по сегментам. Значения из адреса — строки и пользовательский ввод: <code>id</code> надо проверить, прежде чем запрашивать по нему данные. Параметры фильтров и сортировки живут в строке запроса (<code>?sort=price</code>), их удобно читать через <code>URLSearchParams</code>.</p>
+<article class="task" id="spa-t-match" data-task="single-page-application/spa-t-match">
+<h4>Задача 5. Сопоставить путь с шаблоном <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>matchRoute(pattern, path)</code>: для <code>"/products/:id"</code> и <code>"/products/42"</code> возвращает <code>{ id: "42" }</code>, при несовпадении — <code>null</code>. Сравнивайте по сегментам, конечный слеш игнорируйте, значения параметров декодируйте (<code>%20</code> → пробел).</p>
+<p class="why"><b>Зачем:</b> это сердце любого роутера. Разбор по сегментам проще и понятнее регулярных выражений, и из него сразу видно, почему <code>/products/42/reviews</code> не совпадает с <code>/products/:id</code>: у них разное число частей.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function matchRoute(pattern: string, path: string): Record&lt;string, string&gt; | null {
+  const split = (s: string) =&gt; s.split('/').filter(Boolean);
+  const p = split(pattern);
+  const s = split(path);
+  if (p.length !== s.length) return null;
+  const params: Record&lt;string, string&gt; = {};
+  for (let i = 0; i &lt; p.length; i++) {
+    const part = p[i]!;
+    const value = s[i]!;
+    if (part.startsWith(':')) {
+      try {
+        params[part.slice(1)] = decodeURIComponent(value);
+      } catch {
+        return null;
+      }
+    } else if (part !== value) return null;
+  }
+  return params;
+}</code></pre>
+<p><code>filter(Boolean)</code> убирает пустые сегменты: и ведущий слеш, и конечный. Поэтому <code>/products/42/</code> совпадает так же, как <code>/products/42</code>. Корень <code>/</code> даёт пустой массив и совпадает только с шаблоном <code>/</code>. Некорректная кодировка вроде <code>%E0</code> считается несовпадением, а не падением приложения. Параметр — всегда строка: превратить <code>"42"</code> в число и проверить — задача экрана.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="spa-t-resolve" data-task="single-page-application/spa-t-resolve">
+<h4>Задача 6. Таблица маршрутов и страница 404 <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>resolve(routes, url)</code>, где <code>routes</code> — массив <code>{ path, view }</code>. Возвращает <code>{ view, params, query }</code> первого совпавшего маршрута, где <code>query</code> — объект из строки запроса. Если ничего не совпало, возвращается маршрут с <code>path: "*"</code>. Его наличие обязательно: без него — ошибка при создании.</p>
+<pre><code>// match.ts
+export function matchRoute(pattern: string, path: string): Record&lt;string, string&gt; | null {
+  const p = pattern.split('/').filter(Boolean), s = path.split('/').filter(Boolean);
+  if (p.length !== s.length) return null;
+  const r: Record&lt;string, string&gt; = {};
+  for (let i = 0; i &lt; p.length; i++) { if (p[i]!.startsWith(':')) r[p[i]!.slice(1)] = decodeURIComponent(s[i]!); else if (p[i] !== s[i]) return null; }
+  return r;
+}</code></pre>
+<p class="why"><b>Зачем:</b> порядок маршрутов важен: <code>/products/new</code> должен стоять раньше <code>/products/:id</code>, иначе «new» станет id. А обязательный маршрут «не найдено» — это решение принять заранее, что пользователь увидит на неизвестном адресе, вместо пустого экрана.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import { matchRoute } from './match.js';
+
+export interface Route&lt;V&gt; {
+  path: string;
+  view: V;
+}
+
+export function createResolver&lt;V&gt;(routes: readonly Route&lt;V&gt;[]) {
+  const notFound = routes.find((r) =&gt; r.path === '*');
+  if (!notFound) throw new Error('Нужен маршрут "*" для страницы 404');
+  return (url: string) =&gt; {
+    const { pathname, searchParams } = new URL(url, 'http://local');
+    const query = Object.fromEntries(searchParams);
+    for (const route of routes) {
+      if (route.path === '*') continue;
+      const params = matchRoute(route.path, pathname);
+      if (params) return { view: route.view, params, query };
+    }
+    return { view: notFound.view, params: {}, query };
+  };
+}</code></pre>
+<p>Проверка «есть ли 404» вынесена в момент создания: ошибка конфигурации всплывёт при запуске, а не когда пользователь наберёт кривой адрес. <code>new URL(url, 'http://local')</code> разбирает и путь, и строку запроса, даже если передан только <code>/products?sort=price</code>: база нужна лишь для относительных адресов. Маршрут <code>*</code> пропускается в цикле, где бы он ни стоял в массиве.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="spa-links">Перехват ссылок</h3>
+<p>В SPA ссылки остаются настоящими <code>&lt;a href="/products/42"&gt;</code>: так работают «открыть в новой вкладке», копирование адреса и экранные читалки. Роутер перехватывает клик делегированием на <code>document</code> и вызывает <code>navigate</code>, но только когда это действительно внутренний переход:</p>
+<ul><li>левая кнопка мыши без <code>Ctrl</code>, <code>Cmd</code>, <code>Shift</code>, <code>Alt</code> (с ними пользователь хочет новую вкладку или окно);</li><li>нет <code>target="_blank"</code> и атрибута <code>download</code>;</li><li>ссылка ведёт на тот же источник (<code>origin</code>).</li></ul>
+<p>Кнопка <code>&lt;button&gt;</code> с обработчиком вместо ссылки ломает всё перечисленное, поэтому для переходов используют ссылки, а кнопки — для действий.</p>
+<article class="task" id="spa-t-links" data-task="single-page-application/spa-t-links">
+<h4>Задача 7. Перехват ссылок <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>interceptLinks(root, navigate)</code>: один обработчик <code>click</code> на <code>root</code> перехватывает клики по внутренним ссылкам и вызывает <code>navigate(path + search + hash)</code> вместо перехода. Не перехватывать: клик не левой кнопкой, с <code>Ctrl</code>/<code>Cmd</code>/<code>Shift</code>/<code>Alt</code>, ссылку с <code>target="_blank"</code> или <code>download</code>, ссылку на другой источник, уже отменённое событие. Возвращает функцию отписки.</p>
+<p class="why"><b>Зачем:</b> каждый неучтённый случай ломает привычное поведение браузера: «открыть в новой вкладке» вдруг открывает в этой, ссылка на чужой сайт пытается отрисоваться роутером. Перехват должен быть максимально скромным: забирать только то, что точно наше.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function interceptLinks(root: HTMLElement | Document, navigate: (url: string) =&gt; void): () =&gt; void {
+  const onClick = (event: Event) =&gt; {
+    const e = event as MouseEvent;
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const link = (e.target as Element | null)?.closest?.('a[href]');
+    if (!(link instanceof HTMLAnchorElement)) return;
+    if (link.target &amp;&amp; link.target !== '_self') return;
+    if (link.hasAttribute('download')) return;
+    const url = new URL(link.href);
+    if (url.origin !== location.origin) return;
+    e.preventDefault();
+    navigate(url.pathname + url.search + url.hash);
+  };
+  root.addEventListener('click', onClick);
+  return () =&gt; root.removeEventListener('click', onClick);
+}</code></pre>
+<p><code>closest('a[href]')</code> находит ссылку, даже если кликнули по иконке внутри неё: это делегирование из урока <a href="/lessons/dom-events#ev-delegation">События и формы</a>. <code>link.href</code> (свойство, а не атрибут) уже содержит абсолютный адрес, поэтому относительные ссылки сравниваются с <code>origin</code> правильно. Проверка <code>defaultPrevented</code> уважает другие обработчики: если кто-то уже отменил переход, роутер не должен его совершать.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>
