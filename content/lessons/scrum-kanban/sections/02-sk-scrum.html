@@ -1,0 +1,128 @@
+<section id="sk-scrum">
+<h2>Scrum</h2>
+<p>Scrum описан в <a href="https://scrumguides.org/">Scrum Guide</a> — 13 страниц, последняя редакция ноября 2020 года. Работа идёт <b>спринтами</b>: отрезками фиксированной длины до месяца (чаще 1–2 недели). Каждый спринт заканчивается <b>инкрементом</b> — готовой к использованию частью продукта.</p>
+<h3 id="sk-roles">Ответственности</h3>
+<p>Scrum Team — до 10 человек, без иерархии и подкоманд. В руководстве 2020 года роли называются <b>ответственностями</b> (accountabilities):</p>
+<div class="tbl"><table><thead><tr><th>Кто</th><th>За что отвечает</th></tr></thead><tbody><tr><td><b>Product Owner</b> (владелец продукта)</td><td>ценность продукта: ведёт и упорядочивает Product Backlog, формулирует Product Goal. Один человек, не комитет</td></tr><tr><td><b>Scrum Master</b></td><td>эффективность команды: помогает понять Scrum, убирает препятствия, учит команду самоорганизации. Не начальник и не секретарь</td></tr><tr><td><b>Developers</b> (разработчики)</td><td>создание инкремента каждый спринт: план спринта, качество, Definition of Done. Сюда входят все, кто делает работу, — и тестировщики, и дизайнеры</td></tr></tbody></table></div>
+<h3 id="sk-events">События</h3>
+<div class="tbl"><table><thead><tr><th>Событие</th><th>Длительность (для спринта в месяц)</th><th>Зачем</th></tr></thead><tbody><tr><td><b>Sprint</b></td><td>до 1 месяца</td><td>контейнер для всех остальных событий</td></tr><tr><td><b>Sprint Planning</b></td><td>до 8 часов</td><td>почему ценен спринт (Sprint Goal), что сделать, как сделать</td></tr><tr><td><b>Daily Scrum</b></td><td>15 минут</td><td>разработчики сверяют прогресс к цели спринта и меняют план на день</td></tr><tr><td><b>Sprint Review</b></td><td>до 4 часов</td><td>показать результат заинтересованным людям и обсудить, что дальше</td></tr><tr><td><b>Sprint Retrospective</b></td><td>до 3 часов</td><td>как улучшить работу команды: люди, процессы, инструменты</td></tr></tbody></table></div>
+<p>Для коротких спринтов события обычно короче. Daily Scrum — не отчёт начальнику: популярные «три вопроса» (что сделал, что сделаю, что мешает) руководство 2020 года больше не требует, формат выбирают разработчики.</p>
+<h3 id="sk-artifacts">Артефакты и обязательства</h3>
+<p>У каждого артефакта есть <b>обязательство</b> (commitment), которое делает прогресс измеримым:</p>
+<div class="tbl"><table><thead><tr><th>Артефакт</th><th>Что это</th><th>Обязательство</th></tr></thead><tbody><tr><td><b>Product Backlog</b></td><td>упорядоченный список всего, что может понадобиться продукту</td><td><b>Product Goal</b> — долгосрочная цель продукта</td></tr><tr><td><b>Sprint Backlog</b></td><td>цель спринта, выбранные элементы и план их выполнения</td><td><b>Sprint Goal</b> — единственная цель спринта</td></tr><tr><td><b>Increment</b></td><td>проверенный, готовый к использованию шаг к цели продукта</td><td><b>Definition of Done</b> — общее для команды определение «сделано»</td></tr></tbody></table></div>
+<p>Definition of Done — например: код прошёл ревью, тесты зелёные, работает на мобильной ширине, задеплоено на стенд. Если элемент не соответствует DoD, он не попадает в инкремент и возвращается в Product Backlog, даже если «почти готово».</p>
+<article class="task" id="sk-t-dod" data-task="scrum-kanban/sk-t-dod">
+<h4>Задача 2. Definition of Done как проверка <span class="lvl">★★☆ практика</span></h4>
+<p>Definition of Done команды: есть PR с одобрением ревьюера, CI зелёный, есть тесты (покрытие изменённых файлов не ниже 80%), проверено на мобильной ширине. Напишите <code>checkDone(task)</code>, которая возвращает список невыполненных пунктов человеческим языком, и <code>sprintIncrement(tasks)</code>, которая делит задачи спринта на <code>done</code> и <code>backToBacklog</code>.</p>
+<p class="why"><b>Зачем:</b> «почти готово» — самая опасная оценка в разработке: последние 10% работы занимают половину времени. DoD в виде проверяемых правил убирает спор «готово или нет» и не даёт незаконченным задачам попасть в инкремент.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Task {
+  id: string;
+  prApproved: boolean;
+  ciGreen: boolean;
+  coverage: number | null;
+  mobileChecked: boolean;
+}
+
+const RULES: [string, (t: Task) =&gt; boolean][] = [
+  ['нет одобренного PR', (t) =&gt; t.prApproved],
+  ['CI не зелёный', (t) =&gt; t.ciGreen],
+  ['покрытие тестами ниже 80%', (t) =&gt; t.coverage !== null &amp;&amp; t.coverage &gt;= 80],
+  ['не проверено на мобильной ширине', (t) =&gt; t.mobileChecked],
+];
+
+export const checkDone = (task: Task): string[] =&gt; RULES.filter(([, ok]) =&gt; !ok(task)).map(([text]) =&gt; text);
+
+export function sprintIncrement(tasks: readonly Task[]) {
+  return {
+    done: tasks.filter((t) =&gt; checkDone(t).length === 0).map((t) =&gt; t.id),
+    backToBacklog: tasks.filter((t) =&gt; checkDone(t).length &gt; 0).map((t) =&gt; t.id),
+  };
+}</code></pre>
+<p>Правила лежат в данных, в массиве <code>RULES</code>, а не в цепочке <code>if</code>. Команда меняет DoD на ретроспективе, и в коде добавляется одна строка. Отсутствие данных о покрытии (<code>null</code>) считается невыполнением: «не знаем» не равно «хорошо». Задачи, не прошедшие DoD, по Scrum Guide не входят в инкремент и возвращаются в Product Backlog. Делить их на «готово на 80%» нельзя.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="sk-estimation">Оценка: story points и скорость</h3>
+<p>Команды часто оценивают задачи не в часах, а в <b>story points</b> — относительных единицах сложности: «эта задача примерно вдвое сложнее той». Для оценки используют <b>planning poker</b>: каждый одновременно показывает карту с числом из ряда, похожего на Фибоначчи (1, 2, 3, 5, 8, 13, 21…). Если оценки сильно разошлись, крайние объясняют свои причины, и голосуют снова. Растущие промежутки в ряду отражают растущую неопределённость больших задач. Задачу больше 13 обычно дробят.</p>
+<p><b>Скорость</b> (velocity) — сколько очков команда закрывает за спринт. Её считают по нескольким прошлым спринтам и используют для прогноза («что успеем»). Это метрика команды для планирования, а не оценка работы людей. Сравнивать скорость разных команд бессмысленно: у них разная шкала очков.</p>
+<p><b>Burndown-график</b> показывает, сколько работы осталось в спринте по дням. Идеальная линия идёт от полного объёма к нулю. Если фактическая линия выше идеальной, команда отстаёт.</p>
+<p>Story points, planning poker, velocity и burndown — популярные практики, но в самом Scrum Guide их <b>нет</b> (из общих знаний: руководство сознательно не предписывает способ оценки).</p>
+<article class="task" id="sk-t-velocity" data-task="scrum-kanban/sk-t-velocity">
+<h4>Задача 3. Прогноз по скорости команды <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>forecast(history, backlog)</code>. <code>history</code> — очки, закрытые в прошлых спринтах, <code>backlog</code> — оценки оставшихся задач. Скорость — среднее по последним трём спринтам (или по всем, если их меньше трёх), округлённое вниз. Верните <code>{ velocity, sprints }</code>, где <code>sprints</code> — сколько спринтов нужно на весь бэклог (с округлением вверх). Без истории функция бросает ошибку: прогнозировать не на чем.</p>
+<p class="why"><b>Зачем:</b> скорость используют для честного ответа на вопрос «когда будет готово». Берут несколько последних спринтов, потому что команда меняется. Округление вниз осторожнее: лучше пообещать меньше. А отказ прогнозировать без данных — тоже инженерная честность.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function forecast(history: readonly number[], backlog: readonly number[]): { velocity: number; sprints: number } {
+  if (history.length === 0) throw new Error('Нет завершённых спринтов — прогноз невозможен');
+  const recent = history.slice(-3);
+  const velocity = Math.floor(recent.reduce((a, b) =&gt; a + b, 0) / recent.length);
+  if (velocity === 0) throw new Error('Нулевая скорость — прогноз невозможен');
+  const remaining = backlog.reduce((a, b) =&gt; a + b, 0);
+  return { velocity, sprints: Math.ceil(remaining / velocity) };
+}</code></pre>
+<p><code>slice(-3)</code> берёт последние три элемента, а для коротких массивов — сколько есть. Деление на ноль скорости ловится отдельно: <code>Infinity</code> спринтов — не прогноз. В реальности прогноз дают диапазоном: по худшему и лучшему спринтам из последних. Одно число создаёт ложное ощущение точности.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="sk-t-burndown" data-task="scrum-kanban/sk-t-burndown">
+<h4>Задача 4. Данные для burndown-графика <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>burndown(total, days, done)</code>. <code>total</code> — очки в спринте, <code>days</code> — его длина в рабочих днях, <code>done</code> — массив закрытых очков по прошедшим дням. Верните массив <code>{ day, ideal, actual }</code> для дней от 0 до <code>days</code>: <code>ideal</code> равномерно убывает от <code>total</code> до 0 (два знака после запятой), <code>actual</code> — остаток работы, а для будущих дней <code>null</code>. Добавьте <code>isBehind(points)</code>: отстаёт ли команда в последний известный день.</p>
+<p class="why"><b>Зачем:</b> график — способ увидеть проблему на третий день спринта, а не на последний. Расчёт данных отделён от рисования, поэтому одну функцию можно проверить тестом, а нарисовать хоть в canvas, хоть в SVG.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Point {
+  day: number;
+  ideal: number;
+  actual: number | null;
+}
+
+export function burndown(total: number, days: number, done: readonly number[]): Point[] {
+  let remaining = total;
+  return Array.from({ length: days + 1 }, (_, day) =&gt; {
+    if (day &gt; 0 &amp;&amp; day &lt;= done.length) remaining -= done[day - 1]!;
+    return {
+      day,
+      ideal: Math.round((total - (total * day) / days) * 100) / 100,
+      actual: day &lt;= done.length ? remaining : null,
+    };
+  });
+}
+
+export function isBehind(points: readonly Point[]): boolean {
+  const known = points.filter((p) =&gt; p.actual !== null);
+  const last = known.at(-1);
+  return last !== undefined &amp;&amp; last.actual! &gt; last.ideal;
+}</code></pre>
+<p>День 0 — начало спринта, остаток равен всему объёму. <code>null</code> для будущих дней честнее нуля: библиотеки графиков рисуют разрыв, а не падение до нуля. Округление идеальной линии через <code>Math.round(x * 100) / 100</code> убирает хвосты вроде <code>26.666666666666668</code>. Если фактическая линия идёт горизонтально несколько дней, это сигнал для Daily Scrum: задачи застряли, а не «почти готовы».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="sk-t-poker" data-task="scrum-kanban/sk-t-poker">
+<h4>Задача 5. Раунд planning poker <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>pokerRound(votes)</code>, где <code>votes</code> — объект «участник → карта» из ряда <code>1, 2, 3, 5, 8, 13, 21</code> или <code>"?"</code> (не знаю). Правила: если все числовые голоса совпали, это консенсус — <code>{ status: "agreed", points }</code>. Если крайние голоса отличаются больше чем на одну ступень ряда, это обсуждение — <code>{ status: "discuss", ask: [имена с минимальной и максимальной оценкой] }</code>. Иначе берётся большая из соседних оценок — <code>{ status: "agreed", points }</code>. Голоса <code>"?"</code> не учитываются, но если «не знают» все, верните <code>{ status: "split" }</code>. Карта не из ряда — ошибка.</p>
+<p class="why"><b>Зачем:</b> смысл покера — не число, а разговор: разброс «2 и 13» означает, что люди по-разному понимают задачу. Правило «объясняют крайние» превращает голосование в способ найти недопонимание до начала работы.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export const DECK = [1, 2, 3, 5, 8, 13, 21] as const;
+export type Card = (typeof DECK)[number] | '?';
+export type Round = { status: 'agreed'; points: number } | { status: 'discuss'; ask: string[] } | { status: 'split' };
+
+export function pokerRound(votes: Record&lt;string, Card&gt;): Round {
+  const numeric = Object.entries(votes).filter((e): e is [string, Exclude&lt;Card, '?'&gt;] =&gt; e[1] !== '?');
+  for (const [name, card] of numeric) {
+    if (!(DECK as readonly number[]).includes(card)) throw new RangeError(`${name}: карты ${card} нет в колоде`);
+  }
+  if (numeric.length === 0) return { status: 'split' };
+  const steps = numeric.map(([, c]) =&gt; DECK.indexOf(c));
+  const min = Math.min(...steps);
+  const max = Math.max(...steps);
+  if (max - min &gt; 1) {
+    const ask = numeric.filter(([, c]) =&gt; DECK.indexOf(c) === min || DECK.indexOf(c) === max).map(([n]) =&gt; n);
+    return { status: 'discuss', ask };
+  }
+  return { status: 'agreed', points: DECK[max]! };
+}</code></pre>
+<p>Расстояние считается в <b>ступенях ряда</b>, а не в числах: 13 и 21 — соседние карты, хотя разница 8. А 2 и 5 — уже обсуждение, хотя разница 3. При соседних оценках берётся большая: недооценка опаснее переоценки. Правило «ступень в одну — соглашаемся» — договорённость команды, а не стандарт (из общих знаний). Многие команды требуют полного совпадения.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

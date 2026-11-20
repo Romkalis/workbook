@@ -1,0 +1,116 @@
+<section id="sk-kanban">
+<h2>Kanban</h2>
+<p>Kanban пришёл из производственной системы Toyota: «канбан» по-японски — «карточка, вывеска». Ритма и ролей у него нет. Есть способ сделать работу видимой и управлять её потоком.</p>
+<h3 id="sk-board">Доска и вытягивание</h3>
+<p>Работа изображается карточками на доске с колонками-этапами: «Бэклог → В работе → Ревью → Тестирование → Готово». Главное правило — <b>вытягивание</b> (pull): карточку берут в следующую колонку, когда там освободилось место, а не «толкают» туда по указанию. Правила перехода (например, «в Ревью — только с открытым PR и зелёным CI») записывают явно прямо на доске.</p>
+<h3 id="sk-wip">Лимит незавершённой работы</h3>
+<p><b>WIP-лимит</b> (work in progress) — максимум карточек в колонке. Если в «Ревью» лимит 3 и там уже 3 карточки, новую задачу туда не двигают. Вместо этого разработчик идёт помогать с ревью. Звучит как потеря скорости, но работает наоборот: меньше переключений между задачами, задачи быстрее доходят до конца, узкие места видны сразу — это колонка, которая всегда заполнена до лимита.</p>
+<article class="task" id="sk-t-board" data-task="scrum-kanban/sk-t-board">
+<h4>Задача 6. Kanban-доска с WIP-лимитами <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите класс <code>Board</code> с колонками и лимитами (<code>new Board([{ name: "todo" }, { name: "doing", limit: 2 }, { name: "review", limit: 1 }, { name: "done" }])</code>). Методы: <code>add(id)</code> кладёт карточку в первую колонку; <code>pull(id)</code> переносит карточку в <b>следующую</b> колонку, если там есть место по лимиту, иначе бросает ошибку с названием колонки; <code>column(name)</code> возвращает карточки колонки; <code>bottleneck()</code> — первая колонка, заполненная до лимита, или <code>null</code>.</p>
+<p class="why"><b>Зачем:</b> лимит работает, только если его нельзя нарушить «на минуточку». В коде, как и на хорошей доске, правило проверяется в момент перемещения. Метод <code>bottleneck</code> переводит вопрос «где у нас затор» в данные.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface ColumnDef {
+  name: string;
+  limit?: number;
+}
+
+export class Board {
+  private readonly cards = new Map&lt;string, number&gt;(); // id карточки → индекс колонки
+
+  constructor(private readonly columns: readonly ColumnDef[]) {
+    if (columns.length &lt; 2) throw new Error('Нужно хотя бы две колонки');
+  }
+
+  private count(index: number): number {
+    return [...this.cards.values()].filter((i) =&gt; i === index).length;
+  }
+
+  add(id: string): void {
+    if (this.cards.has(id)) throw new Error(`Карточка ${id} уже на доске`);
+    const first = this.columns[0]!;
+    if (first.limit !== undefined &amp;&amp; this.count(0) &gt;= first.limit) throw new Error(`Колонка ${first.name} заполнена`);
+    this.cards.set(id, 0);
+  }
+
+  pull(id: string): void {
+    const from = this.cards.get(id);
+    if (from === undefined) throw new Error(`Нет карточки ${id}`);
+    const to = from + 1;
+    const target = this.columns[to];
+    if (!target) throw new Error(`Карточка ${id} уже в последней колонке`);
+    if (target.limit !== undefined &amp;&amp; this.count(to) &gt;= target.limit) {
+      throw new Error(`WIP-лимит колонки ${target.name}: ${target.limit}`);
+    }
+    this.cards.set(id, to);
+  }
+
+  column(name: string): string[] {
+    const index = this.columns.findIndex((c) =&gt; c.name === name);
+    return [...this.cards].filter(([, i]) =&gt; i === index).map(([id]) =&gt; id);
+  }
+
+  bottleneck(): string | null {
+    const full = this.columns.find((c, i) =&gt; c.limit !== undefined &amp;&amp; this.count(i) &gt;= c.limit);
+    return full?.name ?? null;
+  }
+}</code></pre>
+<p>Карточка хранит индекс колонки, а не имя. Тогда «следующая колонка» — это <code>+1</code>, и переименование колонки ничего не ломает. Перемещение только на одну колонку вперёд — упрощение: на настоящих досках карточки возвращают назад (ревью не прошло), и для этого нужен отдельный метод со своими правилами. Ошибка называет колонку и лимит, поэтому интерфейс доски может показать понятное сообщение, а не просто «нельзя».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="sk-metrics">Метрики потока</h3>
+<ul><li><b>Lead time</b> — от появления задачи на доске до «Готово»: сколько ждал заказчик.</li><li><b>Cycle time</b> — от начала работы до «Готово»: сколько делала команда.</li><li><b>Throughput</b> (пропускная способность) — сколько задач завершается за период.</li><li><b>Cumulative Flow Diagram</b> — график числа карточек в каждой колонке по дням. Расширяющаяся полоса — узкое место.</li></ul>
+<p>Их связывает <b>закон Литтла</b>: среднее время в работе = среднее число задач в работе / пропускная способность. Отсюда главный вывод Kanban: чтобы задачи проходили быстрее, нужно <b>уменьшить</b> число одновременно начатых задач, а не начать больше (из общих знаний: закон сформулирован в теории очередей, в материалах модуля его нет).</p>
+<article class="task" id="sk-t-flow" data-task="scrum-kanban/sk-t-flow">
+<h4>Задача 7. Lead time, cycle time и throughput <span class="lvl">★★☆ практика</span></h4>
+<p>У каждой карточки есть история: <code>{ id, created, started, finished }</code> (даты ISO, <code>started</code> и <code>finished</code> могут быть <code>null</code>). Напишите <code>flowMetrics(cards, from, to)</code>: для карточек, завершённых в интервале <code>[from, to)</code>, посчитайте средние lead time и cycle time в днях (один знак после запятой) и throughput — число завершённых. Если завершённых нет, средние — <code>null</code>.</p>
+<p class="why"><b>Зачем:</b> это объективные данные для ретроспективы. Разница между lead time и cycle time — время, которое задача пролежала в бэклоге. Если она велика, проблема не в скорости разработки, а в приоритизации.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Card {
+  id: string;
+  created: string;
+  started: string | null;
+  finished: string | null;
+}
+const DAY = 24 * 60 * 60 * 1000;
+const avg = (xs: number[]) =&gt; (xs.length ? Math.round((xs.reduce((a, b) =&gt; a + b, 0) / xs.length) * 10) / 10 : null);
+
+export function flowMetrics(cards: readonly Card[], from: string, to: string) {
+  const start = Date.parse(from);
+  const end = Date.parse(to);
+  const finished = cards.filter((c): c is Card &amp; { finished: string } =&gt; {
+    if (c.finished === null) return false;
+    const t = Date.parse(c.finished);
+    return t &gt;= start &amp;&amp; t &lt; end;
+  });
+  const days = (a: string, b: string) =&gt; (Date.parse(b) - Date.parse(a)) / DAY;
+  return {
+    throughput: finished.length,
+    leadTime: avg(finished.map((c) =&gt; days(c.created, c.finished))),
+    cycleTime: avg(finished.filter((c) =&gt; c.started !== null).map((c) =&gt; days(c.started!, c.finished))),
+  };
+}</code></pre>
+<p>Интервал полуоткрытый, <code>[from, to)</code>: карточка, завершённая ровно в полночь начала следующей недели, попадёт в следующую неделю, а не в обе. Так соседние периоды не пересекаются. Карточка без <code>started</code> (сразу из бэклога в «готово») учитывается в lead time, но не в cycle time. В реальных отчётах вместо среднего часто берут 85-й перцентиль: он устойчивее к одной задаче, которая висела месяц (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="sk-t-little" data-task="scrum-kanban/sk-t-little">
+<h4>Задача 8. Закон Литтла на практике <span class="lvl">★☆☆ разминка</span></h4>
+<p>Команда закрывает в среднем 10 задач в неделю, и в работе одновременно 30 задач. Напишите <code>avgTimeInSystem(wip, throughput)</code> и <code>wipForTarget(targetTime, throughput)</code>. Посчитайте: сколько сейчас в среднем идёт задача и каким должен быть WIP, чтобы задача проходила за полнедели.</p>
+<p class="why"><b>Зачем:</b> это самый короткий аргумент для разговора «давайте возьмём ещё задач, чтобы успеть». Формула показывает, что при той же пропускной способности больше начатых задач значит только больше ожидания.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function avgTimeInSystem(wip: number, throughput: number): number {
+  if (throughput &lt;= 0) throw new RangeError('Пропускная способность должна быть больше нуля');
+  return wip / throughput;
+}
+
+export const wipForTarget = (targetTime: number, throughput: number): number =&gt; Math.floor(targetTime * throughput);
+
+// 30 задач / 10 в неделю = 3 недели на задачу.
+// Чтобы проходить за 0,5 недели при тех же 10 в неделю: WIP = 5.</code></pre>
+<p>Единицы должны совпадать: задачи в неделю дают время в неделях. Закон описывает средние значения устойчивой системы, а не отдельную задачу. Если в бэклог постоянно добавляют больше, чем команда закрывает, никакой WIP-лимит не поможет: очередь будет расти. <code>Math.floor</code> в лимите — снова осторожная сторона: лимит 5,5 задачи на практике значит 5.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>
