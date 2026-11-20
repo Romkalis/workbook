@@ -32,6 +32,45 @@ try {
   button.disabled = false;
 }</code></pre>
 <p>Две проверенные в Node.js 22 тонкости. Функция <code>try { return 'try' } finally { console.log(...) }</code> сначала напечатала сообщение из <code>finally</code>, а потом вернула <code>'try'</code>. А если в <code>finally</code> тоже есть <code>return</code>, он перекрывает результат <code>try</code>: функция вернула <code>'finally'</code>. Так же <code>return</code> в <code>finally</code> «съедает» выброшенную ошибку, поэтому <code>return</code> в <code>finally</code> не пишут.</p>
+<article class="task" id="eh-t-finally" data-task="error-handling/eh-t-finally">
+<h4>Задача 3. Индикатор загрузки всегда выключается <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>withLoading(setLoading, task)</code>: включает индикатор, выполняет асинхронную <code>task</code>, выключает индикатор при <b>любом</b> исходе и возвращает результат задачи (или пробрасывает её ошибку).</p>
+<p class="why"><b>Зачем:</b> вечный спиннер после ошибки сети — классический баг. Выключение, написанное только в ветке успеха, срабатывает в 99% случаев и ломается именно тогда, когда пользователю и так плохо.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export async function withLoading&lt;T&gt;(setLoading: (on: boolean) =&gt; void, task: () =&gt; Promise&lt;T&gt;): Promise&lt;T&gt; {
+  setLoading(true);
+  try {
+    return await task();
+  } finally {
+    setLoading(false);
+  }
+}</code></pre>
+<p><code>finally</code> выполняется и после <code>return</code>, и после исключения. Ошибка при этом продолжает путь наверх. <code>await</code> внутри <code>try</code> обязателен: без него функция вернула бы промис сразу, <code>finally</code> выключил бы индикатор до окончания задачи, а ошибку задачи <code>try</code> бы не увидел.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="eh-t-finally-return" data-task="error-handling/eh-t-finally-return">
+<h4>Задача 4. Что вернёт функция <span class="lvl">★★★ с подвохом</span></h4>
+<p>Не запуская код, скажите, что вернут <code>a()</code>, <code>b()</code> и <code>c()</code>. Потом проверьте.</p>
+<pre><code>function a() { try { return 'try'; } finally { console.log('finally'); } }
+function b() { try { return 'try'; } finally { return 'finally'; } }
+function c() { try { throw new Error('потерялась'); } finally { return 'ok'; } }</code></pre>
+<pre><code>// fns.ts
+export function a() { try { return 'try'; } finally { void 0; } }
+// eslint-disable-next-line no-unsafe-finally
+export function b() { try { return 'try'; } finally { return 'finally'; } }
+// eslint-disable-next-line no-unsafe-finally
+export function c() { try { throw new Error('потерялась'); } finally { return 'ok'; } }</code></pre>
+<p class="why"><b>Зачем:</b> <code>return</code> в <code>finally</code> молча отменяет и результат, и ошибку из <code>try</code>. Функция <code>c</code> «съедает» исключение без единого <code>catch</code>. Это ловушка, которую линтер ловит правилом <code>no-unsafe-finally</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// ответ.txt
+a() → 'try' (а в консоли «finally»)
+b() → 'finally'
+c() → 'ok', ошибка пропала</code></pre>
+<p><code>finally</code> выполняется всегда, и если в нём есть свой <code>return</code>, он побеждает. Поэтому правило простое: в <code>finally</code> только уборка (закрыть файл, снять индикатор), без <code>return</code> и <code>throw</code>. Скрытая проверка прогоняет эти функции и подтверждает ответ.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="eh-rethrow">Ловить только то, что умеете обработать</h3>
 <p>Пустой <code>catch</code> — главная ошибка новичков. Он прячет не только ожидаемую проблему, но и любой баг рядом: опечатку в имени функции вы будете искать часами. Правило из главы <a href="https://javascript.info/try-catch">javascript.info</a> (<a href="https://learn.javascript.ru/try-catch">на русском</a>): <i>catch должен обрабатывать только те ошибки, которые он знает, и пробрасывать остальные</i>.</p>
 <pre><code>try {
@@ -44,10 +83,68 @@ try {
   }
 }</code></pre>
 <p>Проверять тип через <code>instanceof</code> надёжнее, чем через <code>error.name === '...'</code> или текст сообщения: тексты отличаются в разных браузерах.</p>
+<article class="task" id="eh-t-rethrow" data-task="error-handling/eh-t-rethrow">
+<h4>Задача 5. Ловить только своё <span class="lvl">★★☆ практика</span></h4>
+<p>Функция <code>loadSettings(read)</code> читает строку настроек через <code>read()</code> и разбирает JSON. Если JSON испорчен, вернуть настройки по умолчанию <code>{ theme: "light" }</code>. Любую другую ошибку (например, <code>read</code> упал из-за прав доступа) — пробросить дальше, а не скрыть.</p>
+<p class="why"><b>Зачем:</b> <code>catch</code>, который ловит всё подряд, прячет настоящие поломки: вместо «нет прав на файл» пользователь молча получает настройки по умолчанию и не понимает, почему его тема сбрасывается. Ловите то, что умеете исправить.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Settings {
+  theme: 'light' | 'dark';
+}
+const DEFAULTS: Settings = { theme: 'light' };
+
+export function loadSettings(read: () =&gt; string): Settings {
+  const raw = read();
+  try {
+    return JSON.parse(raw) as Settings;
+  } catch (err) {
+    if (err instanceof SyntaxError) return DEFAULTS;
+    throw err;
+  }
+}</code></pre>
+<p>Самое надёжное — сузить сам <code>try</code>: <code>read()</code> вынесен из него, поэтому его ошибки до <code>catch</code> даже не доходят. Проверка <code>instanceof SyntaxError</code> внутри — второй рубеж, на случай если блок разрастётся. Проверку формы настроек здесь опустили. В реальном коде после <code>JSON.parse</code> её стоит сделать, как в уроке <a href="/lessons/dom-state#st-persist">Состояние и отрисовка</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="eh-when-not">Когда try не нужен</h3>
 <ul>
 <li>Ожидаемые ситуации лучше проверять заранее: пустое поле формы — это <code>if</code>, а не исключение.</li>
 <li>Не оборачивайте каждую строку в отдельный <code>try</code>. Обычно достаточно ловить ошибки на границах: обработчик клика, загрузка данных, точка входа приложения — функция, с которой оно запускается (раздел об архитектуре).</li>
 <li><code>try...catch</code> работает <b>синхронно</b>: он не поймает ошибку, которая произойдёт позже, в колбэке таймера или события. Об этом — раздел про асинхронный код.</li>
 </ul>
+<article class="task" id="eh-t-result" data-task="error-handling/eh-t-result">
+<h4>Задача 6. Результат вместо исключения <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>attempt(fn)</code> и <code>attemptAsync(fn)</code>: выполняют функцию и возвращают <code>[null, value]</code> или <code>[error, null]</code>, где <code>error</code> всегда экземпляр <code>Error</code> (бросить могли и строку). Перепишите с их помощью цепочку из двух шагов без вложенных <code>try</code>.</p>
+<p class="why"><b>Зачем:</b> вложенные <code>try</code> на каждом шаге читаются тяжело, а забытый <code>try</code> роняет программу. Кортеж «ошибка или значение» (как в Go) делает обработку явной и линейной. Важно понимать, когда этот подход уместен, а когда исключение честнее.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type Attempt&lt;T&gt; = [Error, null] | [null, T];
+
+const toError = (e: unknown) =&gt; (e instanceof Error ? e : new Error(String(e)));
+
+export function attempt&lt;T&gt;(fn: () =&gt; T): Attempt&lt;T&gt; {
+  try {
+    return [null, fn()];
+  } catch (e) {
+    return [toError(e), null];
+  }
+}
+
+export async function attemptAsync&lt;T&gt;(fn: () =&gt; Promise&lt;T&gt;): Promise&lt;Attempt&lt;T&gt;&gt; {
+  try {
+    return [null, await fn()];
+  } catch (e) {
+    return [toError(e), null];
+  }
+}
+
+export async function loadProfile(fetchUser: () =&gt; Promise&lt;{ id: string }&gt;, fetchOrders: (id: string) =&gt; Promise&lt;string[]&gt;) {
+  const [userErr, user] = await attemptAsync(fetchUser);
+  if (userErr) return { error: `Профиль: ${userErr.message}` };
+  const [ordersErr, orders] = await attemptAsync(() =&gt; fetchOrders(user.id));
+  return { user, orders: ordersErr ? [] : orders };
+}</code></pre>
+<p>Тип <code>[Error, null] | [null, T]</code> — размеченное объединение по первому элементу. После <code>if (userErr) return</code> TypeScript знает, что <code>user</code> не <code>null</code>. Видно и разное отношение к ошибкам: без пользователя экран не имеет смысла, а без заказов показываем пустой список. Когда это неуместно: если ошибку обрабатывают на много уровней выше (общий обработчик сервера), исключение пройдёт туда само, а кортеж пришлось бы передавать вручную через каждый слой.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

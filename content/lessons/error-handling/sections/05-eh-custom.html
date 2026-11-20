@@ -39,6 +39,37 @@ error instanceof Error;        // true</code></pre>
 <div class="warn"><b>Поправка к коду лекции</b><p>В лекции и на слайдах классы написаны так: <code>super(); this.message = message; this.statusCode = statusCode;</code>. Это работает, но с двумя недостатками. Сообщение не передано в <code>super</code>, поэтому присваивается вручную. И не задан <code>name</code>: проверка в Node.js 22 показала, что <code>new CustomError('x', 500).name</code> равно <code>'Error'</code>. В классе <code>GoogleApiError</code> присваивания повторяются ещё раз вместо передачи аргументов в <code>super(message, statusCode)</code>. Версия выше делает то же короче и правильнее.</p></div>
 <h3 id="eh-codes">Коды ошибок</h3>
 <p>Лектор обращает внимание: серьёзные библиотеки и API сопровождают ошибки кодами — числовыми (<code>234</code>, <code>PD3212</code>) или словесными (<code>NOT_FOUND</code>, <code>AuthorisationFailed</code>). Код не меняется при переводе сообщения, по нему удобно ветвиться в коде и искать описание в документации. Его стоит хранить в своём классе ошибки и писать в лог. Например, у ошибок Node.js есть свойство <code>code</code>: <code>'ENOENT'</code> — файл не найден (из общих знаний).</p>
+<article class="task" id="eh-t-codes" data-task="error-handling/eh-t-codes">
+<h4>Задача 8. Коды ошибок и сообщения для людей <span class="lvl">★☆☆ разминка</span></h4>
+<p>Сервер возвращает ошибки с кодами: <code>EMAIL_TAKEN</code>, <code>WEAK_PASSWORD</code>, <code>RATE_LIMITED</code>. Напишите <code>messageFor(code, lang)</code> со словарём сообщений на русском и английском. Неизвестный код или язык → общее сообщение на этом языке (или на русском). Тип кода опишите так, чтобы новый код нельзя было забыть перевести.</p>
+<p class="why"><b>Зачем:</b> коды стабильны, а тексты меняются и переводятся. Код решает, что делать (подсветить поле, показать таймер), текст — что сказать человеку. <code>Record</code> по union кодов превращает «забыли перевод» в ошибку компиляции.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type ErrorCode = 'EMAIL_TAKEN' | 'WEAK_PASSWORD' | 'RATE_LIMITED';
+type Lang = 'ru' | 'en';
+
+const MESSAGES: Record&lt;Lang, Record&lt;ErrorCode, string&gt; &amp; { UNKNOWN: string }&gt; = {
+  ru: {
+    EMAIL_TAKEN: 'Этот email уже зарегистрирован',
+    WEAK_PASSWORD: 'Пароль слишком простой',
+    RATE_LIMITED: 'Слишком много попыток, подождите минуту',
+    UNKNOWN: 'Что-то пошло не так, попробуйте ещё раз',
+  },
+  en: {
+    EMAIL_TAKEN: 'This email is already registered',
+    WEAK_PASSWORD: 'Password is too weak',
+    RATE_LIMITED: 'Too many attempts, wait a minute',
+    UNKNOWN: 'Something went wrong, please try again',
+  },
+};
+
+export function messageFor(code: string, lang: string = 'ru'): string {
+  const dict = MESSAGES[lang as Lang] ?? MESSAGES.ru;
+  return dict[code as ErrorCode] ?? dict.UNKNOWN;
+}</code></pre>
+<p>Параметры функции — <code>string</code>, а не узкие типы: код и язык приходят с сервера и из настроек браузера, и там может быть что угодно. Узкий тип стоит на словаре: при добавлении кода в <code>ErrorCode</code> компилятор потребует перевод в обоих языках. <code>as</code> при чтении безопасен, потому что отсутствие ключа обработано через <code>??</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="eh-cause">Оборачивание ошибок: cause</h3>
 <p>Низкоуровневая ошибка («Unexpected token } in JSON») мало что говорит тому, кто вызывал вашу функцию. Её оборачивают в понятную, сохраняя исходную в <code>cause</code>:</p>
 <pre><code>function parseConfig(text) {
@@ -56,4 +87,67 @@ try {
   // AppError Конфиг повреждён SyntaxError
 }</code></pre>
 <p>В лекции эта же идея реализована вручную: <code>callGoogleApi</code> ловит «сырую» ошибку API и выбрасывает <code>GoogleApiError</code>. С <code>cause</code> исходная ошибка со своим стеком не теряется, и <a href="/lessons/devtools-basics">DevTools</a> показывает обе.</p>
+<article class="task" id="eh-t-classes" data-task="error-handling/eh-t-classes">
+<h4>Задача 7. Свои классы ошибок и HTTP-ответ <span class="lvl">★★☆ практика</span></h4>
+<p>Создайте базовый <code>AppError</code> и два наследника: <code>ValidationError</code> (с полем <code>field</code>) и <code>NotFoundError</code> (с полями <code>resource</code> и <code>id</code>, сообщение собирается само). У каждого правильное <code>name</code>. Напишите <code>toHttp(err)</code>: <code>ValidationError</code> → 400 с полем, <code>NotFoundError</code> → 404, любая другая ошибка → 500 с общим текстом.</p>
+<p class="why"><b>Зачем:</b> свои классы превращают «что-то пошло не так» в данные, по которым код принимает решения. Обработчик ошибок сервера и интерфейс различают их через <code>instanceof</code>, а не через разбор текста сообщения, который однажды поменяют.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export class AppError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = new.target.name;
+  }
+}
+
+export class ValidationError extends AppError {
+  constructor(
+    readonly field: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export class NotFoundError extends AppError {
+  constructor(
+    readonly resource: string,
+    readonly id: string,
+  ) {
+    super(`${resource} с id ${id} не найден`);
+  }
+}
+
+export function toHttp(err: unknown): { status: number; body: Record&lt;string, string&gt; } {
+  if (err instanceof ValidationError) return { status: 400, body: { message: err.message, field: err.field } };
+  if (err instanceof NotFoundError) return { status: 404, body: { message: err.message } };
+  return { status: 500, body: { message: 'Внутренняя ошибка' } };
+}</code></pre>
+<p><code>new.target.name</code> в базовом классе ставит имя того класса, который реально создают. Не нужно повторять <code>this.name = '...'</code> в каждом наследнике, и имя не разойдётся с классом. Порядок проверок в <code>toHttp</code> важен, если иерархия глубже: сначала частные классы, потом общие. Неизвестные ошибки получают общий текст: подробности — в логи, а не клиенту (урок <a href="/lessons/web-security#sec-errors">Web Security</a>).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="eh-t-cause" data-task="error-handling/eh-t-cause">
+<h4>Задача 9. Цепочка причин <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>causeChain(err)</code>, которая возвращает массив сообщений от внешней ошибки к самой глубокой причине по полю <code>cause</code>. Защититесь от циклической ссылки (ошибка, которая указывает сама на себя) и от <code>cause</code>, который не является ошибкой (тогда добавьте его как строку и остановитесь).</p>
+<p class="why"><b>Зачем:</b> когда каждый слой оборачивает ошибку своей (<code>new Error('Не удалось загрузить профиль', { cause })</code>), в логе важна вся цепочка: «профиль → запрос к API → ECONNRESET». Функция, которая её разворачивает, — обычный инструмент логирования.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function causeChain(err: unknown): string[] {
+  const chain: string[] = [];
+  const seen = new Set&lt;unknown&gt;();
+  let current: unknown = err;
+  while (current !== undefined &amp;&amp; !seen.has(current)) {
+    seen.add(current);
+    if (!(current instanceof Error)) {
+      chain.push(String(current));
+      break;
+    }
+    chain.push(current.message);
+    current = current.cause;
+  }
+  return chain;
+}</code></pre>
+<p><code>Set</code> посещённых объектов — стандартная защита обхода от циклов. Цикл кажется надуманным, но достаточно одного неудачного <code>err.cause = err</code> в чужой библиотеке, чтобы логгер ушёл в бесконечный цикл и уронил сервер. <code>cause</code> бывает чем угодно (строка, объект ответа), поэтому неошибки превращаются в строку, и обход останавливается.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

@@ -11,6 +11,32 @@
 }</code></pre>
 <p><code>try</code> выполнился и закончился сразу, как только таймер был <i>запланирован</i>. Колбэк запустится позже, когда <code>try</code> уже давно позади, и ошибка станет неперехваченной. Ловить нужно внутри самого колбэка — в Node.js 22 такой вариант напечатал «пойман внутри: внутри таймера». То же касается обработчиков событий: <code>try</code> вокруг <code>addEventListener</code> бесполезен, <code>try</code> должен быть внутри обработчика.</p>
 <p>В старом коде, особенно в Node.js, ошибки передают первым аргументом колбэка. Например, чтение файла в Node.js: <code>fs.readFile(path, (error, data) =&gt; { if (error) ... })</code>. Это соглашение «error-first callback»; о нём пишут <a href="https://kinsta.com/blog/errors-in-javascript/">Kinsta</a> и <a href="https://www.valentinog.com/blog/error/">Гальярди</a>.</p>
+<article class="task" id="eh-t-callback" data-task="error-handling/eh-t-callback">
+<h4>Задача 10. Колбэк, который не теряет ошибку <span class="lvl">★★☆ практика</span></h4>
+<p>Функция в стиле Node <code>(input, callback)</code> иногда бросает исключение синхронно, а иногда вызывает <code>callback(err)</code>. Напишите обёртку <code>safe(fn)</code>: возвращает функцию с той же сигнатурой, которая гарантирует, что любая ошибка (синхронная или переданная) придёт в <code>callback</code>, и что <code>callback</code> вызовется ровно один раз.</p>
+<p class="why"><b>Зачем:</b> смешанное поведение (иногда <code>throw</code>, иногда колбэк) — частая беда старого кода. Вызывающему приходится оборачивать вызов в <code>try</code> и писать проверку ошибки в колбэке. Обёртка приводит всё к одному каналу ошибок.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type Cb&lt;T&gt; = (err: Error | null, value?: T) =&gt; void;
+
+export function safe&lt;I, T&gt;(fn: (input: I, cb: Cb&lt;T&gt;) =&gt; void): (input: I, cb: Cb&lt;T&gt;) =&gt; void {
+  return (input, cb) =&gt; {
+    let called = false;
+    const once: Cb&lt;T&gt; = (err, value) =&gt; {
+      if (called) return;
+      called = true;
+      cb(err, value);
+    };
+    try {
+      fn(input, once);
+    } catch (err) {
+      once(err instanceof Error ? err : new Error(String(err)));
+    }
+  };
+}</code></pre>
+<p>Без защиты «один раз» возможна ситуация: <code>fn</code> вызвала колбэк с успехом, а потом бросила исключение, и вызывающий получил бы и результат, и ошибку. Ошибка, брошенная <b>внутри</b> переданного колбэка, тоже попадёт в <code>catch</code>, но благодаря флагу второй вызов отбросится. Сегодня такие API обычно сразу переводят на промисы (урок <a href="/lessons/async-js#as-promisify">Async JS</a>), и там гарантия «один раз» встроена.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="eh-promise">Промисы: catch, then и finally</h3>
 <p>Промис переходит в состояние «отклонён» (rejected), если вызвали <code>reject</code>, <code>Promise.reject(...)</code> или внутри исполнителя (функции, переданной в <code>new Promise(...)</code>) или обработчика <code>.then</code> произошёл <code>throw</code>. Отклонение «падает» по цепочке вниз, пропуская все <code>.then</code>, до ближайшего <code>.catch</code> (глава <a href="https://javascript.info/promise-error-handling">javascript.info</a>, <a href="https://learn.javascript.ru/promise-error-handling">на русском</a>).</p>
 <pre><code>Promise.resolve(1)

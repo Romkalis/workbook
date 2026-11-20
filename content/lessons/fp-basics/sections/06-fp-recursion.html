@@ -38,4 +38,27 @@ sumSalaries(company); // 7700</code></pre>
 
 flatten([1, [2, [3, [4]]], 5]); // [1, 2, 3, 4, 5]</code></pre>
 <p>Дерево DOM, JSON, файловая система и бинарные деревья (урок <a href="/lessons/basic-js-ds">BasicJS: Data Structures</a>) устроены так же.</p>
+<article class="task" id="fp-t-tree" data-task="fp-basics/fp-t-tree">
+<h4>Задача 10. Дерево комментариев <span class="lvl">★★☆ практика</span></h4>
+<p>Комментарии с ответами — дерево <code>{ id, text, replies: [...] }</code>. Напишите рекурсивно: <code>countComments(list)</code> — всего комментариев на всех уровнях; <code>maxDepth(list)</code> — глубина самой длинной ветки (пустой список — 0, без ответов — 1); <code>flatten(list)</code> — плоский список <code>{ id, depth }</code> в порядке чтения.</p>
+<p class="why"><b>Зачем:</b> дерево — естественная рекурсивная структура: у комментария есть ответы, у которых есть ответы. Решение повторяет форму данных: «сам плюс то же самое для детей». Плоский список с глубиной нужен, чтобы нарисовать дерево отступами без рекурсии в шаблоне.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Comment {
+  id: string;
+  text: string;
+  replies: Comment[];
+}
+
+export const countComments = (list: readonly Comment[]): number =&gt;
+  list.reduce((sum, c) =&gt; sum + 1 + countComments(c.replies), 0);
+
+export const maxDepth = (list: readonly Comment[]): number =&gt;
+  list.length === 0 ? 0 : 1 + Math.max(...list.map((c) =&gt; maxDepth(c.replies)));
+
+export const flatten = (list: readonly Comment[], depth = 0): { id: string; depth: number }[] =&gt;
+  list.flatMap((c) =&gt; [{ id: c.id, depth }, ...flatten(c.replies, depth + 1)]);</code></pre>
+<p>У каждой функции есть базовый случай — пустой список — и шаг «обработай узел и вызови себя для детей». <code>flatMap</code> склеивает «сам комментарий» и «развёрнутые ответы» в один массив. Глубина обсуждений небольшая, поэтому рекурсия здесь безопасна. Для данных, где глубина может достигать тысяч, нужен цикл со стеком (урок <a href="/lessons/eventloop-animation#el-stack">Event Loop</a>, задача про стек).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

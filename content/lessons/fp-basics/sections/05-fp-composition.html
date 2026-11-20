@@ -22,4 +22,31 @@ compose(toSlug, lower, trim)('  Hello Big World '); // то же самое</cod
 compose(inc, double)(3); // 3 * 2 + 1 = 7</code></pre>
 <p>Композиция хорошо работает, когда каждая функция принимает <strong>один</strong> аргумент. Функции с несколькими аргументами приводят к одному с помощью каррирования — оно в разделе ниже. Две задачи Codewars модуля (function-composition) как раз про реализацию <code>compose</code>.</p>
 <p class="note"><code>orders.filter(...).map(...).reduce(...)</code> из первого раздела — тоже композиция, только через цепочку методов. <code>pipe</code> нужен, когда функции не являются методами одного объекта.</p>
+<article class="task" id="fp-t-pipe" data-task="fp-basics/fp-t-pipe">
+<h4>Задача 9. Конвейер из маленьких функций <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>pipe(...fns)</code>, которая возвращает функцию, применяющую <code>fns</code> слева направо. Соберите из маленьких чистых функций <code>slugify</code>: <code>"  Привет, Мир! JS 2026 "</code> → <code>"privet-mir-js-2026"</code>. Шаги: обрезать пробелы, нижний регистр, транслитерация (дана), заменить всё, кроме латиницы и цифр, на дефис, схлопнуть повторные дефисы, убрать дефисы по краям.</p>
+<pre><code>// translit.ts
+const MAP: Record&lt;string, string&gt; = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' };
+export const translit = (s: string) =&gt; [...s].map((c) =&gt; MAP[c] ?? c).join('');</code></pre>
+<p class="why"><b>Зачем:</b> композиция превращает сложную функцию в список понятных шагов. Каждый шаг тестируется отдельно, переставляется и заменяется. Порядок важен: транслитерация до «оставить только латиницу», иначе от русского текста ничего не останется.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import { translit } from './translit.js';
+
+type Fn&lt;T&gt; = (x: T) =&gt; T;
+export const pipe =
+  &lt;T&gt;(...fns: Fn&lt;T&gt;[]): Fn&lt;T&gt; =&gt;
+  (x) =&gt;
+    fns.reduce((acc, fn) =&gt; fn(acc), x);
+
+const trim: Fn&lt;string&gt; = (s) =&gt; s.trim();
+const lower: Fn&lt;string&gt; = (s) =&gt; s.toLowerCase();
+const onlyLatin: Fn&lt;string&gt; = (s) =&gt; s.replace(/[^a-z0-9]+/g, '-');
+const collapse: Fn&lt;string&gt; = (s) =&gt; s.replace(/-+/g, '-');
+const trimDashes: Fn&lt;string&gt; = (s) =&gt; s.replace(/^-|-$/g, '');
+
+export const slugify = pipe(trim, lower, translit, onlyLatin, collapse, trimDashes);</code></pre>
+<p><code>pipe</code> — это <code>reduce</code> по списку функций: аккумулятор — текущее значение. <code>compose</code> делает то же справа налево (<code>compose(f, g)(x) = f(g(x))</code>, как в математике). Здесь все шаги одного типа <code>string → string</code>, поэтому тип простой. Конвейер, где тип меняется на каждом шаге, в TypeScript описывают перегрузками (так делают библиотеки). Шаг <code>collapse</code> формально лишний, потому что <code>+</code> в <code>onlyLatin</code> уже схлопывает повторы. Его оставили, чтобы конвейер был устойчив к другим заменам.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

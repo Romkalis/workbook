@@ -30,6 +30,29 @@ console.log(user.address.city); // 'Vilnius' — вложенный объект
 };
 // user не тронут, moved — новый объект с новым address</code></pre>
 <p>Для полной (глубокой) копии есть встроенная функция <code>structuredClone(user)</code> (из общих знаний: работает в браузерах и Node 17+, но не копирует функции). Статья модуля этого не показывает и вообще не упоминает, что копия через spread поверхностная, — будьте внимательны.</p>
+<article class="task" id="fp-t-nested" data-task="fp-basics/fp-t-nested">
+<h4>Задача 3. Неизменяемое обновление вложенного объекта <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>moveUser(state, city)</code>: возвращает новое состояние, где у <code>state.user.address.city</code> новое значение. Всё, что не менялось (<code>state.cart</code>, <code>state.user.orders</code>), должно остаться <b>тем же объектом</b>, а не копией.</p>
+<p class="why"><b>Зачем:</b> это структурное разделение: копируется только путь до изменённого поля, остальное переиспользуется. Так работают сторы (Redux, Zustand) и почему сравнение по ссылке <code>prev.cart === next.cart</code> позволяет не перерисовывать корзину.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface State {
+  user: { name: string; address: { city: string; street: string }; orders: string[] };
+  cart: { id: string }[];
+}
+
+export function moveUser(state: State, city: string): State {
+  return {
+    ...state,
+    user: {
+      ...state.user,
+      address: { ...state.user.address, city },
+    },
+  };
+}</code></pre>
+<p>Каждый уровень на пути к полю копируется spread-ом: корень, <code>user</code>, <code>address</code>. Соседние ветки копируются только по ссылке. <code>structuredClone(state)</code> тоже не изменил бы исходный объект, но скопировал бы всё, и сравнение по ссылке сказало бы, что поменялась и корзина. Для глубоких обновлений удобны библиотеки вроде Immer (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="fp-freeze">Object.freeze</h3>
 <p><code>Object.freeze(obj)</code> запрещает добавлять, удалять и менять свойства объекта. Две детали, которые легко упустить:</p>
 <ul>
@@ -47,6 +70,24 @@ const deepFreeze = (obj) =&gt; {
   return Object.freeze(obj);
 };</code></pre>
 <p>Проверка <code>value !== null</code> важна: <code>typeof null</code> возвращает <code>'object'</code>. В версии из статьи модуля этой проверки нет, и объект с полем, равным <code>null</code>, ломает функцию.</p>
+<article class="task" id="fp-t-freeze" data-task="fp-basics/fp-t-freeze">
+<h4>Задача 4. Глубокая заморозка <span class="lvl">★★☆ практика</span></h4>
+<p><code>Object.freeze</code> замораживает только верхний уровень. Напишите <code>deepFreeze(obj)</code>: замораживает объект и все вложенные объекты и массивы. Объект с циклической ссылкой не должен вызывать бесконечную рекурсию. Возвращает тот же объект с типом <code>DeepReadonly</code>.</p>
+<p class="why"><b>Зачем:</b> замороженная конфигурация или справочник гарантируют, что никакой код случайно их не поменяет. В строгом режиме (модули всегда строгие) попытка записи в замороженный объект бросит <code>TypeError</code>, и ошибку будет видно сразу.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type DeepReadonly&lt;T&gt; = T extends (...args: never[]) =&gt; unknown ? T : T extends object ? { readonly [K in keyof T]: DeepReadonly&lt;T[K]&gt; } : T;
+
+export function deepFreeze&lt;T&gt;(obj: T): DeepReadonly&lt;T&gt; {
+  if (typeof obj === 'object' &amp;&amp; obj !== null &amp;&amp; !Object.isFrozen(obj)) {
+    Object.freeze(obj);
+    for (const value of Object.values(obj)) deepFreeze(value);
+  }
+  return obj as DeepReadonly&lt;T&gt;;
+}</code></pre>
+<p>Защита от цикла получилась бесплатно: объект замораживается <b>до</b> обхода детей, и при повторной встрече <code>Object.isFrozen</code> вернёт <code>true</code>. Тип <code>DeepReadonly</code> — рекурсивный mapped type из урока <a href="/lessons/typescript-advanced#advanced-mapped">TS Advanced</a>. Функции оставлены как есть, иначе тип метода превратился бы в объект. Заморозка — проверка во время работы, а <code>readonly</code> — во время компиляции. Вместе они закрывают и JS-код, и TS-код.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="fp-array-methods">Методы массивов: какие меняют исходный</h3>
 <div class="tbl"><table><thead><tr><th scope="col">Меняют массив (избегать)</th><th scope="col">Возвращают новый</th></tr></thead><tbody>
 <tr><td><code>push</code>, <code>pop</code>, <code>shift</code>, <code>unshift</code></td><td><code>[...arr, x]</code>, <code>arr.slice(1)</code>, <code>[x, ...arr]</code></td></tr>
@@ -56,4 +97,20 @@ const deepFreeze = (obj) =&gt; {
 <tr><td><code>arr[i] = x</code></td><td><code>arr.with(i, x)</code>, <code>map</code></td></tr>
 </tbody></table></div>
 <p><code>toSorted</code>, <code>toReversed</code>, <code>toSpliced</code> и <code>with</code> появились в ES2023 (из общих знаний), в Node 20+ и современных браузерах они есть.</p>
+<article class="task" id="fp-t-move" data-task="fp-basics/fp-t-move">
+<h4>Задача 5. Переставить элемент без мутации <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>moveItem(list, from, to)</code>: возвращает новый массив, где элемент с индексом <code>from</code> стоит на позиции <code>to</code>. Используйте неизменяющие методы (<code>toSpliced</code>, <code>with</code>, <code>slice</code>, spread). Индексы вне диапазона — <code>RangeError</code>.</p>
+<p class="why"><b>Зачем:</b> перетаскивание карточек на Kanban-доске или в списке задач — ровно эта операция. Если она мутирует массив состояния, сравнение по ссылке не заметит изменения, и экран не перерисуется.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function moveItem&lt;T&gt;(list: readonly T[], from: number, to: number): T[] {
+  if (from &lt; 0 || from &gt;= list.length || to &lt; 0 || to &gt;= list.length) {
+    throw new RangeError(`Индексы вне диапазона: ${from} → ${to}`);
+  }
+  const item = list[from]!;
+  return list.toSpliced(from, 1).toSpliced(to, 0, item);
+}</code></pre>
+<p>Два шага: убрать элемент, затем вставить его на новое место. Индекс <code>to</code> относится к массиву <b>после</b> удаления, и это даёт естественное поведение для перетаскивания и вниз, и вверх. <code>toSpliced</code> — неизменяющий брат <code>splice</code> из ES2023. Без него то же делается через <code>[...list]</code> и обычный <code>splice</code> на копии.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

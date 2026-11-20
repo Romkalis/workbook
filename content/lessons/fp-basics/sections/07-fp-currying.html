@@ -41,6 +41,24 @@ curriedSum(1, 2, 3); // 6 — можно и как обычно
 curriedSum(1)(2, 3); // 6
 curriedSum(1)(2)(3); // 6</code></pre>
 <p><code>fn.length</code> — число параметров в объявлении функции. Отсюда ограничение: для <code>(...nums) =&gt; …</code> длина равна 0, и <code>curry</code> вызовет функцию сразу. Параметры со значением по умолчанию тоже не считаются: у <code>(a, b = 2) =&gt; …</code> длина равна 1.</p>
+<article class="task" id="fp-t-curry" data-task="fp-basics/fp-t-curry">
+<h4>Задача 11. curry с любым числом аргументов за раз <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>curry(fn)</code>: возвращает функцию, которая копит аргументы, пока их не наберётся <code>fn.length</code>, и тогда вызывает <code>fn</code>. За один вызов можно передать несколько аргументов: <code>add3(1)(2)(3)</code>, <code>add3(1, 2)(3)</code> и <code>add3(1)(2, 3)</code> дают один результат. Промежуточные функции переиспользуемы: <code>const add1 = add3(1)</code> можно вызывать много раз.</p>
+<p class="why"><b>Зачем:</b> каррирование позволяет из общей функции получить настроенную: <code>const byCategory = filterBy('category')</code>. Требование переиспользуемости ловит частую ошибку — общий массив аргументов в замыкании, который растёт между вызовами.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function curry(fn: (...args: never[]) =&gt; unknown) {
+  const collect =
+    (collected: unknown[]) =&gt;
+    (...args: unknown[]): unknown =&gt; {
+      const all = [...collected, ...args];
+      return all.length &gt;= fn.length ? (fn as (...a: unknown[]) =&gt; unknown)(...all) : collect(all);
+    };
+  return collect([]);
+}</code></pre>
+<p>Каждый вызов создаёт <b>новый</b> массив <code>all</code> и новую функцию. Поэтому <code>add1(2)(3)</code> и <code>add1(5)(5)</code> не мешают друг другу. С одним общим массивом второй вызов увидел бы аргументы первого. Опора на <code>fn.length</code> — известное ограничение: у функции с rest-параметрами или параметрами по умолчанию длина меньше, и <code>curry</code> вызовет её раньше. Строгая типизация <code>curry</code> в TypeScript сложна, поэтому здесь типы намеренно простые.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="fp-curry-use">Где это пригодится</h3>
 <p>Каррированные функции удобно передавать в <code>map</code>, <code>filter</code> и <code>pipe</code>, которым нужна функция от одного аргумента. Порядок параметров выбирают так: сначала настройки, данные в конце.</p>
 <pre><code>const hasRole = curry((role, user) =&gt; user.roles.includes(role));

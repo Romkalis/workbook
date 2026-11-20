@@ -31,4 +31,43 @@ img.src = user.avatarUrl;</code></pre>
   event.preventDefault(); // убрать «Uncaught (in promise)» из консоли
 });</code></pre>
 <p>В <code>event.reason</code> — то, с чем отклонился промис. В Chrome <code>Promise.reject(new Error('забытый reject'))</code> вызвал этот обработчик. Событие <code>error</code> на <code>window</code> для отклонённых промисов <b>не срабатывает</b>, поэтому в приложении обычно подписываются на оба.</p>
+<article class="task" id="eh-t-global" data-task="error-handling/eh-t-global">
+<h4>Задача 11. Глобальный сборщик ошибок <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>installErrorReporter(target, report, now)</code>: слушает на <code>target</code> (обычно <code>window</code>) события <code>error</code> и <code>unhandledrejection</code> и вызывает <code>report({ type, message })</code>. Одинаковые сообщения чаще раза в 10 секунд не отправляются (ошибка в обработчике прокрутки может сыпаться сотни раз в секунду). Возвращает функцию отписки.</p>
+<p class="why"><b>Зачем:</b> глобальные обработчики — последняя сеть: они ловят то, что пропустили все <code>try</code>. Без защиты от повторов одна ошибка в цикле отправит тысячи одинаковых отчётов и положит ваш же сервер логов.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Report {
+  type: 'error' | 'rejection';
+  message: string;
+}
+
+export function installErrorReporter(target: EventTarget, report: (r: Report) =&gt; void, now: () =&gt; number = Date.now): () =&gt; void {
+  const lastSent = new Map&lt;string, number&gt;();
+  const send = (r: Report) =&gt; {
+    const key = `${r.type}:${r.message}`;
+    const t = now();
+    const prev = lastSent.get(key);
+    if (prev !== undefined &amp;&amp; t - prev &lt; 10_000) return;
+    lastSent.set(key, t);
+    report(r);
+  };
+  const onError = (e: Event) =&gt; {
+    const ev = e as ErrorEvent;
+    send({ type: 'error', message: ev.error instanceof Error ? ev.error.message : ev.message || 'Unknown error' });
+  };
+  const onRejection = (e: Event) =&gt; {
+    const reason = (e as PromiseRejectionEvent).reason;
+    send({ type: 'rejection', message: reason instanceof Error ? reason.message : String(reason) });
+  };
+  target.addEventListener('error', onError);
+  target.addEventListener('unhandledrejection', onRejection);
+  return () =&gt; {
+    target.removeEventListener('error', onError);
+    target.removeEventListener('unhandledrejection', onRejection);
+  };
+}</code></pre>
+<p>Ключ повтора включает тип и текст: одна и та же ошибка из разных мест считается одной, и это осознанное упрощение. У <code>ErrorEvent</code> поле <code>error</code> бывает пустым, например для скриптов с другого домена (раздел «Script error.»). Поэтому есть запасной <code>message</code>. В тесте вместо <code>window</code> — <code>EventTarget</code> и созданные вручную события. Так проверяется логика без настоящего браузера.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

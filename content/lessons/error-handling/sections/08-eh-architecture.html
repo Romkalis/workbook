@@ -45,6 +45,35 @@ async function main() {
 }</code></pre>
 <p>Код запущен в Node.js 22 с заглушками (простыми функциями-подставками, которые только печатают в консоль) <code>showMessage</code> и <code>logError</code>: <code>main</code> пошла по ветке <code>GoogleApiError</code>, у ошибки были <code>status: 404</code>, <code>code: 'NOT_FOUND'</code> и исходный объект в <code>cause</code>. В лекции ветвление сделано через <code>return console.log(...)</code> — короче, но смешивает возврат значения и вывод; цепочка <code>if...else</code> читается проще.</p>
 <p>Одна граница на всё приложение — минимум. В интерфейсе удобнее несколько: у каждого независимого блока (лента, корзина, виджет погоды) своя обработка, и сбой одного не ломает остальные. Синхронный <code>try</code> в <code>main</code> не поймает ошибки в обработчиках событий и таймерах, которые сработают позже, поэтому к нему добавляют глобальные <code>error</code> и <code>unhandledrejection</code>.</p>
+<article class="task" id="eh-t-boundary" data-task="error-handling/eh-t-boundary">
+<h4>Задача 12. Граница ошибок для виджета <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>mountSafely(root, render, fallbackText)</code>: вызывает <code>render(root)</code>. Если он бросил ошибку, содержимое <code>root</code> заменяется сообщением <code>fallbackText</code> и кнопкой «Повторить», которая снова вызывает <code>render</code>. Ошибка одного виджета не должна ломать остальные на странице, и её нужно передать в <code>onError</code>.</p>
+<p class="why"><b>Зачем:</b> без границы одна ошибка в виджете рекомендаций превращает всю страницу в полуотрисованный хаос. Граница превращает её в маленький серый блок с кнопкой, а корзина и оформление заказа продолжают работать. В React это называется Error Boundary, но идея не привязана к фреймворку.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function mountSafely(
+  root: HTMLElement,
+  render: (root: HTMLElement) =&gt; void,
+  fallbackText: string,
+  onError: (err: unknown) =&gt; void = console.error,
+): void {
+  try {
+    root.replaceChildren();
+    render(root);
+  } catch (err) {
+    onError(err);
+    const message = document.createElement('p');
+    message.textContent = fallbackText;
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.textContent = 'Повторить';
+    retry.addEventListener('click', () =&gt; mountSafely(root, render, fallbackText, onError), { once: true });
+    root.replaceChildren(message, retry);
+  }
+}</code></pre>
+<p>Перед отрисовкой <code>root</code> очищается: если <code>render</code> успел добавить половину разметки и упал, в запасном виде не останется обломков. Повтор вызывает ту же функцию, поэтому при новой ошибке снова появится запасной блок, а не пустота. <code>{ once: true }</code> снимает обработчик после первого клика. Граница ловит только синхронные ошибки отрисовки. Ошибки асинхронной загрузки внутри виджета он обрабатывает сам или передаёт в <code>onError</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="eh-user">Что показать пользователю</h3>
 <ul>
 <li>Говорите, что случилось и что делать: «Нет соединения. Проверьте интернет и нажмите «Повторить»», а не «Error: Failed to fetch».</li>
@@ -53,6 +82,25 @@ async function main() {
 <li>Не оставляйте вечный индикатор загрузки: снимайте его в <code>finally</code>.</li>
 <li>Различайте временные сбои (сеть, 503 — можно повторить) и постоянные (404, ошибка валидации — повтор не поможет).</li>
 </ul>
+<article class="task" id="eh-t-user" data-task="error-handling/eh-t-user">
+<h4>Задача 13. Понятное сообщение пользователю <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>userMessage(err)</code>: превращает техническую ошибку в текст для человека. <code>TypeError</code> от <code>fetch</code> (сеть недоступна) → «Нет соединения с интернетом». Ошибка с <code>name === "AbortError"</code> → пустая строка (пользователь сам отменил, показывать нечего). Объект с <code>status</code> 401 → «Войдите снова», 403 → «Недостаточно прав», 5xx → «Сервис временно недоступен». Всё остальное — общий текст. Технические подробности в текст не попадают.</p>
+<p class="why"><b>Зачем:</b> «TypeError: Failed to fetch» ничего не говорит покупателю и пугает его. Хорошее сообщение объясняет, что случилось, и подсказывает, что делать. Отмена — не ошибка вообще, и красный баннер после нажатия «Отмена» выглядит как сбой.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function userMessage(err: unknown): string {
+  if (err instanceof Error &amp;&amp; err.name === 'AbortError') return '';
+  if (err instanceof TypeError) return 'Нет соединения с интернетом';
+  if (typeof err === 'object' &amp;&amp; err !== null &amp;&amp; 'status' in err &amp;&amp; typeof err.status === 'number') {
+    if (err.status === 401) return 'Войдите снова';
+    if (err.status === 403) return 'Недостаточно прав';
+    if (err.status &gt;= 500) return 'Сервис временно недоступен, попробуйте позже';
+  }
+  return 'Что-то пошло не так, попробуйте ещё раз';
+}</code></pre>
+<p>Проверка <code>AbortError</code> идёт первой: в некоторых окружениях это <code>DOMException</code>, и порядок защищает от путаницы. Любой <code>TypeError</code> считается сетевым, и это упрощение. <code>TypeError</code> из вашего же кода (обращение к полю <code>undefined</code>) тоже покажется как «нет сети». Поэтому в рабочем коде сетевую ошибку лучше заворачивать в свой класс прямо в API-клиенте (урок <a href="/lessons/restful-api#rest-client">RESTful API</a>), а не угадывать её на экране.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="eh-logging">Логирование</h3>
 <p>Программа модуля называет логирование отдельной целью. Минимум — <code>console.error(error)</code>: в отличие от <code>console.log</code>, он помечает запись как ошибку и показывает стек. Но консоль пользователя вы не видите. В продакшене (рабочей версии сайта, которой пользуются люди) ошибки отправляют в сервис мониторинга (Sentry, Rollbar, Datadog; например, <a href="https://docs.sentry.io/platforms/javascript/">документация Sentry для JavaScript</a> — из общих знаний): он собирает их из глобальных обработчиков и границ, группирует одинаковые и показывает стек, браузер и действия пользователя перед сбоем. Пишите в журнал объект ошибки целиком, с <code>name</code>, <code>message</code>, <code>stack</code>, своим кодом и <code>cause</code>, а не только текст.</p>
 <div class="note"><b>Чек-лист</b><p>Выбрасываю только <code>Error</code> и наследников. У своих классов задан <code>name</code>. <code>catch</code> обрабатывает свои ошибки и пробрасывает чужие. В асинхронном коде есть <code>await</code> или <code>.catch</code>. Статус <code>fetch</code> проверяется. Есть граница с понятным сообщением и глобальные <code>error</code> и <code>unhandledrejection</code>. Ошибки попадают в журнал со стеком.</p></div>

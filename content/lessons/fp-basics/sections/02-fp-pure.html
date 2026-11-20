@@ -28,6 +28,29 @@ addToTotal(5); // 10 — аргумент тот же, результат дру
 <li>обращение к <a href="/lessons/how-browsers-work">DOM</a>.</li>
 </ul>
 <p>Сюда же относятся запись в <code>localStorage</code>, изменение глобальных переменных и таймеры. Нарушить первое условие могут и «безобидные» чтения: <code>Math.random()</code> и <code>Date.now()</code> возвращают разное при каждом вызове, поэтому функция, которая их вызывает, нечистая.</p>
+<article class="task" id="fp-t-pure" data-task="fp-basics/fp-t-pure">
+<h4>Задача 1. Сделайте функцию чистой <span class="lvl">★☆☆ разминка</span></h4>
+<p>Функция ниже добавляет товар в корзину. Найдите все побочные эффекты и перепишите её чистой: тот же вход — тот же результат, ничего снаружи не меняется. Время добавления передайте параметром.</p>
+<pre><code>let lastAdded = '';
+export function addToCart(cart: { items: { id: string; at: number }[] }, id: string) {
+  cart.items.push({ id, at: Date.now() });
+  lastAdded = id;
+  console.log('added', id);
+  return cart;
+}</code></pre>
+<p class="why"><b>Зачем:</b> чистую функцию можно проверить одним сравнением, безопасно вызвать дважды и не бояться, что она испортит чужие данные. Эффекты (время, лог, внешняя переменная) никуда не исчезают, но переезжают на край программы, где их видно.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Cart {
+  readonly items: readonly { id: string; at: number }[];
+}
+
+export function addToCart(cart: Cart, id: string, at: number): Cart {
+  return { ...cart, items: [...cart.items, { id, at }] };
+}</code></pre>
+<p>Эффектов было четыре: мутация аргумента (<code>push</code>), чтение текущего времени, запись во внешнюю переменную и вывод в консоль. Время стало параметром, а остальное — заботой вызывающего кода: <code>const next = addToCart(cart, id, Date.now()); log(next)</code>. Типы <code>readonly</code> делают обещание «не меняю» проверяемым: <code>cart.items.push</code> внутри теперь не скомпилируется.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="fp-mutation-trap">Самая частая ловушка: мутация аргумента</h3>
 <pre><code>const addItem = (cart, item) =&gt; {
   cart.push(item); // меняем массив, который нам передали
@@ -45,6 +68,25 @@ const cart2 = ['молоко'];
 addItemPure(cart2, 'хлеб'); // ['молоко', 'хлеб']
 console.log(cart2);          // ['молоко'] — не тронут</code></pre>
 <p>Массивы и объекты передаются в функцию <em>по ссылке</em>: функция получает не копию, а адрес того же самого массива. Поэтому <code>push</code> внутри меняет данные вызывающего кода. Подробнее об этом — в следующем разделе.</p>
+<article class="task" id="fp-t-sort" data-task="fp-basics/fp-t-sort">
+<h4>Задача 2. Сортировка, которая портила данные <span class="lvl">★☆☆ разминка</span></h4>
+<p>Функция возвращает три самых дорогих товара, но после её вызова каталог на странице переупорядочивается. Исправьте двумя способами: через копию и через неизменяющий метод массива.</p>
+<pre><code>export function top3(products: { price: number }[]) {
+  return products.sort((a, b) =&gt; b.price - a.price).slice(0, 3);
+}</code></pre>
+<p class="why"><b>Зачем:</b> <code>sort</code>, <code>reverse</code> и <code>splice</code> меняют массив на месте и возвращают его же. Выглядит как функция «получи отсортированное», а на деле переставляет данные всех, у кого есть ссылка на этот массив.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function top3(products: readonly { price: number }[]) {
+  return [...products].sort((a, b) =&gt; b.price - a.price).slice(0, 3);
+}
+
+export function top3Modern(products: readonly { price: number }[]) {
+  return products.toSorted((a, b) =&gt; b.price - a.price).slice(0, 3);
+}</code></pre>
+<p><code>toSorted</code>, <code>toReversed</code>, <code>toSpliced</code> и <code>with</code> появились в ES2023: они возвращают новый массив и не трогают исходный. Есть в Node 20+ и всех современных браузерах. Параметр <code>readonly</code> делает исходную версию с <code>sort</code> ошибкой компиляции: метод <code>sort</code> у <code>readonly</code>-массива просто отсутствует.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="fp-pure-edges">Без эффектов программа бесполезна</h3>
 <p>Программа, которая ничего не выводит и никуда не пишет, никому не нужна. Цель не в том, чтобы убрать эффекты, а в том, чтобы <strong>отодвинуть их на края</strong>: расчёты — в чистых функциях, а ввод, вывод, сеть и DOM — в тонком слое вокруг них. Приём «передать нечистое параметром» помогает тестировать:</p>
 <pre><code>// Нельзя проверить: результат случайный

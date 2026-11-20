@@ -15,6 +15,24 @@
 </tbody></table></div>
 <h3 id="eh-syntax-parse">Когда SyntaxError не поймать</h3>
 <p>Синтаксическая ошибка в самом коде обнаруживается, когда движок <b>разбирает</b> (парсит) скрипт, ещё до запуска. Скрипт с <code>let a = 1; let a = 2;</code> не выполнится ни на одну строку, и обернуть его в <code>try</code> нельзя — в лекции это показано: <code>TypeError</code> внутри <code>try</code> пойман, а <code>SyntaxError</code> нет. Ловить <code>SyntaxError</code> можно только когда текст разбирается во время работы программы: <code>JSON.parse</code>, а также <code>new Function(...)</code> и <code>eval</code>, которые выполняют строку как код (в обычной работе их не используют). Самый частый случай на практике — битый JSON от сервера.</p>
+<article class="task" id="eh-t-json" data-task="error-handling/eh-t-json">
+<h4>Задача 1. JSON.parse без падений <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>parseJson(text)</code>, которая возвращает <code>{ ok: true, value }</code> или <code>{ ok: false, error }</code>, где <code>error</code> — текст ошибки. Исключение наружу не выходит ни при каком входе, включая <code>undefined</code>, переданный из JavaScript.</p>
+<p class="why"><b>Зачем:</b> <code>JSON.parse</code> — самое частое место, где данные снаружи (сеть, <code>localStorage</code>, файл) роняют приложение. Результат-объект вместо исключения заставляет вызывающий код явно обработать оба случая.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type ParseResult = { ok: true; value: unknown } | { ok: false; error: string };
+
+export function parseJson(text: string): ParseResult {
+  try {
+    return { ok: true, value: JSON.parse(text) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}</code></pre>
+<p><code>JSON.parse(undefined)</code> превращает аргумент в строку <code>"undefined"</code> и бросает <code>SyntaxError</code>, так что отдельная проверка не нужна. Тип результата — размеченное объединение: после <code>if (r.ok)</code> TypeScript знает, что есть <code>value</code>. Значение — <code>unknown</code>: успешный разбор не значит, что данные правильной формы.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="eh-common">Частые сообщения и что они значат</h3>
 <p>Статья <a href="https://kinsta.com/blog/errors-in-javascript/">Kinsta</a> собирает десять самых частых ошибок. Почти все — <code>TypeError</code> из-за <code>undefined</code> или <code>null</code>:</p>
 <ul>
@@ -24,4 +42,27 @@
 <li><b>Maximum call stack size exceeded</b> — рекурсия без выхода.</li>
 <li><b>Script error.</b> — ошибка в скрипте с другого домена, браузер скрыл подробности (раздел о глобальных событиях).</li>
 </ul>
+<article class="task" id="eh-t-types" data-task="error-handling/eh-t-types">
+<h4>Задача 2. Вызовите каждую ошибку <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите пять функций, каждая из которых вызывает (не бросает вручную через <code>throw</code>!) одну встроенную ошибку: <code>TypeError</code>, <code>RangeError</code>, <code>ReferenceError</code>, <code>SyntaxError</code> и <code>URIError</code>. Затем <code>errorName(fn)</code>, которая вызывает функцию и возвращает имя пойманной ошибки или <code>null</code>.</p>
+<p class="why"><b>Зачем:</b> когда знаешь, какая операция порождает какую ошибку, сообщение в консоли сразу указывает на причину. <code>TypeError: x is not a function</code> — значит, неверный тип значения, а не опечатка в имени. Опечатка дала бы <code>ReferenceError</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export const causeType = () =&gt; (null as unknown as { x: number }).x;
+export const causeRange = () =&gt; new Array(-1);
+export const causeReference = () =&gt; (globalThis as { eval: (s: string) =&gt; unknown }).eval('notDeclaredAnywhere');
+export const causeSyntax = () =&gt; JSON.parse('{oops}');
+export const causeUri = () =&gt; decodeURIComponent('%');
+
+export function errorName(fn: () =&gt; unknown): string | null {
+  try {
+    fn();
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.name : null;
+  }
+}</code></pre>
+<p><code>ReferenceError</code> в TypeScript вызвать непросто: компилятор не даст обратиться к необъявленной переменной. Поэтому здесь <code>eval</code> строки: только для учебного примера, в коде <code>eval</code> не используют. <code>SyntaxError</code> в своём коде не поймать (файл не запустится), а вот от <code>JSON.parse</code> — можно, это самый частый случай. <code>new Array(-1)</code> даёт <code>RangeError</code>: длина массива не может быть отрицательной.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

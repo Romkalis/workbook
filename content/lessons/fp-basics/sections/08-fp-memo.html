@@ -27,6 +27,33 @@ fib(25); // 75025 за 26 вызовов внутренней функции</co
 <li><strong>Помните о памяти.</strong> Кэш растёт с каждым новым аргументом и никогда не очищается. Для бесконечного потока разных аргументов это утечка.</li>
 <li><strong>Ключ через JSON.stringify</strong> не различает некоторые значения: <code>undefined</code> и <code>null</code> внутри массива дают одинаковую строку, а функции и <code>Map</code> не сериализуются. Для учебных задач его хватает.</li>
 </ul>
+<article class="task" id="fp-t-memo" data-task="fp-basics/fp-t-memo">
+<h4>Задача 12. Мемоизация с ключом <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>memoize(fn, keyOf = (...args) =&gt; JSON.stringify(args))</code>: кеширует результаты по ключу из аргументов. Добавьте ограничение размера: при превышении <code>max</code> записей удаляется самая старая. Проверьте на числах Фибоначчи, что рекурсивная мемоизированная версия делает ровно <code>n + 1</code> вызовов для <code>fib(n)</code>.</p>
+<p class="why"><b>Зачем:</b> мемоизация без ограничения — утечка памяти: кеш растёт с каждым новым аргументом. А ключ по умолчанию через <code>JSON.stringify</code> работает для простых аргументов, но для объектов с одинаковым содержимым в разном порядке ключей даст разные записи. Поэтому ключ можно задать.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function memoize&lt;A extends unknown[], R&gt;(fn: (...args: A) =&gt; R, keyOf: (...args: A) =&gt; string = (...args) =&gt; JSON.stringify(args), max = 1000) {
+  const cache = new Map&lt;string, R&gt;();
+  return (...args: A): R =&gt; {
+    const key = keyOf(...args);
+    if (cache.has(key)) return cache.get(key)!;
+    const result = fn(...args);
+    cache.set(key, result);
+    if (cache.size &gt; max) cache.delete(cache.keys().next().value!);
+    return result;
+  };
+}
+
+let calls = 0;
+export const fib: (n: number) =&gt; number = memoize((n: number): number =&gt; {
+  calls++;
+  return n &lt; 2 ? n : fib(n - 1) + fib(n - 2);
+});
+export const fibCalls = () =&gt; calls;</code></pre>
+<p><code>Map</code> помнит порядок вставки, поэтому первый ключ — самый старый. Это простейшее вытеснение «первым пришёл — первым ушёл». Настоящий LRU при каждом попадании переставляет ключ в конец (удалить и вставить заново). <code>cache.has</code> вместо проверки значения нужен потому, что функция может вернуть <code>undefined</code>. Мемоизировать стоит только чистые функции: кешировать ответ <code>Date.now()</code> или запроса без срока бессмысленно.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="fp-once">Родственник: once</h3>
 <p>Задача Codewars once просит функцию, которая выполняет переданную только при первом вызове, а дальше возвращает тот же результат. Это мемоизация с одним ключом:</p>
 <pre><code>const once = (fn) =&gt; {
