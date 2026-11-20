@@ -1,0 +1,63 @@
+<section id="ci-deploy">
+<h2>Выкладка на GitHub Pages</h2>
+<p>Статический сайт (Vite, статический экспорт Next.js) выкладывается на GitHub Pages двумя официальными действиями: одно загружает папку сборки как артефакт, другое публикует её.</p>
+<pre><code>name: Deploy
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5</code></pre>
+<p>В настройках репозитория (Settings → Pages → Source) нужно выбрать «GitHub Actions». <code>concurrency</code> не даёт двум выкладкам идти одновременно, а <code>cancel-in-progress: false</code> позволяет начатой выкладке завершиться. Сайт на Pages живёт по адресу <code>/&lt;имя-репозитория&gt;/</code>, поэтому сборщику нужен базовый путь (<code>base</code> в Vite). Про SPA на Pages и маршрутизацию — урок <a href="/lessons/single-page-application#spa-server">Single Page Application</a>.</p>
+<article class="task" id="ci-t-pages" data-task="ci-cd/ci-t-pages">
+<h4>Задача 7. Vite-проект на GitHub Pages <span class="lvl">★★☆ практика</span></h4>
+<p>Сайт на Vite выкладывается workflow из раздела, но на Pages открывается белый экран: скрипты ищутся по адресу <code>/assets/...</code>, а сайт живёт в <code>/shop-web/</code>. Напишите функцию <code>pagesBase(repository)</code>, которая из значения <code>GITHUB_REPOSITORY</code> (<code>"anna/shop-web"</code>) делает <code>"/shop-web/"</code>, а для репозитория вида <code>anna/anna.github.io</code> — <code>"/"</code>. Используйте её в <code>vite.config.ts</code>, а локально база должна оставаться <code>/</code>.</p>
+<p class="why"><b>Зачем:</b> это самая частая причина «на компьютере работает, на Pages белый экран». Переменная <code>GITHUB_REPOSITORY</code>, которую CI ставит сам, позволяет не вписывать имя репозитория в конфиг руками. Форк или переименование не сломают сайт.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function pagesBase(repository: string | undefined): string {
+  if (!repository) return '/';
+  const [owner, name] = repository.split('/');
+  if (!owner || !name) return '/';
+  return name.toLowerCase() === `${owner.toLowerCase()}.github.io` ? '/' : `/${name}/`;
+}
+
+// vite.config.ts
+// import { defineConfig } from 'vite';
+// import { pagesBase } from './pages-base';
+// export default defineConfig({ base: process.env.CI ? pagesBase(process.env.GITHUB_REPOSITORY) : '/' });</code></pre>
+<p>Репозиторий <code>&lt;логин&gt;.github.io</code> — пользовательский сайт, он живёт в корне домена. Остальные — в папке с именем репозитория. Проверка <code>process.env.CI</code> оставляет локальную разработку на <code>/</code>: GitHub Actions всегда ставит <code>CI=true</code>. Если в SPA есть роутер на History API, ему тоже нужна база. В Vite она доступна как <code>import.meta.env.BASE_URL</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

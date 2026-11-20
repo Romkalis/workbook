@@ -1,0 +1,9 @@
+<section id="ci-questions">
+<h2>Вопросы и словарь</h2>
+<details class="q"><summary>Чем Continuous Delivery отличается от Continuous Deployment?</summary><div class="a"><p>В Delivery выкладку подтверждает человек, в Deployment каждое прошедшее изменение выкладывается автоматически.</p></div></details>
+<details class="q"><summary>Почему в CI пишут <code>npm ci</code>, а не <code>npm install</code>?</summary><div class="a"><p><code>npm ci</code> ставит ровно версии из lock-файла, начинает с чистой <code>node_modules</code> и падает при расхождении с <code>package.json</code>.</p></div></details>
+<details class="q"><summary>Что произойдёт со следующими шагами, если шаг завершился с ненулевым кодом?</summary><div class="a"><p>Они не выполнятся, задание будет отмечено как упавшее.</p></div></details>
+<details class="q"><summary>Почему опасно <code>run: echo "${{ github.event.issue.title }}"</code>?</summary><div class="a"><p>Текст из события подставляется в скрипт до запуска, и специально составленный заголовок выполнится как команда.</p></div></details>
+<details class="q"><summary>Зачем блок <code>permissions</code>?</summary><div class="a"><p>Чтобы <code>GITHUB_TOKEN</code> имел только нужные права. Взломанный шаг не сможет записать в репозиторий.</p></div></details>
+<dl class="gloss"><dt>CI</dt><dd>автоматическая проверка каждого изменения при частых слияниях.</dd><dt>Continuous Delivery</dt><dd>каждое изменение готово к выкладке, выкладку подтверждает человек.</dd><dt>Continuous Deployment</dt><dd>каждое прошедшее проверки изменение выкладывается автоматически.</dd><dt>Workflow</dt><dd>YAML-файл GitHub Actions с событиями и заданиями.</dd><dt>Runner</dt><dd>машина, на которой выполняется задание.</dd><dt>Artifact</dt><dd>файл или папка, переданные между заданиями или сохранённые после запуска.</dd></dl>
+</section>

@@ -1,0 +1,27 @@
+<section id="ci-practices">
+<h2>Практика команды</h2>
+<ul><li><b>Защита ветки</b> (Settings → Rules или Branch protection): в <code>main</code> нельзя пушить напрямую, PR сливается только с зелёными обязательными проверками и одобрением ревьюера.</li><li><b>Быстрый конвейер.</b> Если проверка идёт 20 минут, её начинают обходить. Кеш, параллельные задания, <code>paths</code> для пропуска лишних запусков.</li><li><b>Один источник правды.</b> Скрипт <code>check</code> в <code>package.json</code> запускают и Husky, и CI, и разработчик (задача из урока <a href="/lessons/express-typescript">Express + TypeScript</a>).</li><li><b>Падение — сигнал, а не шум.</b> Нестабильный тест («то падает, то нет») чинят или удаляют, иначе к красному статусу привыкают и пропускают настоящую ошибку.</li></ul>
+<article class="task" id="ci-t-affected" data-task="ci-cd/ci-t-affected">
+<h4>Задача 9. Запускать только нужные проверки <span class="lvl">★★★ с подвохом</span></h4>
+<p>В монорепозитории две части: <code>web/</code> и <code>api/</code>, общий код в <code>shared/</code>. Напишите <code>affected(files)</code>: по списку изменённых файлов возвращает <code>{ web: boolean, api: boolean }</code>. Изменения в <code>shared/</code>, корневом <code>package.json</code>, <code>package-lock.json</code> или в <code>.github/</code> затрагивают обе части. Файлы <code>*.md</code> не затрагивают ничего.</p>
+<p class="why"><b>Зачем:</b> так устроены «умные» конвейеры больших проектов: на каждый PR не гоняют всё подряд. Задача ещё и про безопасный выбор по умолчанию: изменение, о котором логика ничего не знает (новая папка в корне), должно запускать всё, а не ничего.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function affected(files: readonly string[]): { web: boolean; api: boolean } {
+  const result = { web: false, api: false };
+  for (const file of files) {
+    if (file.endsWith('.md')) continue;
+    if (file.startsWith('web/')) result.web = true;
+    else if (file.startsWith('api/')) result.api = true;
+    else {
+      // shared/, lock-файлы, .github/ и всё неизвестное — затрагивают обе части
+      result.web = true;
+      result.api = true;
+    }
+  }
+  return result;
+}</code></pre>
+<p>Ветка «всё остальное» объединяет и известные общие места, и неизвестные файлы. Это сознательный выбор безопасного умолчания: лишний запуск стоит минуту, а пропущенная поломка — сломанный <code>main</code>. В GitHub Actions список файлов получают через <code>git diff --name-only origin/main...HEAD</code> или готовым действием, а результат передают следующим заданиям через <code>outputs</code>. Для небольших проектов то же решает встроенный фильтр <code>paths</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

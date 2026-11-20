@@ -1,0 +1,31 @@
+<section id="ci-pipeline">
+<h2>Конвейер проверок</h2>
+<p><b>Pipeline</b> (конвейер) — последовательность шагов, которые проходит каждое изменение. Типичный конвейер фронтенд-проекта:</p>
+<ol><li>Установка зависимостей строго по <code>package-lock.json</code>: <code>npm ci</code>.</li><li>Линтер и проверка форматирования.</li><li>Проверка типов: <code>tsc --noEmit</code>.</li><li>Тесты.</li><li>Сборка.</li><li>Выкладка — только для <code>main</code> и только если всё выше прошло.</li></ol>
+<p>Принципы:</p>
+<ul><li><b>Fail fast</b>: быстрые проверки раньше медленных. Линтер за 10 секунд не должен ждать тестов на 5 минут.</li><li><b>Те же команды, что локально.</b> CI вызывает <code>npm run lint</code> и <code>npm test</code>, а не свою копию команд. Если проверка падает в CI, её можно повторить на своём компьютере.</li><li><b>Воспроизводимость.</b> <code>npm ci</code> ставит ровно версии из lock-файла и падает, если <code>package.json</code> с ним не согласован. <code>npm install</code> мог бы молча обновить зависимости.</li><li><b>Зелёный main.</b> Если проверка в <code>main</code> упала, её чинят первой: пока main красный, никто не знает, сломал ли он что-то ещё.</li></ul>
+<article class="task" id="ci-t-scripts" data-task="ci-cd/ci-t-scripts">
+<h4>Задача 1. Скрипты, которые запустит CI <span class="lvl">★☆☆ разминка</span></h4>
+<p>Подготовьте <code>package.json</code> проекта на Vite + TypeScript к CI: скрипты <code>lint</code> (ESLint без исправлений), <code>format:check</code> (Prettier только проверяет), <code>typecheck</code>, <code>test</code> (Vitest один раз, без режима наблюдения), <code>build</code> и <code>check</code>, который запускает все проверки по принципу fail fast.</p>
+<p class="why"><b>Зачем:</b> CI вызывает скрипты проекта, а не свои команды. Тогда упавшую проверку можно повторить локально одной командой. Две частые ошибки: <code>vitest</code> без <code>run</code> в CI зависает в режиме наблюдения, а <code>prettier --write</code> в CI молча «чинит» файлы на сервере вместо того, чтобы упасть.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// package.json
+{
+  "name": "shop-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "lint": "eslint .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "vite build",
+    "check": "npm run lint &amp;&amp; npm run format:check &amp;&amp; npm run typecheck &amp;&amp; npm test"
+  }
+}</code></pre>
+<p>Порядок в <code>check</code> — от быстрых проверок к медленным: линтер и форматирование за секунды, типы дольше, тесты дольше всего. <code>&amp;&amp;</code> останавливает цепочку на первой ошибке. Сборка в <code>check</code> не входит: в CI она отдельным шагом, потому что её результат нужен для выкладки. Vitest сам понимает, что работает в CI (переменная <code>CI=true</code>), и не включает наблюдение, но явный <code>run</code> работает везде одинаково.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

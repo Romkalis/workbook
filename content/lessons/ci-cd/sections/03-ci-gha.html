@@ -1,0 +1,249 @@
+<section id="ci-gha">
+<h2>GitHub Actions</h2>
+<p>GitHub Actions — встроенная в GitHub система CI/CD. Словарь:</p>
+<ul><li><b>Workflow</b> — YAML-файл в <code>.github/workflows/</code>. Описывает, когда и что запускать.</li><li><b>Event</b> (<code>on</code>) — что запускает workflow: <code>push</code>, <code>pull_request</code>, ручной запуск, расписание.</li><li><b>Job</b> — набор шагов на одной виртуальной машине (<b>runner</b>). Задания по умолчанию идут параллельно.</li><li><b>Step</b> — команда (<code>run</code>) или готовое действие (<code>uses</code>).</li><li><b>Action</b> — переиспользуемый шаг, например <code>actions/checkout</code> скачивает код репозитория.</li></ul>
+<pre><code>name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build</code></pre>
+<p>Каждый шаг выполняется в новом процессе оболочки. Если команда завершилась с ненулевым кодом, задание падает, следующие шаги не выполняются, а у коммита в GitHub появляется красный крестик. <code>cache: npm</code> у <code>setup-node</code> сохраняет скачанные пакеты между запусками, и <code>npm ci</code> идёт быстрее. Версии действий (<code>@v7</code>) актуальны на ноябрь 2026, свежие указаны на странице каждого действия.</p>
+<h3 id="ci-triggers">События</h3>
+<pre><code>on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md']     # не запускать, если поменялась только документация
+  pull_request:                 # каждый PR и каждый новый коммит в нём
+  workflow_dispatch:            # кнопка «Run workflow» в интерфейсе
+  schedule:
+    - cron: '0 3 * * 1'         # каждый понедельник в 03:00 UTC</code></pre>
+<p><code>pull_request</code> проверяет результат слияния PR с целевой веткой, а не только саму ветку, поэтому ловит конфликты логики.</p>
+<article class="task" id="ci-t-triggers" data-task="ci-cd/ci-t-triggers">
+<h4>Задача 3. Не гонять CI из-за README <span class="lvl">★☆☆ разминка</span></h4>
+<p>Измените события из прошлой задачи: push в <code>main</code> и PR не запускают workflow, если изменились только файлы <code>*.md</code> и папка <code>docs/</code>. Добавьте ручной запуск и ночную проверку каждый день в 02:00 UTC (она ловит поломки из-за обновившихся внешних сервисов).</p>
+<p class="why"><b>Зачем:</b> бесплатные минуты CI ограничены, и очередь из ненужных запусков задерживает нужные. Фильтр по путям — дешёвая оптимизация. А ночной запуск ловит то, что ломается без изменений в коде: просроченный сертификат, изменившийся внешний API.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// ci.yml
+name: CI
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check</code></pre>
+<p>Cron пишется пятью полями: минута, час, день месяца, месяц, день недели, время — UTC. Расписание в GitHub не точное: при нагрузке запуск может опоздать (из общих знаний). Осторожно с <code>paths-ignore</code> и обязательными проверками: если PR меняет только README, проверка не запустится, и обязательный статус будет висеть в ожидании. Для таких репозиториев фильтр ставят на шаги или используют отдельный «пустой» workflow с тем же именем задания.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ci-jobs">Задания, зависимости и матрица</h3>
+<p>Задания связывают через <code>needs</code>: <code>deploy</code> с <code>needs: check</code> стартует только после успешного <code>check</code>. Условие <code>if</code> пропускает задание или шаг: <code>if: github.ref == 'refs/heads/main'</code> — только для main. <b>Матрица</b> запускает одно задание с разными параметрами:</p>
+<pre><code>strategy:
+  matrix:
+    node: [20, 22, 24]
+runs-on: ubuntu-latest
+steps:
+  - uses: actions/setup-node@v7
+    with:
+      node-version: ${{ matrix.node }}</code></pre>
+<p>Три задания пойдут параллельно. Это нужно библиотеке, которая обещает работать на нескольких версиях Node. Приложению обычно хватает одной версии, той же, что на сервере.</p>
+<article class="task" id="ci-t-parallel" data-task="ci-cd/ci-t-parallel">
+<h4>Задача 4. Параллельные задания и сборка после них <span class="lvl">★★☆ практика</span></h4>
+<p>Разбейте проверку на три задания: <code>lint</code> (линтер и форматирование), <code>types</code> и <code>test</code>, которые идут параллельно, и <code>build</code>, который запускается только после успеха всех трёх. Повторяющиеся шаги установки оставьте в каждом задании: задания работают на разных машинах.</p>
+<p class="why"><b>Зачем:</b> три параллельных задания по минуте быстрее одного на три минуты, а в интерфейсе PR сразу видно, <b>что</b> сломалось: «types» красный, остальные зелёные. Понимание, что каждое задание — отдельная чистая машина, объясняет, почему <code>npm ci</code> повторяется.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// ci.yml
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+  types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm test
+  build:
+    needs: [lint, types, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build</code></pre>
+<p>Повторение шагов — цена параллельности. Когда его становится слишком много, повторяющиеся шаги выносят в собственное составное действие (<code>.github/actions/setup/action.yml</code> с <code>runs: using: composite</code>) или в переиспользуемый workflow (<code>workflow_call</code>). Запись <code>with: { ... }</code> — обычный YAML-объект в одну строку. Он короче, но читается хуже, если ключей много.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ci-t-matrix" data-task="ci-cd/ci-t-matrix">
+<h4>Задача 5. Матрица для библиотеки <span class="lvl">★★☆ практика</span></h4>
+<p>Библиотека обещает работать на Node 20, 22 и 24, на Linux и Windows. Напишите задание <code>test</code> с матрицей по версии Node и ОС. Падение одной комбинации не должно отменять остальные: важно увидеть все сломанные сразу. Исключите комбинацию Node 20 + Windows (её не поддерживаете).</p>
+<p class="why"><b>Зачем:</b> «у меня работает» на одной версии и одной ОС ничего не гарантирует пользователям библиотеки. Переводы строк, разделители путей и регистр имён файлов на Windows ломают код, который на Linux проходит. Матрица проверяет обещание из README автоматически.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// ci.yml
+name: Test matrix
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+        os: [ubuntu-latest, windows-latest]
+        exclude:
+          - node: 20
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test</code></pre>
+<p>Матрица 3 × 2 даёт шесть заданий, <code>exclude</code> убирает одно — остаётся пять. По умолчанию <code>fail-fast: true</code>: первое падение отменяет остальные задания матрицы. Это экономит минуты, но прячет полную картину. Минуты на Windows в приватных репозиториях тарифицируются дороже Linux (из общих знаний), поэтому Windows часто оставляют только для одной версии Node.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="ci-secrets">Секреты, переменные и окружения</h3>
+<p>Токены и пароли хранят в <b>Secrets</b> (Settings → Secrets and variables → Actions) и читают как <code>${{ secrets.DEPLOY_TOKEN }}</code>. GitHub маскирует их в логах звёздочками, но маскировка ловит только точное значение: закодированный или разрезанный секрет в лог попадёт. Поэтому секреты передают через <code>env</code> и никогда не выводят. <b>Environments</b> (окружения: <code>staging</code>, <code>production</code>) позволяют завести отдельные секреты для каждого и требовать ручного подтверждения перед выкладкой. Это и есть граница между Delivery и Deployment.</p>
+<article class="task" id="ci-t-first" data-task="ci-cd/ci-t-first">
+<h4>Задача 2. Первый workflow <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>.github/workflows/ci.yml</code>: запускается на каждый PR и на push в <code>main</code>, работает на <code>ubuntu-latest</code> с Node 22 и кешем npm, ставит зависимости через <code>npm ci</code> и запускает <code>npm run check</code> из прошлой задачи, затем <code>npm run build</code>. Права токена — только чтение кода.</p>
+<p class="why"><b>Зачем:</b> это минимальный CI, который стоит добавить в любой учебный проект в первый же день. Дальше каждый PR получает зелёную или красную отметку, и ревьюер не тратит время на код, который даже не собирается.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// ci.yml
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build</code></pre>
+<p>Push в любую ветку не запускает проверку: ветки проверяются через PR, иначе каждый коммит в PR запускал бы workflow дважды. <code>pull_request:</code> без параметров означает «все PR во все ветки». После первого успешного запуска в настройках защиты <code>main</code> отметьте задание <code>check</code> как обязательное (Require status checks). Тогда кнопка Merge будет заблокирована, пока проверка не пройдёт.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="ci-t-secret" data-task="ci-cd/ci-t-secret">
+<h4>Задача 6. Секрет для выкладки <span class="lvl">★★☆ практика</span></h4>
+<p>Задание <code>deploy</code> отправляет сборку на хостинг командой <code>npx some-host deploy dist</code>, которая читает токен из переменной окружения <code>HOST_TOKEN</code>. Напишите задание: только для push в <code>main</code>, после задания <code>check</code>, в окружении <code>production</code> (с ручным подтверждением, настроенным в GitHub), токен — из секрета, без вывода в лог.</p>
+<p class="why"><b>Зачем:</b> секрет в YAML-файле виден всем, у кого есть доступ к репозиторию, навсегда — история Git помнит. Окружение с подтверждением превращает Deployment в Delivery: всё готово, но последнее слово за человеком.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// deploy.yml
+name: Deploy
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run check
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - run: npx some-host deploy dist
+        env:
+          HOST_TOKEN: ${{ secrets.HOST_TOKEN }}</code></pre>
+<p>Секрет передаётся через <code>env</code> только тому шагу, которому он нужен, а не всему заданию. Остальные шаги (<code>npm ci</code> со сторонними скриптами установки) его не видят. Условие <code>if</code> дублирует фильтр события, и это намеренно: если позже кто-то добавит <code>workflow_dispatch</code>, выкладка из случайной ветки всё равно не произойдёт. Ручное подтверждение и список допущенных людей настраиваются в Settings → Environments → production → Required reviewers.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>
