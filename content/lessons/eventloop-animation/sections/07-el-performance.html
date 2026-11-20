@@ -1,0 +1,70 @@
+<section id="el-performance">
+<h2>Производительность и доступность анимации</h2>
+<h3 id="el-thrashing">Принудительная раскладка (layout thrashing)</h3>
+<p>Чтение геометрии (<code>offsetHeight</code>, <code>getBoundingClientRect()</code>) после записи стилей заставляет браузер посчитать раскладку <b>прямо сейчас</b>, синхронно. Если читать и писать по очереди в цикле, раскладка пересчитается на каждой итерации. Лечится группировкой: сначала все чтения, потом все записи.</p>
+<pre><code>// плохо: N пересчётов
+for (const el of items) el.style.height = el.offsetHeight * 2 + 'px';
+// хорошо: один пересчёт
+const heights = items.map((el) =&gt; el.offsetHeight);
+items.forEach((el, i) =&gt; (el.style.height = heights[i] * 2 + 'px'));</code></pre>
+<article class="task" id="el-t-thrash" data-task="eventloop-animation/el-t-thrash">
+<h4>Задача 12. Сначала читаем, потом пишем <span class="lvl">★★★ с подвохом</span></h4>
+<p>Функция выравнивает высоту карточек по самой высокой в каждой строке, но чередует чтение и запись. Перепишите так, чтобы все чтения <code>offsetHeight</code> шли до первой записи <code>style.height</code>. В тесте вместо DOM — объекты, которые записывают порядок операций.</p>
+<pre><code>interface Card { readonly offsetHeight: number; style: { height: string } }
+export function equalize(rows: Card[][]) {
+  for (const row of rows) {
+    let max = 0;
+    for (const c of row) max = Math.max(max, c.offsetHeight);
+    for (const c of row) c.style.height = max + 'px';
+  }
+}</code></pre>
+<p class="why"><b>Зачем:</b> здесь чтения и записи сгруппированы внутри строки, но строки идут по очереди: запись в первой строке и чтение во второй форсируют раскладку столько раз, сколько строк. Такая ошибка не видна при чтении кода, и найти её помогает правило «все чтения — до всех записей».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Card {
+  readonly offsetHeight: number;
+  style: { height: string };
+}
+
+export function equalize(rows: Card[][]): void {
+  const maxes = rows.map((row) =&gt; Math.max(0, ...row.map((c) =&gt; c.offsetHeight)));
+  rows.forEach((row, i) =&gt; {
+    for (const c of row) c.style.height = `${maxes[i]}px`;
+  });
+}</code></pre>
+<p>Первый проход только читает и сохраняет результаты, второй только пишет. Браузер посчитает раскладку один раз на первом чтении, а после записей — один раз перед отрисовкой. На самом деле эту задачу лучше решает CSS: grid или flex выравнивают высоту в строке без единой строчки JavaScript. Это хороший повод сначала спросить «а нужен ли тут JS».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="el-will-change">will-change и слои</h3>
+<p><code>will-change: transform</code> заранее просит браузер вынести элемент на отдельный слой. Это помогает, если анимация начинается рывком. Но каждый слой — это память видеокарты. Свойство ставят точечно, перед анимацией, а не на всё подряд.</p>
+<h3 id="el-reduced-motion">Меньше движения</h3>
+<p>У части людей движение на экране вызывает головокружение и тошноту, поэтому в системе есть настройка «уменьшить движение». Сайт узнаёт о ней через медиазапрос <code>prefers-reduced-motion: reduce</code>: в CSS отключают или сокращают анимации, а в JavaScript проверяют <code>matchMedia</code>. Анимация не должна быть единственным носителем смысла: если сообщение появилось без движения, пользователь ничего не теряет.</p>
+<pre><code>@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}</code></pre>
+<article class="task" id="el-t-reduced" data-task="eventloop-animation/el-t-reduced">
+<h4>Задача 13. Анимация с уважением к настройке <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>motionDuration(ms, matchMedia = window.matchMedia)</code>: возвращает <code>0</code>, если пользователь просил меньше движения, иначе <code>ms</code>. Затем <code>scrollToTop(animateFn, setScroll, matchMedia)</code>: при нулевой длительности сразу ставит прокрутку в 0, без вызова анимации.</p>
+<p class="why"><b>Зачем:</b> CSS-медиазапрос не действует на анимации, которые делает JavaScript. Если забыть проверку в коде, настройка доступности работает наполовину: переходы в CSS отключены, а плавная прокрутка на JS по-прежнему укачивает.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type MatchMedia = (query: string) =&gt; { matches: boolean };
+
+export function motionDuration(ms: number, matchMedia: MatchMedia = (q) =&gt; window.matchMedia(q)): number {
+  return matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : ms;
+}
+
+export function scrollToTop(
+  from: number,
+  animateFn: (duration: number, draw: (p: number) =&gt; void) =&gt; void,
+  setScroll: (y: number) =&gt; void,
+  matchMedia?: MatchMedia,
+): void {
+  const duration = motionDuration(400, matchMedia);
+  if (duration === 0) return setScroll(0);
+  animateFn(duration, (p) =&gt; setScroll(Math.round(from * (1 - p))));
+}</code></pre>
+<p>Тип <code>MatchMedia</code> описывает только то, что нужно, и в тесте подставляется заглушка. Значение по умолчанию — стрелка, а не <code>window.matchMedia</code> напрямую: обращение к <code>window</code> произойдёт только при вызове без параметра, и модуль можно импортировать в Node. Для прокрутки есть и встроенное <code>window.scrollTo({ top: 0, behavior: 'smooth' })</code>, но с ним проверка настройки ложится на вас: браузеры по-разному учитывают её для <code>smooth</code> (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

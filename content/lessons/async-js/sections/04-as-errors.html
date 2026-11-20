@@ -1,0 +1,51 @@
+<section id="as-errors">
+<h2>Отклонения и их обработка</h2>
+<p>Ошибка в любом шаге цепочки — <code>throw</code> внутри <code>then</code> или отклонённый промис — пропускает все следующие <code>then</code> и попадает в ближайший <code>catch</code>. Это аналог <code>try...catch</code> для асинхронного кода.</p>
+<pre><code>export function recover(): Promise&lt;string&gt; {
+  return Promise.reject(new Error('сеть'))
+    .then(() =&gt; 'не выполнится')
+    .catch((err: unknown) =&gt; `запасной вариант: ${err instanceof Error ? err.message : 'неизвестно'}`)
+    .then((text) =&gt; text.toUpperCase());
+}
+// 'ЗАПАСНОЙ ВАРИАНТ: СЕТЬ'</code></pre>
+<p>После <code>catch</code> цепочка снова «здорова»: то, что вернул обработчик, идёт дальше как обычное значение. Если обработать ошибку нельзя, бросьте её снова внутри <code>catch</code>, и она уйдёт к следующему обработчику.</p>
+<div class="warn"><p>Отклонённый промис без обработчика — <b>unhandled rejection</b>. Браузер пишет ошибку в консоль и вызывает событие <code>unhandledrejection</code>, а Node.js начиная с 15 версии завершает процесс. Подробно про глобальные обработчики — в уроке <a href="/lessons/error-handling">Error handling</a>.</p></div>
+<h3 id="as-catch-place">Где ставить catch</h3>
+<p><code>catch</code> ловит ошибки всех шагов <b>выше</b> себя. Поэтому обычно он один, в конце цепочки. Обработчики посередине цепочки нужны, только если после ошибки шаги должны продолжиться с запасным значением. Второй аргумент <code>then(ok, fail)</code> не ловит ошибку из самого <code>ok</code>, и это частая ловушка: <code>then(ok).catch(fail)</code> и <code>then(ok, fail)</code> не равны.</p>
+<article class="task" id="as-t-fallback" data-task="async-js/as-t-fallback">
+<h4>Задача 8. Запасной источник данных <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>loadWithFallback(primary, fallback)</code>: обе функции возвращают промисы. Если основной источник отклонился, берём запасной. Если отклонились оба, функция отклоняется ошибкой <code>"Нет данных"</code>, а исходные ошибки лежат в её <code>cause</code> (массив из двух).</p>
+<p class="why"><b>Зачем:</b> <code>catch</code> посередине цепочки нужен именно для таких случаев: ошибка превращается в план Б, а не в падение. <code>cause</code> сохраняет исходные причины для логов, а пользователь видит одно понятное сообщение.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function loadWithFallback&lt;T&gt;(primary: () =&gt; Promise&lt;T&gt;, fallback: () =&gt; Promise&lt;T&gt;): Promise&lt;T&gt; {
+  return primary().catch((first: unknown) =&gt;
+    fallback().catch((second: unknown) =&gt; {
+      throw new Error('Нет данных', { cause: [first, second] });
+    }),
+  );
+}</code></pre>
+<p>Обработчик основного источника возвращает промис запасного. Если запасной выполнится, вся цепочка выполнится его значением. Вложенный <code>catch</code> здесь оправдан: внутри него видна первая ошибка. Запасной источник вызывается <b>лениво</b>, только при сбое. Поэтому параметры — функции, а не готовые промисы: промис уже запущенной операции нельзя «не запускать».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-then-fail" data-task="async-js/as-t-then-fail">
+<h4>Задача 9. Обработчик, который не ловит <span class="lvl">★★☆ практика</span></h4>
+<p>Код должен показывать «Ошибка: …» при любой проблеме, но падение внутри <code>render</code> уходит в unhandled rejection. Исправьте и объясните, почему так вышло.</p>
+<pre><code>export function show(load: () =&gt; Promise&lt;string[]&gt;, render: (items: string[]) =&gt; string): Promise&lt;string&gt; {
+  return load().then(
+    (items) =&gt; render(items),
+    (err: Error) =&gt; `Ошибка: ${err.message}`,
+  );
+}</code></pre>
+<p class="why"><b>Зачем:</b> второй аргумент <code>then</code> видит только ошибки <b>до</b> этого <code>then</code>. Ошибку в первом аргументе того же вызова он не ловит. Поэтому <code>catch</code> в конце цепочки надёжнее: он видит всё, что выше.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function show(load: () =&gt; Promise&lt;string[]&gt;, render: (items: string[]) =&gt; string): Promise&lt;string&gt; {
+  return load()
+    .then((items) =&gt; render(items))
+    .catch((err: unknown) =&gt; `Ошибка: ${err instanceof Error ? err.message : String(err)}`);
+}</code></pre>
+<p>Тип параметра в <code>catch</code> сменился с <code>Error</code> на <code>unknown</code>: отклонить промис можно чем угодно, и TypeScript честно не обещает <code>Error</code>. Вариант с двумя аргументами иногда нужен намеренно: «обработай ошибку загрузки, а ошибку рендера пусть ловят выше». Но это редкий случай, и его стоит подписать комментарием.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

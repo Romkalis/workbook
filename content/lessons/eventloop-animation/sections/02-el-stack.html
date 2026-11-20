@@ -1,0 +1,31 @@
+<section id="el-stack">
+<h2>Стек вызовов</h2>
+<pre><code>export function depth(n: number): number {
+  return n === 0 ? 0 : 1 + depth(n - 1);
+}
+// depth(1000) → 1000; depth(1e6) → RangeError: Maximum call stack size exceeded</code></pre>
+<p>Каждый незавершённый вызов занимает место в стеке, и стек не бесконечен: глубина зависит от движка и размера кадров, обычно от нескольких тысяч до десятка тысяч вызовов. Для функции из примера в Node 22 это около 8 тысяч, а в потоках-работниках (например, при запуске тестов) ещё меньше. Глубокая рекурсия на больших данных — повод переписать алгоритм на цикл. Пока стек не пуст, ни один колбэк из очереди не выполнится: это и есть «блокировка потока».</p>
+<article class="task" id="el-t-stack" data-task="eventloop-animation/el-t-stack">
+<h4>Задача 1. Рекурсия, которая не помещается в стек <span class="lvl">★☆☆ разминка</span></h4>
+<p>Функция считает сумму вложенного списка, где каждый узел ссылается на следующий: <code>{ value, next }</code>. На списке из миллиона узлов она падает с <code>RangeError</code>. Перепишите без рекурсии.</p>
+<pre><code>export interface ListNode { value: number; next: ListNode | null }
+export function sum(node: ListNode | null): number {
+  return node === null ? 0 : node.value + sum(node.next);
+}</code></pre>
+<p class="why"><b>Зачем:</b> стек ограничен, и рекурсия на данных неизвестной длины — бомба замедленного действия. Тесты на десяти элементах проходят, а на реальном файле с миллионом строк программа падает.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface ListNode {
+  value: number;
+  next: ListNode | null;
+}
+
+export function sum(head: ListNode | null): number {
+  let total = 0;
+  for (let node = head; node !== null; node = node.next) total += node.value;
+  return total;
+}</code></pre>
+<p>Цикл держит в памяти один указатель на текущий узел, а рекурсия — по кадру стека на каждый узел. Рекурсия по-прежнему хороша для деревьев с небольшой глубиной (меню, дерево DOM), но для длинных линейных структур нужен цикл. Хвостовая оптимизация рекурсии, которая решила бы проблему, есть в спецификации, но из популярных движков её поддерживает только JavaScriptCore в Safari (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

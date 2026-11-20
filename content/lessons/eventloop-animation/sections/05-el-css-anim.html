@@ -1,0 +1,116 @@
+<section id="el-css-anim">
+<h2>CSS-анимация: переходы и ключевые кадры</h2>
+<h3 id="el-transition">transition: плавно из одного состояния в другое</h3>
+<p><code>transition</code> анимирует изменение свойства между двумя значениями, например при наведении или смене класса. Указывают свойство, длительность, функцию времени и задержку:</p>
+<pre><code>.toast {
+  transform: translateY(100%);
+  opacity: 0;
+  transition: transform 300ms ease-out, opacity 300ms ease-out;
+}
+.toast--visible {
+  transform: translateY(0);
+  opacity: 1;
+}</code></pre>
+<p>JavaScript только переключает класс, а анимацию делает браузер. <code>transition: all</code> — плохая привычка: анимироваться начнут свойства, о которых вы не думали, в том числе дорогие.</p>
+<article class="task" id="el-t-transition" data-task="eventloop-animation/el-t-transition">
+<h4>Задача 5. Всплывающее уведомление <span class="lvl">★☆☆ разминка</span></h4>
+<p>Сделайте уведомление, которое выезжает снизу и плавно появляется при добавлении класса <code>toast--visible</code>, а при удалении класса уезжает обратно. Анимируйте только дешёвые свойства. Для пользователей с настройкой «меньше движения» уберите сдвиг, но оставьте плавное появление. Напишите и функцию <code>showToast(el, ms)</code>, которая показывает уведомление и прячет через <code>ms</code> миллисекунд.</p>
+<p class="why"><b>Зачем:</b> это самый частый вид анимации в интерфейсах. В нём сразу видны три навыка: анимация через класс, а не через стили из JS; только <code>transform</code> и <code>opacity</code>; бережное отношение к <code>prefers-reduced-motion</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// toast.css
+.toast {
+  position: fixed;
+  inset-inline: 1rem;
+  bottom: 1rem;
+  transform: translateY(calc(100% + 1rem));
+  opacity: 0;
+  transition: transform 250ms ease-out, opacity 250ms ease-out;
+}
+.toast--visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { transform: none; transition: opacity 150ms linear; }
+}</code></pre>
+<pre><code>// solution.ts
+export function showToast(el: { classList: DOMTokenList }, ms = 3000): () =&gt; void {
+  el.classList.add('toast--visible');
+  const timer = setTimeout(() =&gt; el.classList.remove('toast--visible'), ms);
+  return () =&gt; {
+    clearTimeout(timer);
+    el.classList.remove('toast--visible');
+  };
+}</code></pre>
+<p>JavaScript отвечает за <b>состояние</b> (показано или нет), а CSS — за <b>движение</b>. Поменять анимацию можно, не трогая код. Функция возвращает «закрыть сейчас» для кнопки-крестика, и таймер при этом отменяется. Для доступности у уведомления должна быть роль <code>role="status"</code>: тогда экранная читалка произнесёт текст без движения.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="el-keyframes">animation и @keyframes: сценарий из нескольких шагов</h3>
+<p>Когда нужна анимация без смены состояния (индикатор загрузки, пульсация) или с промежуточными шагами, описывают ключевые кадры:</p>
+<pre><code>@keyframes spin {
+  to { transform: rotate(1turn); }
+}
+.spinner { animation: spin 1s linear infinite; }</code></pre>
+<p>Основные свойства <code>animation</code>: имя, длительность, функция времени, задержка, число повторов (<code>infinite</code>), направление (<code>alternate</code>), <code>fill-mode</code> (оставить ли последний кадр после окончания). Событие <code>animationend</code> позволяет узнать в JavaScript, что анимация закончилась.</p>
+<article class="task" id="el-t-spinner" data-task="eventloop-animation/el-t-spinner">
+<h4>Задача 6. Индикатор загрузки <span class="lvl">★☆☆ разминка</span></h4>
+<p>Сделайте круглый индикатор загрузки на <code>@keyframes</code>: бесконечное вращение за 0,8 с с равномерной скоростью. Добавьте разметку, понятную экранной читалке, и вариант для «меньше движения» (медленное мигание вместо вращения).</p>
+<p class="why"><b>Зачем:</b> бесконечная анимация — главный кандидат на раздражение и головокружение, поэтому именно на ней стоит отработать <code>prefers-reduced-motion</code>. Для незрячего пользователя крутящийся круг вообще ничего не значит, ему нужен текст.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// spinner.html
+&lt;div class="spinner" role="status"&gt;
+  &lt;span class="visually-hidden"&gt;Загрузка…&lt;/span&gt;
+&lt;/div&gt;</code></pre>
+<pre><code>// spinner.css
+@keyframes spin { to { transform: rotate(1turn); } }
+@keyframes pulse { 50% { opacity: 0.4; } }
+
+.spinner {
+  inline-size: 2rem;
+  block-size: 2rem;
+  border: 3px solid #ccc;
+  border-block-start-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: pulse 2s ease-in-out infinite; }
+}</code></pre>
+<p><code>linear</code> важен: с <code>ease</code> круг будет разгоняться и тормозить на каждом обороте. <code>to</code> без <code>from</code> означает «из текущего состояния», то есть из нуля. <code>role="status"</code> и скрытый текст сообщают читалке «идёт загрузка». Класс <code>visually-hidden</code> прячет текст с экрана, но оставляет его доступным (из общих знаний: стандартный набор свойств <code>clip</code>, <code>position: absolute</code>, размер 1 px).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="el-transform">transform: сдвиг, масштаб, поворот</h3>
+<p><code>transform</code> меняет, как элемент нарисован, не меняя его места в раскладке: <code>translate(x, y)</code> сдвигает, <code>scale(k)</code> масштабирует, <code>rotate(угол)</code> поворачивает. Соседи об этом не узнают и не сдвинутся. Именно поэтому трансформации дешёвые.</p>
+<h3 id="el-cheap-props">Дешёвые и дорогие свойства</h3>
+<p>Изменение свойства запускает часть конвейера отрисовки (<a href="/lessons/how-browsers-work#pipeline">разбор стадий</a>):</p>
+<div class="tbl"><table><thead><tr><th>Что меняется</th><th>Стадии</th><th>Пример</th></tr></thead><tbody><tr><td>геометрия</td><td>Style → Layout → Paint → Composite</td><td><code>width</code>, <code>height</code>, <code>top</code>, <code>left</code>, <code>margin</code>, <code>font-size</code></td></tr><tr><td>только вид</td><td>Style → Paint → Composite</td><td><code>color</code>, <code>background</code>, <code>box-shadow</code></td></tr><tr><td>слой целиком</td><td>Style → Composite</td><td><code>transform</code>, <code>opacity</code></td></tr></tbody></table></div>
+<p>Для плавной анимации анимируйте <code>transform</code> и <code>opacity</code>: их браузер может выполнить на отдельном слое, часто силами видеокарты, не пересчитывая раскладку. Сдвиг через <code>left</code> пересчитывает раскладку на каждом кадре. На слабом телефоне это рывки.</p>
+<article class="task" id="el-t-cheap" data-task="eventloop-animation/el-t-cheap">
+<h4>Задача 7. Перепишите дорогую анимацию <span class="lvl">★★☆ практика</span></h4>
+<p>Боковое меню выезжает анимацией свойства <code>left</code>, а кнопка при наведении растёт через <code>width</code> и <code>height</code>. На телефоне всё дёргается. Перепишите на дешёвые свойства и объясните, какие стадии конвейера пропадут.</p>
+<pre><code>/* .menu { position: fixed; left: -300px; width: 300px; transition: left 300ms; }
+   .menu--open { left: 0; }
+   .btn { width: 120px; height: 40px; transition: width 200ms, height 200ms; }
+   .btn:hover { width: 132px; height: 44px; } */</code></pre>
+<p class="why"><b>Зачем:</b> <code>left</code>, <code>width</code> и <code>height</code> меняют геометрию: на каждом кадре браузер пересчитывает раскладку всей страницы и перерисовывает пиксели. Перевод на <code>transform</code> — самая выгодная оптимизация анимаций, и делается она за минуту.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// menu.css
+.menu {
+  position: fixed;
+  inset-block: 0;
+  left: 0;
+  width: 300px;
+  transform: translateX(-100%);
+  transition: transform 300ms ease-out;
+}
+.menu--open { transform: translateX(0); }
+
+.btn { transition: transform 200ms ease-out; }
+.btn:hover { transform: scale(1.1); }</code></pre>
+<p>Было Style → Layout → Paint → Composite на каждом кадре, стало Style → Composite. <code>translateX(-100%)</code> считается от ширины самого элемента, так что «спрятать за край» работает для любой ширины меню. <code>scale</code> отличается от изменения размеров: текст внутри тоже масштабируется, а соседи не сдвигаются. Обычно это и нужно для эффекта наведения. Если элемент должен реально раздвинуть соседей, без раскладки не обойтись, и тогда стоит подумать, нужна ли анимация вообще.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

@@ -1,0 +1,130 @@
+<section id="el-loop">
+<h2>Цикл событий: задачи, микрозадачи, отрисовка</h2>
+<p>Упрощённый алгоритм одного оборота цикла в браузере:</p>
+<ol><li>Взять <b>одну</b> задачу (macrotask) из очереди задач и выполнить её целиком: скрипт страницы, колбэк таймера, обработчик события.</li><li>Выполнить <b>все</b> микрозадачи, включая те, что добавились по ходу.</li><li>Если пора, обновить экран: колбэки <code>requestAnimationFrame</code>, стили, раскладка, отрисовка.</li><li>Повторить.</li></ol>
+<pre><code>export function order(): Promise&lt;string[]&gt; {
+  const log: string[] = [];
+  log.push('script');
+  setTimeout(() =&gt; log.push('timeout'), 0);
+  Promise.resolve().then(() =&gt; log.push('promise'));
+  queueMicrotask(() =&gt; log.push('microtask'));
+  log.push('script end');
+  return new Promise((r) =&gt; setTimeout(() =&gt; r(log), 5));
+}
+// ['script', 'script end', 'promise', 'microtask', 'timeout']</code></pre>
+<p>Синхронный код скрипта — это первая задача. После неё выполняются все микрозадачи в порядке постановки, и только в следующем обороте — колбэк таймера.</p>
+<h3 id="el-microtasks">Микрозадачи</h3>
+<p>Микрозадачи — реакции промисов (<code>then</code>, <code>catch</code>, <code>finally</code>, продолжение после <code>await</code>), <code>queueMicrotask(fn)</code> и колбэки <code>MutationObserver</code>. Они выполняются сразу после текущей задачи, <b>до</b> отрисовки и до следующего таймера. Поэтому результат промиса нельзя «увидеть на экране между» двумя микрозадачами.</p>
+<p>Цена этой скорости: если микрозадачи всё время ставят новые микрозадачи, очередь никогда не опустеет, и браузер не дойдёт ни до таймеров, ни до отрисовки. Страница зависнет так же, как от бесконечного цикла, только без явного <code>while</code>.</p>
+<pre><code>export async function awaitOrder(): Promise&lt;string[]&gt; {
+  const log: string[] = [];
+  async function inner() {
+    log.push('inner start');
+    await null;
+    log.push('inner after await');
+  }
+  log.push('start');
+  const p = inner();
+  log.push('after call');
+  await p;
+  return log; // ['start', 'inner start', 'after call', 'inner after await']
+}</code></pre>
+<p>Async-функция выполняется синхронно до первого <code>await</code>, а остаток уходит в микрозадачу. Поэтому <code>after call</code> печатается раньше продолжения <code>inner</code>.</p>
+<article class="task" id="el-t-starve" data-task="eventloop-animation/el-t-starve">
+<h4>Задача 3. Зависание без бесконечного цикла <span class="lvl">★★★ с подвохом</span></h4>
+<p>Функция обрабатывает очередь сообщений: после каждого сообщения «уступает» циклу событий через <code>await Promise.resolve()</code>. Но индикатор прогресса (таймер) не обновляется до конца обработки. Объясните почему и исправьте <code>yieldNow</code> так, чтобы таймеры успевали срабатывать между сообщениями.</p>
+<pre><code>const yieldNow = () =&gt; Promise.resolve();
+export async function drain(queue: string[], handle: (m: string) =&gt; void) {
+  while (queue.length) {
+    handle(queue.shift()!);
+    await yieldNow();
+  }
+}</code></pre>
+<p class="why"><b>Зачем:</b> «уступить» через промис — частое заблуждение. Продолжение после <code>await</code> — микрозадача, а цикл не перейдёт к таймерам и отрисовке, пока микрозадачи не кончатся. Получается тот же длинный блок, только разрезанный на невидимые для браузера кусочки.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>const yieldNow = () =&gt; new Promise&lt;void&gt;((resolve) =&gt; setTimeout(resolve, 0));
+
+export async function drain(queue: string[], handle: (m: string) =&gt; void): Promise&lt;void&gt; {
+  while (queue.length) {
+    handle(queue.shift()!);
+    await yieldNow();
+  }
+}</code></pre>
+<p>Таймер ставит продолжение в очередь <b>задач</b>, и между двумя сообщениями браузер успевает выполнить другие задачи и отрисовать кадр. Цена — минимальная задержка таймера, после пяти вложенных вызовов около 4 мс. Поэтому уступать после каждого маленького сообщения расточительно. Лучше обрабатывать пачку в течение нескольких миллисекунд и уступать после неё, как <code>processInChunks</code> из раздела.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<h3 id="el-long-tasks">Долгие задачи и как их дробить</h3>
+<p>Задача дольше 50 мс считается <b>долгой</b> (long task): за это время пользователь замечает задержку реакции на клик. Тяжёлую работу дробят на порции и между порциями возвращают управление циклу, чтобы браузер успел отрисовать кадр и обработать события. Вернуть управление можно новой <b>задачей</b> (<code>setTimeout</code>), а не микрозадачей: микрозадачи выполнятся до отрисовки.</p>
+<pre><code>const yieldToLoop = () =&gt; new Promise&lt;void&gt;((r) =&gt; setTimeout(r, 0));
+
+export async function processInChunks&lt;T&gt;(items: readonly T[], fn: (item: T) =&gt; void, chunk = 500): Promise&lt;void&gt; {
+  for (let i = 0; i &lt; items.length; i += chunk) {
+    items.slice(i, i + chunk).forEach(fn);
+    await yieldToLoop();
+  }
+}</code></pre>
+<p>В Chromium есть специальный <code>scheduler.yield()</code> для той же цели (из общих знаний: поддерживается не всеми браузерами, поэтому <code>setTimeout</code> остаётся запасным вариантом). Работу, которой не нужен DOM, можно вообще увести в Web Worker — отдельный поток.</p>
+<article class="task" id="el-t-order" data-task="eventloop-animation/el-t-order">
+<h4>Задача 2. Порядок вывода <span class="lvl">★☆☆ разминка</span></h4>
+<p>Запишите, в каком порядке появятся буквы. Затем проверьте в консоли и на <a href="https://www.jsv9000.app/">JS Visualizer 9000</a>.</p>
+<pre><code>setTimeout(() =&gt; console.log('A'), 0);
+Promise.resolve().then(() =&gt; {
+  console.log('B');
+  setTimeout(() =&gt; console.log('C'), 0);
+  queueMicrotask(() =&gt; console.log('D'));
+});
+console.log('E');
+setTimeout(() =&gt; Promise.resolve().then(() =&gt; console.log('F')), 0);</code></pre>
+<pre><code>// trace.ts
+export function trace(): Promise&lt;string[]&gt; {
+  const log: string[] = [];
+  setTimeout(() =&gt; log.push('A'), 0);
+  Promise.resolve().then(() =&gt; {
+    log.push('B');
+    setTimeout(() =&gt; log.push('C'), 0);
+    queueMicrotask(() =&gt; log.push('D'));
+  });
+  log.push('E');
+  setTimeout(() =&gt; Promise.resolve().then(() =&gt; log.push('F')), 0);
+  return new Promise((r) =&gt; setTimeout(() =&gt; r(log), 10));
+}</code></pre>
+<p class="why"><b>Зачем:</b> задачи на порядок вывода любят на собеседованиях и в автотестах. Решаются они не угадыванием, а прогоном алгоритма из раздела: задача целиком, все микрозадачи, следующая задача.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// ответ.txt
+E B D A F C</code></pre>
+<p>Задача 1 (скрипт): печатает E, ставит таймеры A и F и микрозадачу. Микрозадачи: B, внутри ставится таймер C (в конец очереди задач) и микрозадача D, она выполнится в этом же опустошении. Дальше задачи по очереди: A; таймер F ставит микрозадачу, которая выполняется сразу после него, до C. Последний — C. Скрытая проверка прогоняет этот же код в Node и подтверждает ответ.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="el-t-budget" data-task="eventloop-animation/el-t-budget">
+<h4>Задача 4. Порции по времени, а не по количеству <span class="lvl">★★☆ практика</span></h4>
+<p>Размер порции в <code>processInChunks</code> подобран на глаз: на мощном компьютере 500 элементов занимают 2 мс, на старом телефоне — 60. Напишите <code>processWithBudget(items, fn, budgetMs = 8, now = performance.now)</code>: обрабатывает элементы, пока не истёк бюджет времени, затем уступает циклу через <code>setTimeout</code> и продолжает.</p>
+<p class="why"><b>Зачем:</b> кадр на экране 60 Гц длится около 16 мс, и браузеру нужно время на отрисовку. Бюджет по времени сам подстраивается под устройство: быстрый компьютер сделает больше за один заход, медленный — меньше, но интерфейс не будет дёргаться ни там, ни там.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>const yieldToLoop = () =&gt; new Promise&lt;void&gt;((r) =&gt; setTimeout(r, 0));
+
+export async function processWithBudget&lt;T&gt;(
+  items: readonly T[],
+  fn: (item: T) =&gt; void,
+  budgetMs = 8,
+  now: () =&gt; number = () =&gt; performance.now(),
+): Promise&lt;number&gt; {
+  let i = 0;
+  let slices = 0;
+  while (i &lt; items.length) {
+    const start = now();
+    do {
+      fn(items[i]!);
+      i++;
+    } while (i &lt; items.length &amp;&amp; now() - start &lt; budgetMs);
+    slices++;
+    if (i &lt; items.length) await yieldToLoop();
+  }
+  return slices;
+}</code></pre>
+<p><code>do...while</code> гарантирует, что за один заход обработается хотя бы один элемент, даже если он сам дольше бюджета. Иначе цикл бы застрял. Функция возвращает число заходов: это пригодится для замеров. Часы <code>now</code> передаются параметром, и тест управляет временем без реальных задержек. Такой же приём был с <code>clock</code> в задаче про DI в уроке <a href="/lessons/design-patterns#dependency-injection">Design Patterns</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

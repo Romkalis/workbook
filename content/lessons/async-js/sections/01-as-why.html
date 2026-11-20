@@ -1,0 +1,61 @@
+<section id="as-why">
+<h2>Зачем асинхронность</h2>
+<p>JavaScript выполняет код в одном потоке: пока работает одна функция, никакая другая не начнётся. Если бы запрос к серверу занимал поток на всё время ожидания, страница бы «замерзала»: кнопки не нажимаются, анимация стоит, прокрутка дёргается. Поэтому долгие операции (сеть, таймеры, чтение файлов в Node) выполняет окружение — браузер или Node.js, а JavaScript получает <b>уведомление</b>, когда результат готов.</p>
+<pre><code>export function order(): string[] {
+  const log: string[] = [];
+  log.push('1: начали');
+  setTimeout(() =&gt; log.push('3: таймер'), 0);
+  log.push('2: закончили синхронную часть');
+  return log; // ['1: начали', '2: закончили синхронную часть'] — таймер ещё не сработал
+}</code></pre>
+<p>Даже с задержкой 0 колбэк таймера выполнится <b>после</b> всего синхронного кода. Как именно устроена очередь, разбирает урок <a href="/lessons/eventloop-animation">Event Loop &amp; Animation</a>. Здесь достаточно правила: асинхронный колбэк никогда не прерывает текущий код, он ждёт, пока стек вызовов опустеет.</p>
+<h3 id="as-callbacks">Колбэки и почему от них ушли</h3>
+<p>Первый способ получить результат позже — передать функцию, которую вызовут, когда всё готово. Так устроены <code>setTimeout</code>, <code>addEventListener</code> и старый API Node (<code>fs.readFile(path, (err, data) =&gt; …)</code>). Пока шаг один, это удобно. Когда шаги зависят друг от друга, код уходит вправо лесенкой («callback hell»), а обработку ошибок приходится повторять на каждом уровне:</p>
+<pre><code>getUser(id, (err, user) =&gt; {
+  if (err) return show(err);
+  getOrders(user, (err, orders) =&gt; {
+    if (err) return show(err);
+    getDelivery(orders[0], (err, delivery) =&gt; {
+      if (err) return show(err);
+      render(delivery);
+    });
+  });
+});</code></pre>
+<p>Есть и менее заметная проблема: колбэк отдаётся чужому коду, и ничто не гарантирует, что его вызовут ровно один раз. Промисы решают обе проблемы.</p>
+<article class="task" id="as-t-order" data-task="async-js/as-t-order">
+<h4>Задача 1. Предскажите порядок <span class="lvl">★☆☆ разминка</span></h4>
+<p>Не запуская код, запишите, в каком порядке появятся строки. Потом проверьте в консоли браузера.</p>
+<pre><code>console.log('A');
+setTimeout(() =&gt; console.log('B'), 0);
+for (let i = 0; i &lt; 1e8; i++) {} // ~100 мс работы
+console.log('C');
+setTimeout(() =&gt; console.log('D'), 0);</code></pre>
+<p class="why"><b>Зачем:</b> если понимать, что колбэк таймера ждёт окончания всего синхронного кода, перестают удивлять «таймер на 0 мс сработал через 100». Это база для всех следующих задач.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>// ответ.txt
+A
+C
+B
+D</code></pre>
+<p>Цикл занимает поток, и таймер B не может выполниться, хотя его задержка давно прошла: он стоит в очереди. После <code>C</code> синхронный код закончился, и очередь разбирается в порядке постановки: сначала B, потом D. Задержка 0 означает «как можно скорее после текущего кода», а не «немедленно».</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-once" data-task="async-js/as-t-once">
+<h4>Задача 2. Колбэк ровно один раз <span class="lvl">★★☆ практика</span></h4>
+<p>Чужая библиотека иногда вызывает колбэк дважды: сначала с ошибкой тайм-аута, потом с поздним ответом. Напишите обёртку <code>once(cb)</code>: первый вызов проходит, остальные игнорируются. Обёртка возвращает функцию с той же сигнатурой.</p>
+<p class="why"><b>Зачем:</b> это та самая проблема доверия к колбэкам из раздела. Промис решает её встроенно: <code>resolve</code> срабатывает один раз. Если написать <code>once</code> руками, становится понятно, какую гарантию промис даёт бесплатно.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function once&lt;A extends unknown[]&gt;(cb: (...args: A) =&gt; void): (...args: A) =&gt; void {
+  let called = false;
+  return (...args) =&gt; {
+    if (called) return;
+    called = true;
+    cb(...args);
+  };
+}</code></pre>
+<p>Флаг <code>called</code> живёт в замыкании: у каждой обёртки он свой. Флаг ставится <b>до</b> вызова <code>cb</code>, и это важно. Если <code>cb</code> бросит ошибку или сам вызовет обёртку повторно, второй вызов всё равно будет отброшен. Generic <code>A</code> сохраняет типы аргументов, поэтому обёртка подходит к любому колбэку.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

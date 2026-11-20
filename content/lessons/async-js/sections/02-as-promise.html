@@ -1,0 +1,103 @@
+<section id="as-promise">
+<h2>Промис: обещание результата</h2>
+<p>Промис — объект, который представляет результат, которого ещё нет. У него три состояния: <b>pending</b> (ожидание), <b>fulfilled</b> (выполнен со значением) и <b>rejected</b> (отклонён с причиной). Перейти из ожидания можно один раз, дальше состояние не меняется. Выполненный или отклонённый промис называют <b>settled</b> (завершённым).</p>
+<pre><code>export function delay&lt;T&gt;(ms: number, value: T): Promise&lt;T&gt; {
+  return new Promise((resolve) =&gt; {
+    setTimeout(() =&gt; resolve(value), ms);
+  });
+}</code></pre>
+<p>Функция, переданная в <code>new Promise</code>, называется <b>executor</b>. Она выполняется <b>сразу и синхронно</b>, в момент создания промиса. Асинхронной становится только реакция на результат. Внутри executor вызывают <code>resolve(значение)</code> или <code>reject(ошибка)</code>. Повторные вызовы игнорируются: это и есть гарантия «результат один раз».</p>
+<div class="note"><p>Если executor бросит исключение, промис станет отклонённым с этой ошибкой. Но исключение внутри колбэка <code>setTimeout</code> в executor промис уже не поймает: колбэк выполнится позже, вне executor. Там нужно явно вызвать <code>reject</code>.</p></div>
+<h3 id="as-promisify">Обернуть колбэчный API</h3>
+<p>Старый API с колбэком «ошибка первым аргументом» превращается в промис по шаблону. В Node для этого есть готовая <code>util.promisify</code>, но написать обёртку руками полезно один раз:</p>
+<pre><code>type NodeCallback&lt;T&gt; = (err: Error | null, value?: T) =&gt; void;
+
+export function promisify&lt;A extends unknown[], T&gt;(fn: (...args: [...A, NodeCallback&lt;T&gt;]) =&gt; void) {
+  return (...args: A): Promise&lt;T&gt; =&gt;
+    new Promise((resolve, reject) =&gt; {
+      fn(...args, (err, value) =&gt; (err ? reject(err) : resolve(value as T)));
+    });
+}</code></pre>
+<article class="task" id="as-t-delay" data-task="async-js/as-t-delay">
+<h4>Задача 3. Пауза и тайм-аут как промисы <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>delay(ms)</code>, которая выполняется через <code>ms</code> миллисекунд, и <code>failAfter(ms, message)</code>, которая через <code>ms</code> отклоняется с <code>Error(message)</code>.</p>
+<p class="why"><b>Зачем:</b> это два кирпичика для следующих задач: повторов, тайм-аутов и тестов. Заодно тренируется главный шаблон: обернуть колбэчный API (здесь <code>setTimeout</code>) в <code>new Promise</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export const delay = (ms: number): Promise&lt;void&gt; =&gt; new Promise((resolve) =&gt; setTimeout(resolve, ms));
+
+export const failAfter = (ms: number, message: string): Promise&lt;never&gt; =&gt;
+  new Promise((_, reject) =&gt; setTimeout(() =&gt; reject(new Error(message)), ms));</code></pre>
+<p><code>setTimeout(resolve, ms)</code> передаёт <code>resolve</code> напрямую: лишняя стрелка не нужна. Тип <code>Promise&lt;never&gt;</code> честно говорит, что успешного значения не будет никогда. Такой промис можно отдать в <code>Promise.race</code> рядом с любым другим, и тип результата не испортится. В тесте используются поддельные таймеры Vitest: время двигается вручную, тест идёт мгновенно.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-executor" data-task="async-js/as-t-executor">
+<h4>Задача 4. Ошибка, которую не поймал промис <span class="lvl">★★☆ практика</span></h4>
+<p>Функция должна отклоняться при неверном JSON, но вместо этого роняет программу непойманным исключением. Найдите причину и исправьте.</p>
+<pre><code>export function parseLater(text: string): Promise&lt;unknown&gt; {
+  return new Promise((resolve) =&gt; {
+    setTimeout(() =&gt; {
+      resolve(JSON.parse(text));
+    }, 10);
+  });
+}</code></pre>
+<p class="why"><b>Зачем:</b> правило «исключение в executor отклоняет промис» работает только для синхронной части executor. Колбэк таймера выполняется позже, и его исключение уходит в глобальный обработчик. Ошибка проявляется только на плохих данных, то есть на проде.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function parseLater(text: string): Promise&lt;unknown&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    setTimeout(() =&gt; {
+      try {
+        resolve(JSON.parse(text));
+      } catch (err) {
+        reject(err);
+      }
+    }, 10);
+  });
+}</code></pre>
+<p>Ещё лучше — вынести асинхронность в отдельный промис и разбирать уже в цепочке: <code>delay(10).then(() =&gt; JSON.parse(text))</code>. Исключение внутри <code>then</code> автоматически отклоняет цепочку. Правило на будущее: в <code>new Promise</code> оборачивают только колбэчный API, а логику пишут в <code>then</code> или после <code>await</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-promisify" data-task="async-js/as-t-promisify">
+<h4>Задача 5. Промис из старого API <span class="lvl">★★☆ практика</span></h4>
+<p>Старый модуль хранилища работает на колбэках «ошибка первым аргументом»: <code>storage.get(key, cb)</code> и <code>storage.set(key, value, cb)</code>. Напишите <code>createAsyncStorage(storage)</code> с методами <code>get(key): Promise&lt;string | null&gt;</code> и <code>set(key, value): Promise&lt;void&gt;</code>, а затем функцию <code>increment(store, key)</code>, которая читает число, увеличивает его на 1 и записывает.</p>
+<pre><code>// legacy.ts
+type Cb&lt;T&gt; = (err: Error | null, value?: T) =&gt; void;
+export interface LegacyStorage {
+  get(key: string, cb: Cb&lt;string | null&gt;): void;
+  set(key: string, value: string, cb: Cb&lt;void&gt;): void;
+}
+export function createLegacy(fail = false): LegacyStorage {
+  const data = new Map&lt;string, string&gt;();
+  return {
+    get: (k, cb) =&gt; setTimeout(() =&gt; (fail ? cb(new Error('диск')) : cb(null, data.get(k) ?? null))),
+    set: (k, v, cb) =&gt; setTimeout(() =&gt; { data.set(k, v); cb(null); }),
+  };
+}</code></pre>
+<p class="why"><b>Зачем:</b> так в проекте сосуществуют старый и новый код: адаптер на границе, а дальше всё пишется на промисах. Функция <code>increment</code> показывает, ради чего это делается: два последовательных шага читаются как обычный код.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import type { LegacyStorage } from './legacy.js';
+
+export function createAsyncStorage(storage: LegacyStorage) {
+  return {
+    get: (key: string) =&gt;
+      new Promise&lt;string | null&gt;((resolve, reject) =&gt; {
+        storage.get(key, (err, value) =&gt; (err ? reject(err) : resolve(value ?? null)));
+      }),
+    set: (key: string, value: string) =&gt;
+      new Promise&lt;void&gt;((resolve, reject) =&gt; {
+        storage.set(key, value, (err) =&gt; (err ? reject(err) : resolve()));
+      }),
+  };
+}
+
+export async function increment(store: ReturnType&lt;typeof createAsyncStorage&gt;, key: string): Promise&lt;number&gt; {
+  const next = Number((await store.get(key)) ?? 0) + 1;
+  await store.set(key, String(next));
+  return next;
+}</code></pre>
+<p>Ошибка колбэка превращается в <code>reject</code>, и дальше её ловит обычный <code>try/catch</code> или <code>.catch</code>. Тип <code>ReturnType&lt;typeof createAsyncStorage&gt;</code> берёт форму объекта из функции, отдельный интерфейс не нужен. Предупреждение на будущее: <code>increment</code> не атомарна. Два одновременных вызова прочитают одно и то же число, и одно увеличение потеряется. В базах данных для этого есть атомарные операции.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

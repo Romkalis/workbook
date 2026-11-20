@@ -1,0 +1,64 @@
+<section id="as-timers">
+<h2>Таймеры: setTimeout и setInterval</h2>
+<p><code>setTimeout(fn, ms)</code> вызывает функцию один раз не раньше чем через <code>ms</code> миллисекунд. <code>setInterval(fn, ms)</code> — повторно. Оба возвращают идентификатор для отмены: <code>clearTimeout(id)</code> и <code>clearInterval(id)</code>.</p>
+<p>Задержка — это <b>минимум</b>, а не точное время. Колбэк попадёт в очередь по истечении задержки и выполнится, когда освободится поток. Если в это время работает тяжёлый код, таймер опоздает. Браузер ещё и ограничивает таймеры: вложенные глубже пяти уровней получают задержку не меньше 4 мс, а в фоновых вкладках — до секунды и больше.</p>
+<h3 id="as-recursive-timeout">Рекурсивный setTimeout вместо setInterval</h3>
+<p><code>setInterval</code> запускает функцию по расписанию, даже если предыдущий запуск ещё не закончился, например опрос сервера, который отвечает медленнее интервала. Рекурсивный <code>setTimeout</code> планирует следующий запуск только после завершения текущего. Так гарантируется пауза <b>между</b> запусками и можно менять задержку на ходу, например увеличивать её при ошибках.</p>
+<pre><code>export function poll(task: () =&gt; Promise&lt;boolean&gt;, ms: number): () =&gt; void {
+  let timer: ReturnType&lt;typeof setTimeout&gt; | undefined;
+  let stopped = false;
+  const tick = async () =&gt; {
+    const done = await task();
+    if (!done &amp;&amp; !stopped) timer = setTimeout(tick, ms);
+  };
+  timer = setTimeout(tick, ms);
+  return () =&gt; {
+    stopped = true;
+    clearTimeout(timer);
+  };
+}</code></pre>
+<p>Тип <code>ReturnType&lt;typeof setTimeout&gt;</code> подходит и для браузера (число), и для Node (объект <code>Timeout</code>).</p>
+<article class="task" id="as-t-debounce" data-task="async-js/as-t-debounce">
+<h4>Задача 17. Debounce для поиска <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>debounce(fn, ms)</code>: обёртка вызывает <code>fn</code> только после того, как вызовы прекратились на <code>ms</code> миллисекунд, с аргументами последнего вызова. Добавьте обёртке метод <code>cancel()</code>.</p>
+<p class="why"><b>Зачем:</b> поиск по мере ввода без debounce отправляет запрос на каждую букву. Десять букв — десять запросов, и ответы могут прийти не по порядку. Debounce — классическое применение <code>clearTimeout</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function debounce&lt;A extends unknown[]&gt;(fn: (...args: A) =&gt; void, ms: number) {
+  let timer: ReturnType&lt;typeof setTimeout&gt; | undefined;
+  const debounced = (...args: A) =&gt; {
+    clearTimeout(timer);
+    timer = setTimeout(() =&gt; fn(...args), ms);
+  };
+  debounced.cancel = () =&gt; clearTimeout(timer);
+  return debounced;
+}</code></pre>
+<p>Каждый новый вызов отменяет запланированный и ставит новый таймер. Сработает только последний. <code>clearTimeout(undefined)</code> безопасен, поэтому проверка «был ли таймер» не нужна. <code>cancel</code> пригодится при удалении компонента со страницы: иначе запрос уйдёт уже после того, как пользователь ушёл. Родственник debounce — throttle: он вызывает функцию не чаще раза в <code>ms</code>, но не ждёт тишины.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-retry" data-task="async-js/as-t-retry">
+<h4>Задача 18. Повтор с растущей паузой <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>retry(fn, { attempts, baseMs })</code>: вызывает <code>fn</code>, при ошибке ждёт и пробует снова. Паузы растут вдвое: <code>baseMs</code>, <code>2·baseMs</code>, <code>4·baseMs</code>… Всего не больше <code>attempts</code> попыток, после последней неудачи отклоняется <b>последней</b> ошибкой. Ошибки с полем <code>retry: false</code> не повторяются.</p>
+<p class="why"><b>Зачем:</b> сетевые сбои часто временные, и один повтор спасает пользователя от экрана ошибки. Растущая пауза (exponential backoff) не добивает перегруженный сервер. А «не повторять 400 Bad Request» — понимание, что неверный запрос не станет верным от повтора.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>const sleep = (ms: number) =&gt; new Promise((r) =&gt; setTimeout(r, ms));
+
+export async function retry&lt;T&gt;(fn: () =&gt; Promise&lt;T&gt;, { attempts, baseMs }: { attempts: number; baseMs: number }): Promise&lt;T&gt; {
+  let lastError: unknown;
+  for (let i = 0; i &lt; attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const permanent = typeof err === 'object' &amp;&amp; err !== null &amp;&amp; 'retry' in err &amp;&amp; err.retry === false;
+      if (permanent || i === attempts - 1) break;
+      await sleep(baseMs * 2 ** i);
+    }
+  }
+  throw lastError;
+}</code></pre>
+<p>Цикл с <code>await sleep</code> — это и есть рекурсивный таймер из раздела, только записанный линейно. Следующая попытка не начнётся, пока не закончилась предыдущая. После последней попытки пауза не нужна, отсюда проверка <code>i === attempts - 1</code>. В рабочих системах к паузе добавляют случайный разброс (jitter), чтобы тысячи клиентов не повторяли запрос одновременно (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

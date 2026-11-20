@@ -1,0 +1,109 @@
+<section id="as-await">
+<h2>async/await</h2>
+<p><code>async</code>-функция всегда возвращает промис. <code>await</code> приостанавливает выполнение <b>этой функции</b> до завершения промиса и возвращает его значение или бросает его ошибку. Остальной код страницы в это время работает.</p>
+<pre><code>import { delay } from './delay.js';
+
+export async function sequential(): Promise&lt;number&gt; {
+  const a = await delay(30, 1);
+  const b = await delay(30, 2); // начнётся только после a: всего ~60 мс
+  return a + b;
+}
+
+export async function parallel(): Promise&lt;number&gt; {
+  const [a, b] = await Promise.all([delay(30, 1), delay(30, 2)]); // ~30 мс
+  return a + b;
+}</code></pre>
+<p><code>async/await</code> — синтаксис поверх промисов, а не новый механизм. <code>await x</code> работает как <code>.then</code>, а <code>try...catch</code> вокруг <code>await</code> — как <code>.catch</code>. Зато код читается сверху вниз, как синхронный.</p>
+<h3 id="as-await-pitfalls">Ловушки</h3>
+<ul><li><b>Лишняя последовательность.</b> Два независимых <code>await</code> подряд ждут друг друга. Если второй запрос не зависит от первого, запустите оба и дождитесь через <code>Promise.all</code>.</li><li><b><code>await</code> в <code>forEach</code>.</b> <code>forEach</code> не ждёт промисы, которые вернул колбэк: цикл закончится сразу, а операции продолжатся «в фоне», и их ошибки никто не поймает. Для последовательной обработки нужен <code>for...of</code> с <code>await</code>, для параллельной — <code>Promise.all(items.map(...))</code>.</li><li><b><code>return</code> без <code>await</code> внутри <code>try</code>.</b> <code>return fetchData()</code> в <code>try</code> вернёт промис, не дожидаясь его. Если он отклонится, <code>catch</code> этой функции его не поймает. Пишите <code>return await fetchData()</code>, когда ошибку нужно обработать здесь.</li><li><b>Забытый <code>await</code>.</b> <code>const user = getUser()</code> даст промис вместо пользователя. TypeScript обычно ловит это на первом обращении к полю.</li></ul>
+<article class="task" id="as-t-await" data-task="async-js/as-t-await">
+<h4>Задача 13. Цепочку — в async/await <span class="lvl">★☆☆ разминка</span></h4>
+<p>Перепишите функцию на <code>async/await</code> с <code>try...catch</code>. Поведение не должно измениться: при ошибке возвращается <code>"нет данных"</code>.</p>
+<pre><code>export function cartTotal(load: () =&gt; Promise&lt;{ price: number; qty: number }[]&gt;): Promise&lt;string&gt; {
+  return load()
+    .then((items) =&gt; items.reduce((sum, i) =&gt; sum + i.price * i.qty, 0))
+    .then((total) =&gt; `${total} ₽`)
+    .catch(() =&gt; 'нет данных');
+}</code></pre>
+<p class="why"><b>Зачем:</b> <code>async/await</code> — тот же механизм промисов, но код читается сверху вниз. Переписать одну и ту же функцию в обе стороны — лучший способ убедиться, что это действительно одно и то же.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export async function cartTotal(load: () =&gt; Promise&lt;{ price: number; qty: number }[]&gt;): Promise&lt;string&gt; {
+  try {
+    const items = await load();
+    const total = items.reduce((sum, i) =&gt; sum + i.price * i.qty, 0);
+    return `${total} ₽`;
+  } catch {
+    return 'нет данных';
+  }
+}</code></pre>
+<p>Каждый <code>then</code> стал строкой после <code>await</code>, а <code>catch</code> цепочки — блоком <code>catch</code>. Синхронные шаги (<code>reduce</code>, сборка строки) больше не нужно заворачивать в <code>then</code>. Сигнатура не изменилась: <code>async</code>-функция по-прежнему возвращает <code>Promise&lt;string&gt;</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-parallel" data-task="async-js/as-t-parallel">
+<h4>Задача 14. Экран профиля без лишнего ожидания <span class="lvl">★★☆ практика</span></h4>
+<p>Для экрана нужен пользователь, а затем по его <code>id</code> — заказы и уведомления. Заказы и уведомления друг от друга не зависят. Напишите <code>loadProfile(id, api)</code> так, чтобы они запрашивались одновременно, а общее время было «пользователь + самый долгий из двух».</p>
+<p class="why"><b>Зачем:</b> три <code>await</code> подряд — самый частый способ сделать экран вдвое медленнее без единой ошибки в коде. Нужно уметь видеть граф зависимостей: что ждёт чего, а что можно запускать вместе.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface Api {
+  user(id: string): Promise&lt;{ id: string; name: string }&gt;;
+  orders(userId: string): Promise&lt;string[]&gt;;
+  notifications(userId: string): Promise&lt;string[]&gt;;
+}
+
+export async function loadProfile(id: string, api: Api) {
+  const user = await api.user(id);
+  const [orders, notifications] = await Promise.all([api.orders(user.id), api.notifications(user.id)]);
+  return { user, orders, notifications };
+}</code></pre>
+<p>Первый <code>await</code> оправдан: без пользователя нечего запрашивать. Два следующих запроса стартуют в одной строке, а <code>Promise.all</code> ждёт оба. Если бы и пользователь не был нужен для запросов (например, всё идёт по одному <code>id</code>), все три запустились бы сразу. Тест проверяет не время, а факт: второй запрос стартовал, пока первый ещё не завершился.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-foreach" data-task="async-js/as-t-foreach">
+<h4>Задача 15. Почему не дождались <span class="lvl">★★☆ практика</span></h4>
+<p>Функция должна загрузить файлы <b>по очереди</b> и вернуть список в порядке входного массива. Сейчас она возвращает пустой массив. Исправьте.</p>
+<pre><code>export async function uploadAll(files: string[], upload: (f: string) =&gt; Promise&lt;string&gt;): Promise&lt;string[]&gt; {
+  const done: string[] = [];
+  files.forEach(async (f) =&gt; {
+    done.push(await upload(f));
+  });
+  return done;
+}</code></pre>
+<p class="why"><b>Зачем:</b> <code>forEach</code> вызывает async-колбэк, получает промис и выбрасывает его. Цикл заканчивается мгновенно, а загрузки идут «в фоне», их ошибки теряются. Это одна из самых частых ошибок в асинхронном коде.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export async function uploadAll(files: string[], upload: (f: string) =&gt; Promise&lt;string&gt;): Promise&lt;string[]&gt; {
+  const done: string[] = [];
+  for (const f of files) {
+    done.push(await upload(f));
+  }
+  return done;
+}</code></pre>
+<p><code>for...of</code> с <code>await</code> внутри приостанавливает функцию на каждом шаге: следующая загрузка начнётся после предыдущей. Если порядок загрузки не важен, быстрее <code>await Promise.all(files.map(upload))</code>: результаты всё равно будут в порядке входного массива. Последовательный вариант нужен, когда сервер не любит параллельные запросы или следующий шаг зависит от предыдущего.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-limit" data-task="async-js/as-t-limit">
+<h4>Задача 16. Не больше N запросов одновременно <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>mapLimit(items, limit, fn)</code>: обрабатывает все элементы, но одновременно выполняется не больше <code>limit</code> вызовов <code>fn</code>. Результат — в порядке входного массива. При первой ошибке функция отклоняется.</p>
+<p class="why"><b>Зачем:</b> это золотая середина между «по одному» (медленно) и «все сразу» (сервер ответит 429 Too Many Requests или упадёт). Задача тренирует главное в асинхронности: держать в голове, что сейчас выполняется и что будет дальше.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Запустите <code>limit</code> «работников». Каждый в цикле берёт следующий индекс из общего счётчика и обрабатывает его, пока элементы не кончатся. Дождитесь всех работников через <code>Promise.all</code>.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export async function mapLimit&lt;T, R&gt;(items: readonly T[], limit: number, fn: (item: T, index: number) =&gt; Promise&lt;R&gt;): Promise&lt;R[]&gt; {
+  const results = new Array&lt;R&gt;(items.length);
+  let next = 0;
+  async function worker(): Promise&lt;void&gt; {
+    while (next &lt; items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]!, i);
+    }
+  }
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () =&gt; worker());
+  await Promise.all(workers);
+  return results;
+}</code></pre>
+<p>Счётчик <code>next</code> общий для всех работников. Гонки здесь нет: JavaScript однопоточный, и <code>next++</code> выполняется целиком между двумя <code>await</code>. Индекс сохраняется в <code>i</code> до <code>await</code>, поэтому результат ложится на своё место, даже если элементы завершаются не по порядку. При ошибке <code>Promise.all</code> отклонится сразу, но уже запущенные вызовы доработают: отмена — отдельная задача.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

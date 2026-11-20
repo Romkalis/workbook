@@ -1,0 +1,134 @@
+<section id="el-raf">
+<h2>requestAnimationFrame</h2>
+<p>Когда анимацию нельзя описать в CSS (физика, анимация по данным, рисование на <code>canvas</code>), её делают в JavaScript. <code>requestAnimationFrame(callback)</code> просит браузер вызвать функцию <b>перед следующей отрисовкой</b>. Колбэк получает отметку времени, а частота совпадает с частотой экрана: 60, 120 Гц и так далее.</p>
+<pre><code>export interface AnimateOptions {
+  duration: number;
+  draw: (progress: number) =&gt; void;
+  easing?: (t: number) =&gt; number;
+  raf?: (cb: (time: number) =&gt; void) =&gt; number;
+}
+
+export function animate({ duration, draw, easing = (t) =&gt; t, raf = requestAnimationFrame }: AnimateOptions): Promise&lt;void&gt; {
+  return new Promise((resolve) =&gt; {
+    let start: number | null = null;
+    const frame = (time: number) =&gt; {
+      start ??= time;
+      const t = Math.min((time - start) / duration, 1);
+      draw(easing(t));
+      if (t &lt; 1) raf(frame);
+      else resolve();
+    };
+    raf(frame);
+  });
+}</code></pre>
+<p>Главное правило: прогресс считается <b>от прошедшего времени</b>, а не от числа кадров. Анимация «по 2 пикселя за кадр» на экране 120 Гц пройдёт вдвое быстрее, чем на 60 Гц, а при тормозах растянется. <code>Math.min(…, 1)</code> гарантирует, что последний кадр нарисует ровно конечное состояние. Параметр <code>raf</code> позволяет подставить в тестах поддельные кадры.</p>
+<p>Отменяют запланированный кадр через <code>cancelAnimationFrame(id)</code>. В фоновой вкладке браузер приостанавливает колбэки <code>requestAnimationFrame</code>, и это экономит батарею. У <code>setInterval</code> такой экономии нет, к тому же он не попадает в такт с отрисовкой.</p>
+<h3 id="el-easing">Функции времени (easing)</h3>
+<p>Функция времени превращает линейный прогресс <code>t</code> от 0 до 1 в «ощущаемый». <code>ease-out</code> быстро стартует и плавно тормозит, им хорошо показывать появление. <code>ease-in</code> наоборот, он подходит для ухода. В CSS это ключевые слова и <code>cubic-bezier(...)</code>, в JavaScript — обычные функции:</p>
+<pre><code>export const easeOutCubic = (t: number) =&gt; 1 - (1 - t) ** 3;
+export const easeInOutQuad = (t: number) =&gt; (t &lt; 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);</code></pre>
+<article class="task" id="el-t-animate" data-task="eventloop-animation/el-t-animate">
+<h4>Задача 8. Анимация с отменой <span class="lvl">★★☆ практика</span></h4>
+<p>Возьмите <code>animate</code> из раздела и добавьте отмену: функция возвращает <code>{ finished: Promise&lt;boolean&gt;, cancel() }</code>. <code>finished</code> выполняется значением <code>true</code>, если анимация дошла до конца, и <code>false</code>, если её отменили. После отмены <code>draw</code> больше не вызывается. Кадры и их отмену передайте параметрами <code>raf</code> и <code>caf</code>.</p>
+<p class="why"><b>Зачем:</b> анимацию, которую нельзя остановить, нельзя и использовать в реальном интерфейсе. Пользователь закрыл окно, пока оно открывалось, и новая анимация должна заменить старую, а не драться с ней за один элемент.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>type Raf = (cb: (time: number) =&gt; void) =&gt; number;
+
+export function animate({
+  duration,
+  draw,
+  easing = (t: number) =&gt; t,
+  raf = requestAnimationFrame,
+  caf = cancelAnimationFrame,
+}: {
+  duration: number;
+  draw: (progress: number) =&gt; void;
+  easing?: (t: number) =&gt; number;
+  raf?: Raf;
+  caf?: (id: number) =&gt; void;
+}) {
+  let id = 0;
+  let finish: (completed: boolean) =&gt; void = () =&gt; {};
+  const finished = new Promise&lt;boolean&gt;((resolve) =&gt; (finish = resolve));
+  let start: number | null = null;
+  const frame = (time: number) =&gt; {
+    start ??= time;
+    const t = Math.min((time - start) / duration, 1);
+    draw(easing(t));
+    if (t &lt; 1) id = raf(frame);
+    else finish(true);
+  };
+  id = raf(frame);
+  return {
+    finished,
+    cancel() {
+      caf(id);
+      finish(false);
+    },
+  };
+}</code></pre>
+<p>Запоминается id <b>последнего</b> запрошенного кадра: каждый кадр запрашивает следующий, и отменять нужно именно его. Повторный <code>finish</code> безопасен: промис выполняется один раз. Поэтому <code>cancel</code> после завершения ничего не сломает. Почему <code>boolean</code>, а не отклонение? Отмена — не ошибка, а нормальный сценарий. С отклонением каждый вызывающий был бы обязан писать <code>catch</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="el-t-raf-throttle" data-task="eventloop-animation/el-t-raf-throttle">
+<h4>Задача 9. Обработчик прокрутки раз в кадр <span class="lvl">★★☆ практика</span></h4>
+<p>Событие <code>scroll</code> срабатывает много раз за кадр, и тяжёлый обработчик тормозит прокрутку. Напишите <code>rafThrottle(fn, raf)</code>: сколько бы раз за кадр ни вызвали обёртку, <code>fn</code> выполнится один раз перед отрисовкой, с аргументами <b>последнего</b> вызова.</p>
+<p class="why"><b>Зачем:</b> нет смысла пересчитывать положение элемента чаще, чем экран может это показать. Привязка к <code>requestAnimationFrame</code> — естественный «тормоз» для любых визуальных обновлений: прокрутки, движения мыши, изменения размера окна.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function rafThrottle&lt;A extends unknown[]&gt;(fn: (...args: A) =&gt; void, raf: (cb: () =&gt; void) =&gt; number = requestAnimationFrame) {
+  let scheduled = false;
+  let lastArgs: A;
+  return (...args: A) =&gt; {
+    lastArgs = args;
+    if (scheduled) return;
+    scheduled = true;
+    raf(() =&gt; {
+      scheduled = false;
+      fn(...lastArgs);
+    });
+  };
+}</code></pre>
+<p>Флаг <code>scheduled</code> не даёт запросить второй кадр, пока первый не наступил, а <code>lastArgs</code> каждый раз перезаписывается. В итоге к моменту кадра используется самое свежее значение. Флаг сбрасывается <b>до</b> вызова <code>fn</code>: если <code>fn</code> сама вызовет обёртку, следующий кадр запросится правильно. Отличие от debounce из урока <a href="/lessons/async-js#as-timers">Async JS</a>: debounce ждёт тишины, а rafThrottle срабатывает регулярно, пока событие продолжается.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="el-t-fps" data-task="eventloop-animation/el-t-fps">
+<h4>Задача 10. Счётчик кадров <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>createFpsMeter()</code> с методом <code>frame(time)</code>, который вызывают из колбэка <code>requestAnimationFrame</code>, и геттером <code>fps</code> — числом кадров за последнюю секунду. Старые отметки должны удаляться, чтобы память не росла.</p>
+<p class="why"><b>Зачем:</b> «анимация тормозит» — это ощущение, а FPS — число, которое можно сравнить до и после правки. Свой маленький счётчик полезен и в отладке, и чтобы понять, как устроены инструменты вроде панели Performance в DevTools.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function createFpsMeter() {
+  const times: number[] = [];
+  return {
+    frame(time: number): void {
+      times.push(time);
+      while (times.length &gt; 0 &amp;&amp; time - times[0]! &gt; 1000) times.shift();
+    },
+    get fps(): number {
+      return times.length;
+    },
+  };
+}</code></pre>
+<p>Хранится скользящее окно отметок за последнюю секунду. Новая отметка добавляется в конец, устаревшие удаляются с начала, поэтому массив не больше числа кадров в секунду. Для сотен элементов <code>shift</code> достаточно быстр. Для больших окон пишут кольцевой буфер. Настоящий FPS зависит от экрана: на 120 Гц плавная анимация даёт около 120, а не 60.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="el-t-easing" data-task="eventloop-animation/el-t-easing">
+<h4>Задача 11. Свои функции времени <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>easeInCubic</code>, <code>easeOutQuad</code> и <code>easeOutBack</code> — последняя слегка «перелетает» конец и возвращается (формула ниже). Проверьте, что каждая даёт 0 в начале и 1 в конце. Для какой из них <code>draw</code> должен уметь получать прогресс больше 1?</p>
+<pre><code>// easeOutBack: c1 = 1.70158, c3 = c1 + 1
+// 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2</code></pre>
+<p class="why"><b>Зачем:</b> функция времени — это просто отображение отрезка [0, 1] в «ощущение». Когда это понятно, любую кривую из CSS (<code>cubic-bezier</code>) или с сайта easings.net можно перенести в JavaScript и обратно.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export const easeInCubic = (t: number) =&gt; t ** 3;
+export const easeOutQuad = (t: number) =&gt; 1 - (1 - t) ** 2;
+
+const c1 = 1.70158;
+const c3 = c1 + 1;
+export const easeOutBack = (t: number) =&gt; 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2;</code></pre>
+<p><code>easeOutBack</code> посередине выходит за 1 (около 1,1 при <code>t ≈ 0,6</code>). Если <code>draw</code> ограничивает значение через <code>Math.min(p, 1)</code>, эффект «перелёта» пропадёт. Для прозрачности (<code>opacity</code>) значения больше 1 бессмысленны, а для сдвига и масштаба нормальны. Формула взята из коллекции easings.net (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

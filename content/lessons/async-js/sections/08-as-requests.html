@@ -1,0 +1,86 @@
+<section id="as-requests">
+<h2>fetch и XMLHttpRequest</h2>
+<p><code>fetch(url, options)</code> возвращает промис ответа. Важная деталь: промис <b>отклоняется только при сетевой ошибке</b> (нет соединения, CORS, отмена). Ответ 404 или 500 — это успешно полученный ответ, и проверять <code>response.ok</code> нужно самим. Тело читается отдельным асинхронным шагом: <code>response.json()</code>, <code>response.text()</code>. Подробно с клиентом и состояниями загрузки — урок <a href="/lessons/fetch-ui">Данные с сервера в интерфейсе</a>.</p>
+<pre><code>const response = await fetch('/api/products');
+if (!response.ok) throw new Error(`HTTP ${response.status}`);
+const products: unknown = await response.json();</code></pre>
+<p><code>XMLHttpRequest</code> (XHR) — старший предшественник <code>fetch</code> на событиях. В новом коде его почти не пишут, но он встречается в старых проектах и умеет то, чего <code>fetch</code> долго не умел: событие <code>progress</code> для загрузки файлов на сервер.</p>
+<pre><code>const xhr = new XMLHttpRequest();
+xhr.open('GET', '/api/products');
+xhr.responseType = 'json';
+xhr.onload = () =&gt; (xhr.status &lt; 400 ? render(xhr.response) : showError(xhr.status));
+xhr.onerror = () =&gt; showError('сеть');
+xhr.send();</code></pre>
+<div class="tbl"><table><thead><tr><th></th><th><code>fetch</code></th><th><code>XMLHttpRequest</code></th></tr></thead><tbody><tr><td>Результат</td><td>промис</td><td>события <code>load</code>, <code>error</code>, <code>progress</code></td></tr><tr><td>404/500</td><td>успешный ответ, проверить <code>ok</code></td><td><code>load</code> с <code>status</code></td></tr><tr><td>Отмена</td><td><code>AbortController</code></td><td><code>xhr.abort()</code></td></tr><tr><td>Прогресс отправки</td><td>нет</td><td><code>xhr.upload.onprogress</code></td></tr><tr><td>Node.js</td><td>встроен с 18 версии</td><td>нет</td></tr></tbody></table></div>
+<h3 id="as-abort">Отмена запроса и тайм-аут</h3>
+<p><code>AbortController</code> создаёт сигнал, который передают в <code>fetch</code>. После <code>controller.abort()</code> промис запроса отклоняется ошибкой <code>AbortError</code>. Для тайм-аута есть готовый <code>AbortSignal.timeout(ms)</code> (из общих знаний: в материалах модуля его нет; поддерживается всеми современными браузерами и Node 18+).</p>
+<pre><code>const response = await fetch('/api/slow', { signal: AbortSignal.timeout(5000) });</code></pre>
+<article class="task" id="as-t-get-json" data-task="async-js/as-t-get-json">
+<h4>Задача 19. getJson с проверкой статуса <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>getJson(url)</code>: при ответе с <code>ok === false</code> бросает <code>Error("HTTP 404 /api/x")</code>. Если сервер вернул не JSON (например, HTML-страницу ошибки прокси), бросает <code>Error("Ожидался JSON")</code>. Проверяйте заголовок <code>Content-Type</code>, а не ловите ошибку разбора.</p>
+<p class="why"><b>Зачем:</b> <code>fetch</code> считает 404 успехом, а <code>response.json()</code> на HTML падает с невнятным <code>Unexpected token &lt;</code>. Проверка статуса и типа содержимого превращает загадочную ошибку в понятную.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export async function getJson(url: string): Promise&lt;unknown&gt; {
+  const response = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error(`HTTP ${response.status} ${url}`);
+  const type = response.headers.get('Content-Type') ?? '';
+  if (!type.includes('application/json')) throw new Error('Ожидался JSON');
+  return response.json();
+}</code></pre>
+<p><code>includes</code>, а не точное сравнение: сервер обычно присылает <code>application/json; charset=utf-8</code>. Результат <code>unknown</code> — проверку формы делает вызывающий код. Полная версия клиента с классом ошибки и запасным текстом — в задачах урока <a href="/lessons/restful-api#rest-client">RESTful API</a>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-xhr" data-task="async-js/as-t-xhr">
+<h4>Задача 20. XMLHttpRequest в промисе <span class="lvl">★★★ с подвохом</span></h4>
+<p>Оберните XHR в промис: <code>xhrJson(url, Xhr = XMLHttpRequest)</code>. Статус 400 и выше — отклонение с <code>Error("HTTP &lt;код&gt;")</code>, событие <code>error</code> — отклонение <code>Error("Сеть")</code>. Класс передаётся параметром, чтобы в тесте подставить заглушку: в Node настоящего XHR нет.</p>
+<p class="why"><b>Зачем:</b> в старых проектах встречается XHR, а остальной код уже на промисах. Обёртка на границе — тот же приём, что с колбэками. Внедрение класса через параметр делает код проверяемым без браузера.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export interface XhrLike {
+  open(method: string, url: string): void;
+  send(): void;
+  responseType: XMLHttpRequestResponseType;
+  status: number;
+  response: unknown;
+  onload: (() =&gt; void) | null;
+  onerror: (() =&gt; void) | null;
+}
+
+export function xhrJson(url: string, Xhr: new () =&gt; XhrLike = XMLHttpRequest as unknown as new () =&gt; XhrLike): Promise&lt;unknown&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    const xhr = new Xhr();
+    xhr.open('GET', url);
+    xhr.responseType = 'json';
+    xhr.onload = () =&gt; (xhr.status &lt; 400 ? resolve(xhr.response) : reject(new Error(`HTTP ${xhr.status}`)));
+    xhr.onerror = () =&gt; reject(new Error('Сеть'));
+    xhr.send();
+  });
+}</code></pre>
+<p>Интерфейс <code>XhrLike</code> описывает только то, чем пользуется функция. Настоящий <code>XMLHttpRequest</code> ему соответствует, и заглушке в тесте не нужно реализовывать десятки остальных свойств. Обработчики назначаются до <code>send()</code>: иначе быстрый ответ из кеша мог бы прийти раньше, чем их назначили. Значение по умолчанию вычисляется при вызове, поэтому в Node без XHR функция работает, если класс передан явно.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-latest" data-task="async-js/as-t-latest">
+<h4>Задача 21. Только последний запрос <span class="lvl">★★★ с подвохом</span></h4>
+<p>Пользователь быстро печатает в поиске, и ответы на старые запросы приходят позже новых. Напишите <code>createLatest(fetcher)</code>, где <code>fetcher(query, signal)</code> возвращает промис. Каждый новый вызов отменяет предыдущий через <code>AbortController</code>. Результат отменённого вызова — <code>null</code>, а не ошибка.</p>
+<p class="why"><b>Зачем:</b> это гонка запросов из урока <a href="/lessons/fetch-ui">«Данные с сервера в интерфейсе»</a>, решённая отменой. В отличие от простой проверки «мой ли это запрос», отмена ещё и экономит трафик: сервер перестаёт отправлять ненужный ответ.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function createLatest&lt;T&gt;(fetcher: (query: string, signal: AbortSignal) =&gt; Promise&lt;T&gt;) {
+  let current: AbortController | null = null;
+  return async (query: string): Promise&lt;T | null&gt; =&gt; {
+    current?.abort();
+    const controller = new AbortController();
+    current = controller;
+    try {
+      return await fetcher(query, controller.signal);
+    } catch (err) {
+      if (controller.signal.aborted) return null;
+      throw err;
+    }
+  };
+}</code></pre>
+<p>Отмену определяет <code>controller.signal.aborted</code>, а не имя ошибки. Это надёжнее: разные реализации <code>fetch</code> и заглушки бросают разные ошибки, а флаг сигнала один. Настоящие ошибки (сеть, 500) по-прежнему пробрасываются. <code>null</code> вместо отклонения означает, что вызывающему коду не нужно отличать «отменён» от «сломался» в каждом <code>catch</code>: он просто ничего не рисует.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

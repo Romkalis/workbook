@@ -1,0 +1,62 @@
+<section id="as-then">
+<h2>then, catch, finally и цепочки</h2>
+<p><code>promise.then(onFulfilled)</code> регистрирует реакцию на успех и <b>возвращает новый промис</b>. Его результат — то, что вернула реакция. Отсюда цепочки: каждый шаг получает результат предыдущего.</p>
+<pre><code>export function chain(): Promise&lt;number&gt; {
+  return Promise.resolve(2)
+    .then((x) =&gt; x * 10) // вернули число — следующий then получит 20
+    .then((x) =&gt; Promise.resolve(x + 1)) // вернули промис — цепочка дождётся его: 21
+    .finally(() =&gt; {
+      // finally не получает значение и не меняет его
+    });
+}</code></pre>
+<p>Три правила, на которых держатся цепочки:</p>
+<ul><li>Вернули из <code>then</code> обычное значение — следующий шаг получит его.</li><li>Вернули промис — цепочка <b>дождётся</b> его и передаст результат дальше. Так последовательные запросы пишутся без вложенности.</li><li>Ничего не вернули — следующий шаг получит <code>undefined</code>, и, что хуже, не будет ждать запущенную внутри операцию. Забытый <code>return</code> — самая частая ошибка с промисами.</li></ul>
+<p><code>catch(onRejected)</code> — то же, что <code>then(undefined, onRejected)</code>. <code>finally(fn)</code> выполняется при любом исходе и подходит для «снять индикатор загрузки». Если <code>finally</code> вернёт значение, оно игнорируется. Но если бросит ошибку, цепочка станет отклонённой с ней.</p>
+<details class="q"><summary>Зачем then возвращает новый промис, а не тот же?</summary><div class="a"><p>Чтобы у каждого шага был свой результат. Если бы then менял исходный промис, два независимых обработчика одного запроса мешали бы друг другу.</p></div></details>
+<article class="task" id="as-t-flat" data-task="async-js/as-t-flat">
+<h4>Задача 6. Лесенка в цепочку <span class="lvl">★☆☆ разминка</span></h4>
+<p>Перепишите «лесенку» из раздела про колбэки на промисах. Функции <code>getUser</code>, <code>getOrders</code>, <code>getDelivery</code> уже возвращают промисы. <code>showDelivery(id)</code> должна вернуть промис со статусом доставки первого заказа, без вложенных <code>then</code>.</p>
+<pre><code>// api.ts
+export const getUser = async (id: string) =&gt; ({ id, name: 'Аня' });
+export const getOrders = async (user: { id: string }) =&gt; [{ id: `o-${user.id}` }];
+export const getDelivery = async (order: { id: string }) =&gt; ({ order: order.id, status: 'в пути' });</code></pre>
+<p class="why"><b>Зачем:</b> плоская цепочка — главный выигрыш промисов. Каждый шаг возвращает промис следующего запроса, и обработка ошибок пишется один раз в конце, а не на каждом уровне.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import { getDelivery, getOrders, getUser } from './api.js';
+
+export function showDelivery(id: string): Promise&lt;string&gt; {
+  return getUser(id)
+    .then((user) =&gt; getOrders(user))
+    .then((orders) =&gt; {
+      const first = orders[0];
+      if (!first) throw new Error('Заказов нет');
+      return getDelivery(first);
+    })
+    .then((delivery) =&gt; delivery.status);
+}</code></pre>
+<p>Каждый <code>then</code> <b>возвращает</b> промис следующего шага, и цепочка его дожидается. Вложенность исчезает. Пустой список заказов превращён в ошибку: она пройдёт мимо следующих <code>then</code> к тому <code>catch</code>, который поставит вызывающий код. <code>.then((user) =&gt; getOrders(user))</code> можно сократить до <code>.then(getOrders)</code>, но с передачей методов так легко потерять <code>this</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-return" data-task="async-js/as-t-return">
+<h4>Задача 7. Забытый return <span class="lvl">★★☆ практика</span></h4>
+<p>Функция должна сохранить товар и только потом вернуть обновлённый список. Иногда список приходит без нового товара. Найдите ошибку.</p>
+<pre><code>export function addAndList(api: { save(t: string): Promise&lt;void&gt;; list(): Promise&lt;string[]&gt; }, title: string) {
+  return Promise.resolve()
+    .then(() =&gt; {
+      api.save(title);
+    })
+    .then(() =&gt; api.list());
+}</code></pre>
+<p class="why"><b>Зачем:</b> забытый <code>return</code> не даёт ошибки компиляции и иногда даже работает, если сохранение быстрое. Такие плавающие баги находят неделями, поэтому правило «каждый промис внутри then возвращается» стоит довести до автоматизма.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function addAndList(api: { save(t: string): Promise&lt;void&gt;; list(): Promise&lt;string[]&gt; }, title: string) {
+  return Promise.resolve()
+    .then(() =&gt; api.save(title))
+    .then(() =&gt; api.list());
+}</code></pre>
+<p>В фигурных скобках стрелки нужен явный <code>return</code>, без скобок значение возвращается само. Без <code>return</code> следующий шаг не ждёт <code>save</code>: список читается раньше записи. Есть и вторая беда: если <code>save</code> отклонится, ошибку никто не обработает. Правило линтера <code>@typescript-eslint/no-floating-promises</code> находит такие места автоматически (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>

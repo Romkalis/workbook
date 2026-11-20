@@ -1,0 +1,66 @@
+<section id="as-combinators">
+<h2>Несколько промисов сразу</h2>
+<p>Четыре статических метода собирают массив промисов в один. Подробный разбор с реализацией — в уроке <a href="/lessons/core-js-promises">core-js-promises</a>.</p>
+<div class="tbl"><table><thead><tr><th>Метод</th><th>Выполнится, когда</th><th>Отклонится, когда</th></tr></thead><tbody><tr><td><code>Promise.all</code></td><td>выполнились все: массив значений в исходном порядке</td><td>отклонился первый</td></tr><tr><td><code>Promise.allSettled</code></td><td>завершились все: массив `{ status, value \</td><td>reason }`</td><td>никогда</td></tr><tr><td><code>Promise.race</code></td><td>первый завершился успешно</td><td>первый завершился с ошибкой</td></tr><tr><td><code>Promise.any</code></td><td>первый выполнился</td><td>отклонились все: <code>AggregateError</code></td></tr></tbody></table></div>
+<p>Типичное применение: <code>all</code> — загрузить данные для экрана параллельно; <code>allSettled</code> — разослать уведомления, неудачи не мешают остальным; <code>race</code> — ограничить время ожидания; <code>any</code> — взять ответ с самого быстрого зеркала.</p>
+<div class="note"><p><code>Promise.all</code> при первой ошибке отклоняется сразу, но остальные операции <b>не отменяются</b>: запросы продолжат выполняться, просто их результаты никто не получит. Отмена — отдельная задача, её решает <code>AbortController</code>.</p></div>
+<article class="task" id="as-t-settled" data-task="async-js/as-t-settled">
+<h4>Задача 10. Отчёт о рассылке <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>sendAll(emails, send)</code>: отправляет письма параллельно и возвращает <code>{ sent: string[]; failed: { email: string; reason: string }[] }</code>. Неудачная отправка не должна мешать остальным, а порядок в списках — как во входном массиве.</p>
+<p class="why"><b>Зачем:</b> <code>Promise.all</code> здесь не подходит: первая ошибка отклонит всё, и вы не узнаете, кому письмо ушло. <code>allSettled</code> создан для «сделай всё и расскажи, что получилось».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export async function sendAll(emails: readonly string[], send: (email: string) =&gt; Promise&lt;void&gt;) {
+  const results = await Promise.allSettled(emails.map((e) =&gt; send(e)));
+  const report = { sent: [] as string[], failed: [] as { email: string; reason: string }[] };
+  results.forEach((r, i) =&gt; {
+    const email = emails[i]!;
+    if (r.status === 'fulfilled') report.sent.push(email);
+    else report.failed.push({ email, reason: r.reason instanceof Error ? r.reason.message : String(r.reason) });
+  });
+  return report;
+}</code></pre>
+<p>Результаты <code>allSettled</code> идут в порядке входного массива, а не в порядке завершения. Поэтому индекс <code>i</code> надёжно связывает результат с адресом. Проверка <code>r.status</code> сужает тип: у <code>fulfilled</code> есть <code>value</code>, у <code>rejected</code> — <code>reason</code>. Если адресов тысячи, одновременная отправка всех может упереться в лимиты почтового сервиса. Ограничение параллельности разбирается в задаче ниже.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-timeout" data-task="async-js/as-t-timeout">
+<h4>Задача 11. Тайм-аут без забытых таймеров <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>withTimeout(promise, ms)</code>: результат промиса, если он успел за <code>ms</code>, иначе отклонение <code>TimeoutError</code> (свой класс). После завершения таймер должен быть очищен: в тесте проверяется, что таймеров не осталось.</p>
+<p class="why"><b>Зачем:</b> наивный <code>Promise.race([p, failAfter(ms)])</code> работает, но таймер остаётся висеть. В Node.js это держит процесс живым после окончания работы, а в браузере тысячи таких вызовов копят мусор. Уборка за собой — признак аккуратного асинхронного кода.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export class TimeoutError extends Error {
+  constructor(ms: number) {
+    super(`Не уложились в ${ms} мс`);
+    this.name = 'TimeoutError';
+  }
+}
+
+export function withTimeout&lt;T&gt;(promise: Promise&lt;T&gt;, ms: number): Promise&lt;T&gt; {
+  let timer: ReturnType&lt;typeof setTimeout&gt; | undefined;
+  const timeout = new Promise&lt;never&gt;((_, reject) =&gt; {
+    timer = setTimeout(() =&gt; reject(new TimeoutError(ms)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() =&gt; clearTimeout(timer));
+}</code></pre>
+<p><code>finally</code> срабатывает при любом исходе гонки и убирает таймер. Операция при тайм-ауте <b>не отменяется</b>: мы только перестаём её ждать. Чтобы остановить сам запрос, нужен <code>AbortSignal</code> (раздел про отмену). Отдельный класс ошибки позволяет вызывающему коду различать «долго» и «сломалось»: <code>err instanceof TimeoutError</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+<article class="task" id="as-t-any" data-task="async-js/as-t-any">
+<h4>Задача 12. Самое быстрое зеркало <span class="lvl">★★☆ практика</span></h4>
+<p>Файл лежит на нескольких зеркалах. Напишите <code>fromFastest(urls, download)</code>: возвращает первый <b>успешный</b> результат. Если все зеркала недоступны, отклоняется ошибкой <code>"Все зеркала недоступны: 3"</code> (число — сколько было попыток).</p>
+<p class="why"><b>Зачем:</b> <code>race</code> вернул бы первый <b>завершившийся</b> результат, даже если это быстрая ошибка с мёртвого зеркала. <code>any</code> игнорирует ошибки, пока есть надежда на успех. Разница в одном слове, а поведение противоположное.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export async function fromFastest&lt;T&gt;(urls: readonly string[], download: (url: string) =&gt; Promise&lt;T&gt;): Promise&lt;T&gt; {
+  try {
+    return await Promise.any(urls.map((url) =&gt; download(url)));
+  } catch (err) {
+    if (err instanceof AggregateError) throw new Error(`Все зеркала недоступны: ${err.errors.length}`, { cause: err });
+    throw err;
+  }
+}</code></pre>
+<p>Здесь <code>return await</code> внутри <code>try</code> обязателен. Без <code>await</code> функция вернула бы промис, не дождавшись его, и <code>catch</code> не увидел бы <code>AggregateError</code>. Это ловушка из раздела про async/await. <code>AggregateError.errors</code> — массив всех причин. Он сохранён в <code>cause</code>, чтобы в логах было видно, что случилось с каждым зеркалом.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
+</section>
