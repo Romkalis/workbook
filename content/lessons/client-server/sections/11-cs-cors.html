@@ -55,6 +55,38 @@ http.createServer((req, res) =&gt; {
   res.end(JSON.stringify({ ok: true }));
 }).listen(8001);</code></pre>
 <p>Проверка через curl: с <code>Origin: http://localhost:1234</code> ответ пришёл с <code>Access-Control-Allow-Origin: http://localhost:1234</code>, preflight OPTIONS вернул 204 со всеми разрешающими заголовками. С <code>Origin: http://evil.example</code> сервер всё равно ответил 200 и телом, просто без CORS-заголовков. Браузер в этом случае скрыл бы ответ от скрипта, а curl спокойно его показал — наглядная иллюстрация того, что CORS работает только в браузере.</p>
+<article class="task" id="cs-t-cors" data-task="client-server/cs-t-cors">
+<h4>Задача 9. CORS по белому списку <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите сервер на <code>node:http</code> для API, которым пользуются фронтенды <code>https://shop.example</code> и <code>http://localhost:5173</code>. Для разрешённого <code>Origin</code> ответ содержит <code>Access-Control-Allow-Origin</code> с этим же источником и <code>Vary: Origin</code>. Предварительный запрос <code>OPTIONS</code> получает <code>204</code>, разрешённые методы <code>GET, POST, PATCH</code> и заголовок <code>Content-Type</code>. Чужой источник не получает CORS-заголовков вообще.</p>
+<p class="why"><b>Зачем:</b> <code>Access-Control-Allow-Origin: *</code> — частый «фикс» ошибки CORS, который нельзя сочетать с cookie и который открывает API любому сайту. Белый список с отражением конкретного источника — правильный способ. А <code>Vary: Origin</code> не даёт кешу отдать ответ для одного сайта другому.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import http from 'node:http';
+
+const ALLOWED = new Set(['https://shop.example', 'http://localhost:5173']);
+
+export function createServer() {
+  return http.createServer((req, res) =&gt; {
+    const origin = req.headers.origin;
+    res.setHeader('Vary', 'Origin');
+    if (origin &amp;&amp; ALLOWED.has(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    if (req.method === 'OPTIONS') {
+      if (origin &amp;&amp; ALLOWED.has(origin)) {
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        res.setHeader('Access-Control-Max-Age', '600');
+      }
+      res.writeHead(204).end();
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ ok: true }));
+  });
+}</code></pre>
+<p>Сервер отвечает и чужому источнику, но без CORS-заголовков, а браузер сам не отдаст ответ странице. CORS защищает пользователя браузера, а не сервер: curl или другой сервер получат ответ всё равно. Поэтому CORS не заменяет аутентификацию. <code>Max-Age</code> разрешает браузеру 10 минут не повторять предварительный запрос. В Express то же делает пакет <code>cors</code> с параметром <code>origin</code>-списком.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="cs-credentials">Куки в кросс-доменных запросах</h3>
 <p>По умолчанию <code>fetch</code> на другой origin куки не отправляет и <code>Set-Cookie</code> из ответа игнорирует. Чтобы отправлял, нужно <code>fetch(url, { credentials: 'include' })</code> на клиенте и <code>Access-Control-Allow-Credentials: true</code> плюс конкретный origin на сервере. Кроме того, кука должна разрешать кросс-сайтовую отправку (<code>SameSite=None; Secure</code>). Статья <a href="https://javascript.info/fetch-crossorigin">javascript.info «Fetch: Cross-Origin Requests»</a> (есть <a href="https://learn.javascript.ru/fetch-crossorigin">перевод на русский</a>) разбирает все эти случаи.</p>
 <h3 id="cs-mode">Режимы fetch</h3>

@@ -17,4 +17,19 @@ const promise4 = new Promise((resolve) =&gt; setTimeout(() =&gt; resolve(40), 10
     Promise.resolve(&#x27;&#x27;)
   );
 }</code></pre>
+<article class="task" id="prm-t-sequence" data-task="core-js-promises/prm-t-sequence">
+<h4>Задача 5. Последовательно через reduce <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>sequence(tasks)</code>, где <code>tasks</code> — массив функций, возвращающих промисы. Задачи запускаются строго по очереди: следующая — после завершения предыдущей. Результат — массив значений. При первой ошибке остальные задачи не запускаются. Используйте <code>reduce</code> по цепочке промисов, без <code>async/await</code>.</p>
+<p class="why"><b>Зачем:</b> это тот же приём, что в задаче <code>queuePromises</code>, но с ключевым отличием: на вход приходят <b>функции</b>, а не промисы. Промис уже запущенной операции нельзя «запустить позже». Последовательность возможна, только если операции создаются по очереди.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function sequence&lt;T&gt;(tasks: readonly (() =&gt; Promise&lt;T&gt;)[]): Promise&lt;T[]&gt; {
+  return tasks.reduce&lt;Promise&lt;T[]&gt;&gt;(
+    (chain, task) =&gt; chain.then((results) =&gt; task().then((value) =&gt; [...results, value])),
+    Promise.resolve([]),
+  );
+}</code></pre>
+<p>Аккумулятор <code>reduce</code> — промис с массивом уже полученных результатов. Каждый шаг ждёт его и только потом вызывает <code>task()</code>, то есть запускает следующую операцию. Если промис цепочки отклонён, все следующие <code>then</code> пропускаются, и задачи после ошибки вообще не создаются. С <code>async/await</code> то же пишется циклом <code>for…of</code> (урок <a href="/lessons/async-js#as-await-pitfalls">Async JS</a>).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

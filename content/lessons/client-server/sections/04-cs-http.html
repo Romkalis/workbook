@@ -26,6 +26,22 @@ Accept-Encoding: gzip, br
 
 </code></pre>
 <p>Первая строка — <b>стартовая</b>: метод (<code>GET</code>), путь с query string, версия протокола. Дальше <b>заголовки</b> в формате <code>Имя: значение</code>, каждый на своей строке. Затем обязательная пустая строка и, если нужно, <b>тело</b> (body). У GET тела обычно нет; у POST, PUT, PATCH в теле лежат данные — JSON, поля формы, файл.</p>
+<article class="task" id="cs-t-raw-request" data-task="client-server/cs-t-raw-request">
+<h4>Задача 2. HTTP-запрос как текст <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>rawRequest({ method, url, headers, body })</code>, которая собирает текст запроса HTTP/1.1: стартовая строка, заголовок <code>Host</code> из адреса, переданные заголовки, для тела — <code>Content-Length</code> <b>в байтах</b>, пустая строка, тело. Строки разделяются <code>\r\n</code>.</p>
+<p class="why"><b>Зачем:</b> HTTP/1.1 — это просто текст, и написать его руками — лучший способ понять, что отправляет <code>fetch</code>. <code>Content-Length</code> в символах вместо байтов — реальная ошибка: кириллица занимает два байта в UTF-8, и сервер обрежет тело.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function rawRequest({ method, url, headers = {}, body }: { method: string; url: string; headers?: Record&lt;string, string&gt;; body?: string }): string {
+  const u = new URL(url);
+  const lines = [`${method} ${u.pathname}${u.search} HTTP/1.1`, `Host: ${u.host}`];
+  for (const [name, value] of Object.entries(headers)) lines.push(`${name}: ${value}`);
+  if (body !== undefined) lines.push(`Content-Length: ${Buffer.byteLength(body, 'utf8')}`);
+  return lines.join('\r\n') + '\r\n\r\n' + (body ?? '');
+}</code></pre>
+<p>В стартовой строке — только путь и строка запроса, без домена: домен уходит в обязательный в HTTP/1.1 заголовок <code>Host</code>. По нему один сервер обслуживает много сайтов на одном IP. <code>u.host</code> включает порт, если он нестандартный. Пустая строка (<code>\r\n\r\n</code>) отделяет заголовки от тела, и без неё сервер ждал бы продолжения заголовков. Следующая задача отправляет такой текст настоящему серверу.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="cs-response">Ответ</h3>
 <pre><code>HTTP/1.1 200 OK
 Date: Sat, 14 Nov 2026 10:51:24 GMT
@@ -43,4 +59,31 @@ Content-Length: 1082
 curl -i https://api.github.com/search/users?q=rolling
 curl -v https://example.com -o /dev/null</code></pre>
 <p>Команда <code>curl -I https://example.com</code> на момент написания вернула первую строку <code>HTTP/2 200</code>: curl по возможности договаривается с сервером о HTTP/2.</p>
+<article class="task" id="cs-t-socket" data-task="client-server/cs-t-socket">
+<h4>Задача 3. HTTP без fetch: через TCP-сокет <span class="lvl">★★☆ практика</span></h4>
+<p>Повторите опыт с telnet в коде: напишите <code>sendRaw(host, port, text)</code> на модуле <code>node:net</code>, которая открывает TCP-соединение, отправляет текст запроса и возвращает весь ответ строкой. Затем <code>statusOf(response)</code> — код из первой строки ответа. В тесте запрос уходит на настоящий HTTP-сервер Node, запущенный рядом.</p>
+<p class="why"><b>Зачем:</b> это прямое доказательство, что HTTP — текстовый протокол поверх TCP. Сокет ничего не знает о методах и заголовках, он передаёт байты. Всё, что делает <code>fetch</code>, — аккуратно собирает этот текст и разбирает ответ.</p>
+<details class="q spoiler"><summary>Подсказка</summary><div class="a"><p>Отправьте запрос с заголовком <code>Connection: close</code>: тогда сервер закроет соединение после ответа, и событие <code>end</code> у сокета сообщит, что ответ получен целиком.</p></div></details>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import net from 'node:net';
+
+export function sendRaw(host: string, port: number, text: string): Promise&lt;string&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    const socket = net.createConnection({ host, port }, () =&gt; socket.write(text));
+    const chunks: Buffer[] = [];
+    socket.on('data', (chunk: Buffer) =&gt; chunks.push(chunk));
+    socket.on('end', () =&gt; resolve(Buffer.concat(chunks).toString('utf8')));
+    socket.on('error', reject);
+  });
+}
+
+export function statusOf(response: string): number {
+  const match = /^HTTP\/\d(?:\.\d)? (\d{3})/.exec(response);
+  if (!match) throw new Error('Не похоже на HTTP-ответ');
+  return Number(match[1]);
+}</code></pre>
+<p>Куски ответа собираются в массив <code>Buffer</code> и склеиваются в конце: многобайтовый символ может разрезаться между двумя кусками, и склейка строк по кускам его бы испортила. Без <code>Connection: close</code> соединение HTTP/1.1 остаётся открытым (keep-alive), и <code>end</code> не наступит. Тогда конец ответа определяют по <code>Content-Length</code>, как это и делают настоящие клиенты.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

@@ -36,4 +36,25 @@
 </dl>
 <div class="warn"><b>Поправка к лекции по HTTP</b><p>В лекции 401 описан как «авторизованы, но нет прав», а 403 как «есть доступ к сайту, но не к ресурсу». Первое неверно: 401 означает, что сервер не знает, кто вы (нет или истёк токен), а «знаем, кто вы, но нельзя» — это 403. И 502 Bad Gateway — не «сервер недоступен», а некорректный ответ от вышестоящего сервера; недоступность — это 503.</p></div>
 <p>Обе лекции замечают, что ленивые бэкенды (серверная часть приложения) отвечают 400 или 500 на всё подряд. Хороший API подбирает точный код и кладёт в тело понятное сообщение: фронтенду тогда проще показать пользователю, что пошло не так.</p>
+<article class="task" id="cs-t-status" data-task="client-server/cs-t-status">
+<h4>Задача 5. Классы ответов и что с ними делать <span class="lvl">★☆☆ разминка</span></h4>
+<p>Напишите <code>statusClass(code)</code> → <code>"info" | "success" | "redirect" | "client" | "server"</code> (иначе ошибка) и <code>shouldRetry(code)</code>: повторять имеет смысл при 408, 429 и ошибках сервера, кроме 501 (метод не реализован — повтор не поможет). Остальные 4xx повторять нельзя.</p>
+<p class="why"><b>Зачем:</b> первая цифра кода говорит, чья проблема и что делать. Клиентская ошибка не исчезнет от повтора, а повтор 503 с паузой часто спасает. Это знание встраивается в API-клиент и в логику повторов (урок <a href="/lessons/async-js#as-recursive-timeout">Async JS</a>).</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type StatusClass = 'info' | 'success' | 'redirect' | 'client' | 'server';
+const CLASSES: StatusClass[] = ['info', 'success', 'redirect', 'client', 'server'];
+
+export function statusClass(code: number): StatusClass {
+  if (!Number.isInteger(code) || code &lt; 100 || code &gt; 599) throw new RangeError(`Неверный код ${code}`);
+  return CLASSES[Math.floor(code / 100) - 1]!;
+}
+
+export function shouldRetry(code: number): boolean {
+  if (code === 408 || code === 429) return true;
+  return statusClass(code) === 'server' &amp;&amp; code !== 501;
+}</code></pre>
+<p>Класс берётся из первой цифры: <code>Math.floor(code / 100)</code>. Исключения в <code>shouldRetry</code> перечислены явно: 408 (сервер не дождался запроса) и 429 (слишком часто) — клиентские коды, но временные. Для 429 и 503 сервер может прислать заголовок <code>Retry-After</code>, и хороший клиент ждёт столько, сколько попросили (урок <a href="/lessons/web-security#sec-rate-limit">Web Security</a>).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

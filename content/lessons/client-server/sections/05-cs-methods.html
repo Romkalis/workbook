@@ -30,4 +30,29 @@
   &lt;button&gt;Войти&lt;/button&gt;
 &lt;/form&gt;</code></pre>
 <p>В вебинаре сказано, что так «уже не делают». Это не совсем так: обычные формы без JavaScript снова в моде во фреймворках вроде Remix и Next.js (Server Actions), потому что работают даже до загрузки скриптов. В одностраничных приложениях форму перехватывают: <code>event.preventDefault()</code>, затем <code>fetch</code> с <code>new FormData(form)</code>, без перезагрузки.</p>
+<article class="task" id="cs-t-form" data-task="client-server/cs-t-form">
+<h4>Задача 4. Как форма кодирует данные <span class="lvl">★☆☆ разминка</span></h4>
+<p>HTML-форма с <code>method="post"</code> по умолчанию отправляет тело в формате <code>application/x-www-form-urlencoded</code>. Напишите <code>encodeForm(fields)</code> и <code>decodeForm(body)</code> для объекта «имя → строка или массив строк» (массив — несколько полей с одним именем, как у чекбоксов). Сравните результат с <code>encodeURIComponent</code>: чем кодирование пробела отличается?</p>
+<p class="why"><b>Зачем:</b> формат формы до сих пор встречается везде: OAuth-запросы токена, старые API, обычные HTML-формы без JavaScript. Разница в пробеле (<code>+</code> против <code>%20</code>) — частая причина того, что сервер видит «Анна+Мария» вместо «Анна Мария».</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function encodeForm(fields: Record&lt;string, string | string[]&gt;): string {
+  const params = new URLSearchParams();
+  for (const [name, value] of Object.entries(fields)) {
+    for (const v of Array.isArray(value) ? value : [value]) params.append(name, v);
+  }
+  return params.toString();
+}
+
+export function decodeForm(body: string): Record&lt;string, string | string[]&gt; {
+  const out: Record&lt;string, string | string[]&gt; = {};
+  for (const [name, value] of new URLSearchParams(body)) {
+    const prev = out[name];
+    out[name] = prev === undefined ? value : Array.isArray(prev) ? [...prev, value] : [prev, value];
+  }
+  return out;
+}</code></pre>
+<p><code>URLSearchParams</code> кодирует пробел как <code>+</code> (так требует формат форм), а <code>encodeURIComponent</code> — как <code>%20</code>. При разборе <code>URLSearchParams</code> понимает оба варианта. Но если сервер декодирует тело через <code>decodeURIComponent</code>, плюсы останутся плюсами. Повторяющиеся имена — норма для формата: <code>tags=js&amp;tags=ts</code>. Поэтому <code>append</code>, а не <code>set</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>

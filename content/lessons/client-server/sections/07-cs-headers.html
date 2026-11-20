@@ -33,6 +33,32 @@
 </tbody></table></div>
 <p>Частая ошибка новичков — считать Base64 защитой. Строку <code>YWRtaW46MTIz</code> любой раскодирует командой <code>atob</code> и получит <code>admin:123</code>.</p>
 
+<article class="task" id="cs-t-gzip" data-task="client-server/cs-t-gzip">
+<h4>Задача 6. Сжатие ответа по заголовку клиента <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите обработчик для <code>node:http</code>, который отдаёт JSON сжатым gzip, только если клиент прислал <code>Accept-Encoding</code> с <code>gzip</code>. При сжатии ставятся <code>Content-Encoding: gzip</code> и <code>Vary: Accept-Encoding</code>. Ответы меньше 1 КБ не сжимаются: выигрыш меньше накладных расходов.</p>
+<p class="why"><b>Зачем:</b> сжатие — кодирование (encoding), а не шифрование: его снимет кто угодно. Зато JSON сжимается в разы. Заголовок <code>Vary</code> — то, о чём забывают: без него промежуточный кеш отдаст сжатую версию клиенту, который gzip не понимает.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import http from 'node:http';
+import { gzipSync } from 'node:zlib';
+
+export function createServer(payload: unknown) {
+  return http.createServer((req, res) =&gt; {
+    const body = Buffer.from(JSON.stringify(payload));
+    const acceptsGzip = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Vary', 'Accept-Encoding');
+    if (acceptsGzip &amp;&amp; body.length &gt;= 1024) {
+      const compressed = gzipSync(body);
+      res.writeHead(200, { 'Content-Encoding': 'gzip', 'Content-Length': compressed.length }).end(compressed);
+      return;
+    }
+    res.writeHead(200, { 'Content-Length': body.length }).end(body);
+  });
+}</code></pre>
+<p><code>Vary</code> ставится всегда, даже на несжатый ответ: он говорит кешу, что ответ <b>зависит</b> от заголовка <code>Accept-Encoding</code>. <code>gzipSync</code> блокирует поток. Для учебного примера это допустимо, но на сервере под нагрузкой используют потоковое сжатие или поручают его nginx/CDN. В Express это делает пакет <code>compression</code> (из общих знаний). Современные браузеры поддерживают и более сильный <code>br</code> (Brotli).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="cs-cache">Кеширование</h3>
 <p>Самый быстрый запрос — тот, которого не было. Сервер подсказывает браузеру, как обращаться с ответом:</p>
 <ul>
@@ -42,6 +68,42 @@
 </ul>
 <p>Проверка актуальности работает через <b>условные запросы</b>. Сервер присылает <code>ETag: "abc123"</code> (отпечаток версии) или <code>Last-Modified</code>. В следующий раз браузер спрашивает <code>If-None-Match: "abc123"</code>, и если ресурс не изменился, сервер отвечает <b>304 Not Modified</b> без тела. В лекции по HTTP это показано на картинках, которые «не загружаются заново». Принцип REST «кешируемость» (раздел о REST) опирается именно на эти заголовки.</p>
 
+<article class="task" id="cs-t-etag" data-task="client-server/cs-t-etag">
+<h4>Задача 7. ETag и ответ 304 <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите сервер на <code>node:http</code> с маршрутом <code>GET /api/catalog</code>. Ответ содержит заголовки <code>ETag</code> (хеш тела) и <code>Cache-Control: no-cache</code>. Если клиент прислал <code>If-None-Match</code> с тем же ETag, сервер отвечает <code>304</code> без тела. После изменения каталога (функция <code>update</code>) ETag меняется.</p>
+<p class="why"><b>Зачем:</b> <code>no-cache</code> не значит «не кешировать»: браузер хранит копию, но перед использованием спрашивает сервер, не устарела ли она. Ответ 304 — несколько сотен байт вместо всего каталога. Так экономится трафик без риска показать старые данные.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>import { createHash } from 'node:crypto';
+import http from 'node:http';
+
+export function createServer() {
+  let catalog = [{ id: 'b1', title: 'Чистый код' }];
+  const server = http.createServer((req, res) =&gt; {
+    if (req.method !== 'GET' || req.url !== '/api/catalog') {
+      res.writeHead(404).end();
+      return;
+    }
+    const body = JSON.stringify(catalog);
+    const etag = `"${createHash('sha1').update(body).digest('base64url')}"`;
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', 'no-cache');
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304).end();
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' }).end(body);
+  });
+  return {
+    server,
+    update(items: { id: string; title: string }[]) {
+      catalog = items;
+    },
+  };
+}</code></pre>
+<p>ETag по стандарту пишется в кавычках, и сравнивать нужно вместе с ними. ETag и <code>Cache-Control</code> отправляются и с ответом 304: клиент обновляет по ним сведения о сохранённой копии. Хеш считается от тела, поэтому при любом изменении данных меняется и метка. Сервер всё равно собирает тело, экономится только передача. Для дорогих ответов ETag хранят рядом с данными (например, номер версии записи), чтобы не строить ответ ради проверки.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="cs-cookies">Куки</h3>
 <p>Кука — небольшая пара «имя=значение», которую браузер хранит для конкретного сайта и <b>автоматически</b> прикладывает к каждому запросу на этот сайт в заголовке <code>Cookie</code>. Так поверх протокола без состояния строится «память»: при входе сервер создаёт сессию в базе, кладёт её идентификатор в куку, и по нему узнаёт пользователя в следующих запросах.</p>
 <pre><code>HTTP/1.1 200 OK

@@ -10,6 +10,28 @@
 <pre><code>function getFirstResolvedPromiseResult(promises) {
   return Promise.any(promises);
 }</code></pre>
+<article class="task" id="prm-t-any" data-task="core-js-promises/prm-t-any">
+<h4>Задача 1. Свой Promise.any <span class="lvl">★★★ с подвохом</span></h4>
+<p>Напишите <code>any(promises)</code>: выполняется первым успешным значением. Если отклонились все, отклоняется <code>AggregateError</code> с массивом причин в поле <code>errors</code> в порядке входного массива. Пустой массив сразу даёт отклонение с пустым <code>errors</code>.</p>
+<p class="why"><b>Зачем:</b> <code>any</code> — зеркальное отражение <code>all</code>: там первая ошибка всё прерывает, а успех ждёт всех; здесь первый успех всё решает, а ошибка ждёт всех. Если увидеть эту симметрию, оба метода запоминаются вместе.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function any&lt;T&gt;(promises: readonly (T | PromiseLike&lt;T&gt;)[]): Promise&lt;T&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    const errors = new Array&lt;unknown&gt;(promises.length);
+    let left = promises.length;
+    if (left === 0) return reject(new AggregateError([], 'All promises were rejected'));
+    promises.forEach((p, i) =&gt; {
+      Promise.resolve(p).then(resolve, (reason: unknown) =&gt; {
+        errors[i] = reason;
+        if (--left === 0) reject(new AggregateError(errors, 'All promises were rejected'));
+      });
+    });
+  });
+}</code></pre>
+<p>Код почти совпадает с <code>all</code>, только роли поменялись: <code>resolve</code> срабатывает сразу, а ошибки копятся по индексам. Пустой массив отклоняется сразу, и в этом отличие от <code>race</code>: «ни один не выполнился» для пустого списка — правда. Текст сообщения взят как у встроенного метода в V8 (из общих знаний).</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="prm-race">4. getFirstPromiseResult — первый завершившийся</h3>
 <pre><code>const promise1 = Promise.resolve(1)
 const promise2 = Promise.reject(2)
@@ -25,6 +47,20 @@ const promise6 = new Promise((reject) =&gt; setTimeout(() =&gt; reject(6), 10))
 <pre><code>function getFirstPromiseResult(promises) {
   return Promise.race(promises);
 }</code></pre>
+<article class="task" id="prm-t-race" data-task="core-js-promises/prm-t-race">
+<h4>Задача 2. Свой Promise.race и пустой массив <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>race(promises)</code>: завершается так же, как первый завершившийся промис, — успехом или ошибкой. Ответьте: что вернёт <code>race([])</code> и почему это не ошибка в спецификации?</p>
+<p class="why"><b>Зачем:</b> <code>race</code> — самый короткий комбинатор, но в нём есть ловушка: с пустым массивом промис не завершается никогда. Код <code>await race(list)</code> с пустым списком просто зависнет без ошибки.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function race&lt;T&gt;(promises: readonly (T | PromiseLike&lt;T&gt;)[]): Promise&lt;T&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    for (const p of promises) Promise.resolve(p).then(resolve, reject);
+  });
+}</code></pre>
+<p>Каждый промис подписывает на себя одни и те же <code>resolve</code> и <code>reject</code>. Выигрывает первый, остальные вызовы игнорируются. С пустым массивом подписываться некому, и промис остаётся в ожидании навсегда. Встроенный <code>Promise.race([])</code> ведёт себя так же: «гонка без участников» не имеет победителя. Если список может быть пустым, проверяйте это до вызова.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="prm-all">5. getAllOrNothing — все или ничего</h3>
 <pre><code>[Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)] =&gt; Promise fulfilled with [1, 2, 3]
 [Promise.resolve(1), Promise.reject(2), Promise.resolve(3)] =&gt; Promise rejected with 2</code></pre>
@@ -32,6 +68,29 @@ const promise6 = new Promise((reject) =&gt; setTimeout(() =&gt; reject(6), 10))
 <pre><code>function getAllOrNothing(promises) {
   return Promise.all(promises);
 }</code></pre>
+<article class="task" id="prm-t-all" data-task="core-js-promises/prm-t-all">
+<h4>Задача 3. Свой Promise.all <span class="lvl">★★★ с подвохом</span></h4>
+<p>Не используя статические методы <code>Promise</code> (кроме <code>Promise.resolve</code>), напишите <code>all(values)</code>. Результаты в порядке входного массива, а не в порядке завершения. Обычные значения в массиве (не промисы) тоже допустимы. Пустой массив сразу даёт <code>[]</code>. При первом отклонении результат отклоняется с этой причиной.</p>
+<p class="why"><b>Зачем:</b> повторить встроенный метод — лучший способ запомнить его контракт до мелочей: что с порядком, что с пустым массивом, что с не-промисами. Именно эти мелочи и спрашивают на собеседованиях.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export function all&lt;T&gt;(values: readonly (T | PromiseLike&lt;T&gt;)[]): Promise&lt;T[]&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    const results = new Array&lt;T&gt;(values.length);
+    let left = values.length;
+    if (left === 0) return resolve([]);
+    values.forEach((value, i) =&gt; {
+      Promise.resolve(value).then((v) =&gt; {
+        results[i] = v;
+        left -= 1;
+        if (left === 0) resolve(results);
+      }, reject);
+    });
+  });
+}</code></pre>
+<p>Индекс <code>i</code> фиксируется в замыкании, поэтому результат ложится на своё место, когда бы промис ни завершился. Счётчик <code>left</code>, а не <code>results.length</code>: длина массива известна с самого начала, и по ней нельзя понять, все ли ответили. Повторные вызовы <code>reject</code> после первого игнорируются самим промисом, так что отдельный флаг не нужен. <code>Promise.resolve(value)</code> превращает обычные значения и «thenable»-объекты в промисы.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 <h3 id="prm-all-settled">6. getAllResult — все результаты, null вместо ошибок</h3>
 <pre><code>[Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)] =&gt; Promise fulfilled with [1, 2, 3]
 [Promise.resolve(1), Promise.reject(2), Promise.resolve(3)]  =&gt; Promise fulfilled with [1, null, 3]</code></pre>
@@ -41,4 +100,34 @@ const promise6 = new Promise((reject) =&gt; setTimeout(() =&gt; reject(6), 10))
     results.map((r) =&gt; (r.status === &#x27;fulfilled&#x27; ? r.value : null))
   );
 }</code></pre>
+<article class="task" id="prm-t-settled" data-task="core-js-promises/prm-t-settled">
+<h4>Задача 4. Свой Promise.allSettled <span class="lvl">★★☆ практика</span></h4>
+<p>Напишите <code>allSettled(promises)</code> без статических методов (кроме <code>Promise.resolve</code>): результат — массив <code>{ status: "fulfilled", value }</code> или <code>{ status: "rejected", reason }</code> в порядке входа. Сам результат никогда не отклоняется.</p>
+<p class="why"><b>Зачем:</b> это <code>all</code>, у которого ошибка — тоже результат. Если написать его через своё <code>all</code> из прошлой задачи, видно, что разница всего в одной строке: каждый промис заранее «обезвреживается» своим <code>catch</code>.</p>
+<details class="q spoiler"><summary>Решение и разбор</summary><div class="a">
+<pre><code>export type Settled&lt;T&gt; = { status: 'fulfilled'; value: T } | { status: 'rejected'; reason: unknown };
+
+export function allSettled&lt;T&gt;(promises: readonly (T | PromiseLike&lt;T&gt;)[]): Promise&lt;Settled&lt;T&gt;[]&gt; {
+  const wrapped = promises.map((p) =&gt;
+    Promise.resolve(p).then(
+      (value): Settled&lt;T&gt; =&gt; ({ status: 'fulfilled', value }),
+      (reason): Settled&lt;T&gt; =&gt; ({ status: 'rejected', reason }),
+    ),
+  );
+  return new Promise((resolve) =&gt; {
+    const out = new Array&lt;Settled&lt;T&gt;&gt;(wrapped.length);
+    let left = wrapped.length;
+    if (left === 0) return resolve([]);
+    wrapped.forEach((w, i) =&gt;
+      w.then((s) =&gt; {
+        out[i] = s;
+        if (--left === 0) resolve(out);
+      }),
+    );
+  });
+}</code></pre>
+<p>Каждый промис превращается в такой, который <b>всегда</b> выполняется: ошибка становится объектом-описанием. После этого сбор результатов ничем не отличается от <code>all</code>, только отклоняться уже нечему. Тип <code>Settled&lt;T&gt;</code> — размеченное объединение по <code>status</code>, как и у встроенного <code>PromiseSettledResult</code>.</p>
+</div></details>
+<button type="button" class="task-done" data-task-done aria-pressed="false">Отметить решённой</button>
+</article>
 </section>
