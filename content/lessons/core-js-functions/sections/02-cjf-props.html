@@ -1,0 +1,27 @@
+<section id="cjf-props">
+<h2>Функция как объект: имя, текст, длина</h2>
+<p>Функция в JavaScript — объект. У неё есть свойства, как у любого объекта: <code>name</code>, <code>length</code>, метод <code>toString()</code>. Первые три задачи — про них.</p>
+<h3 id="cjf-name">1. getCurrentFunctionName — имя функции</h3>
+<pre><code>getCurrentFunctionName() =&gt; 'getCurrentFunctionName'</code></pre>
+<p>У объявленной функции свойство <code>name</code> содержит её имя. Внутри функции её имя доступно как обычная переменная, поэтому функция может прочитать собственное свойство.</p>
+<pre><code>function getCurrentFunctionName() {
+  return getCurrentFunctionName.name;
+}</code></pre>
+<p>Старый способ — <code>arguments.callee.name</code> — в строгом режиме бросает ошибку, а ES-модули и классы всегда строгие. Имя есть и у стрелок, присвоенных переменной: <code>const f = () =&gt; {}</code> даёт <code>f.name === 'f'</code>.</p>
+<h3 id="cjf-body">2. getFunctionBody — текст функции</h3>
+<pre><code>function hiHello() { console.log('hello world'); }
+getFunctionBody(hiHello) =&gt; "function hiHello() { console.log('hello world'); }"
+getFunctionBody() =&gt; ''</code></pre>
+<p><code>toString()</code> у функции возвращает её исходный текст, ровно как он написан, с комментариями и пробелами. Тест вызывает функцию и без аргумента и ждёт пустую строку, поэтому нужна проверка.</p>
+<pre><code>function getFunctionBody(func) {
+  return func ? func.toString() : '';
+}</code></pre>
+<p>У встроенных функций текст не показывается: <code>Math.max.toString()</code> даёт <code>function max() { [native code] }</code>. Этим же свойством пользуется проверка в соседнем задании core-js-dates: она читает текст функции и ищет в нём комментарии.</p>
+<h3 id="cjf-length">3. getArgumentsCount — число параметров</h3>
+<pre><code>getArgumentsCount([function(){...}, function myFunc(x) {...}, (a, b) =&gt; a * b]) =&gt; [0, 1, 2]</code></pre>
+<p><code>length</code> у функции — число объявленных параметров до первого параметра со значением по умолчанию или rest-параметра.</p>
+<pre><code>function getArgumentsCount(funcs) {
+  return funcs.map((fn) =&gt; fn.length);
+}</code></pre>
+<p>Это не число переданных аргументов: <code>function f(a, b) {}</code> имеет <code>length</code> 2, как её ни вызывай. Ловушки: <code>(a, b = 1) =&gt; {}</code> — длина 1, <code>(...args) =&gt; {}</code> — 0. Библиотеки используют <code>length</code>, например, чтобы понять, ждёт ли колбэк <code>next</code> (так Express отличает обработчик ошибок с четырьмя параметрами).</p>
+</section>

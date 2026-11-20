@@ -1,0 +1,35 @@
+<section id="cjf-state">
+<h2>Состояние в замыкании</h2>
+<h3 id="cjf-memoize">6. memoize — запомнить результат</h3>
+<pre><code>const memoizer = memoize(() =&gt; Math.random());
+memoizer() =&gt; случайное число; memoizer() =&gt; то же число</code></pre>
+<p>Тест считает вызовы: исходная функция должна выполниться ровно один раз.</p>
+<pre><code>function memoize(func) {
+  let cached = false;
+  let value;
+  return () =&gt; {
+    if (!cached) {
+      value = func();
+      cached = true;
+    }
+    return value;
+  };
+}</code></pre>
+<p>Почему отдельный флаг <code>cached</code>, а не проверка <code>value === undefined</code>? Функция может честно вернуть <code>undefined</code>, и тогда проверка по значению вызывала бы её снова и снова. Эта версия запоминает один результат для функции без аргументов. Мемоизация с аргументами хранит <code>Map</code> «аргумент → результат», такой пример есть в задачах урока <a href="/lessons/design-patterns#decorator">Design Patterns</a> (кеш загрузки).</p>
+<h3 id="cjf-retry">7. retry — повторить при ошибке</h3>
+<pre><code>retry(fn, 3)() — вызывает fn, пока она не перестанет бросать ошибку, не больше 3 раз</code></pre>
+<pre><code>function retry(func, attempts) {
+  return () =&gt; {
+    let lastError;
+    for (let i = 0; i &lt; attempts; i += 1) {
+      try {
+        return func();
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError;
+  };
+}</code></pre>
+<p>Условие не уточняет, означает ли <code>attempts</code> число всех попыток или число повторов после первой. Тест проходит при обоих прочтениях: функция успешна с третьей попытки, а попыток три. Здесь выбрано «всего попыток»: так понятнее при чтении вызова. Если все попытки провалились, бросается последняя ошибка — без этого <code>retry</code> молча вернула бы <code>undefined</code>, и вызывающий код не узнал бы о сбое. <code>return</code> внутри <code>try</code> сразу выходит и из цикла, и из функции. Асинхронная версия с паузами между попытками — в задачах урока <a href="/lessons/async-js#as-recursive-timeout">Async JS</a>.</p>
+</section>

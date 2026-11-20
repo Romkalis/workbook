@@ -1,0 +1,77 @@
+<section id="cjd-calendar">
+<h2>Календарные правила</h2>
+<h3 id="cjd-week">10. getWeekNumberByDate — номер недели по ISO 8601</h3>
+<pre><code>Date(2024, 0, 3) =&gt; 1
+Date(2024, 1, 23) =&gt; 8</code></pre>
+<p>По ISO 8601 неделя начинается в понедельник, а первая неделя года — та, в которую попал первый четверг. Отсюда алгоритм: сдвигаемся к четвергу текущей недели, берём его год и считаем, какая это по счёту неделя от 1 января того же года.</p>
+<pre><code>function getWeekNumberByDate(date) {
+  const DAY = 24 * 60 * 60 * 1000;
+  const d = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  );
+  const isoDay = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - isoDay);
+  const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
+  return Math.ceil(((d - yearStart) / DAY + 1) / 7);
+}</code></pre>
+<p>Шаг за шагом для 3 января 2024 (среда):</p>
+<ol><li>Копия той же календарной даты в UTC — чтобы дальнейшая арифметика не зависела от пояса и перехода на летнее время.</li><li>День недели по ISO: воскресенье — 7, а не 0 (<code>|| 7</code>).</li><li>Сдвиг к четвергу этой недели: <code>+ 4 - 3</code> — 4 января.</li><li>Дней от 1 января до 4 января — 3, плюс 1, делить на 7 с округлением вверх — неделя 1.</li></ol>
+<p>Почему четверг: он гарантирует, что неделя отнесена к тому году, в котором лежит большая её часть. 1 января 2021 года (пятница) по ISO — 53-я неделя 2020 года.</p>
+<h3 id="cjd-f13">11. getNextFridayThe13th — ближайшая пятница, 13-е</h3>
+<pre><code>Date(2024, 0, 1) =&gt; Date(2024, 8, 13)</code></pre>
+<p>Тринадцатое бывает раз в месяц, поэтому перебираем месяцы и проверяем, пятница ли.</p>
+<pre><code>function getNextFridayThe13th(date) {
+  let year = date.getFullYear();
+  let month = date.getMonth();
+  let candidate = new Date(year, month, 13);
+  while (candidate &lt; date || candidate.getDay() !== 5) {
+    month += 1;
+    if (month === 12) {
+      month = 0;
+      year += 1;
+    }
+    candidate = new Date(year, month, 13);
+  }
+  return candidate;
+}</code></pre>
+<p>Условие не уточняет, считать ли саму дату, если она — пятница, 13-е. Здесь она считается (<code>candidate &lt; date</code> пропускает только прошедшие); тесты этот случай не проверяют. Цикл гарантированно конечен: пятница, 13-е, бывает каждый год, от одного до трёх раз (из общих знаний).</p>
+<h3 id="cjd-quarter">12. getQuarter — квартал</h3>
+<pre><code>Date(2024, 1, 13) =&gt; 1
+Date(2024, 10, 10) =&gt; 4</code></pre>
+<p>Месяцы 0–2 — первый квартал, 3–5 — второй и так далее.</p>
+<pre><code>function getQuarter(date) {
+  return Math.floor(date.getMonth() / 3) + 1;
+}</code></pre>
+<p>Тест подаёт и <code>new Date(2024, 12, 10)</code> — это январь 2025 года, первый квартал. Переполнение месяца обработал сам <code>Date</code>.</p>
+<h3 id="cjd-schedule">13. getWorkSchedule — график смен</h3>
+<pre><code>{ start: '01-01-2024', end: '15-01-2024' }, 1, 3 =&gt; ['01-01-2024', '05-01-2024', '09-01-2024', '13-01-2024']</code></pre>
+<p>Формат <code>DD-MM-YYYY</code> <code>Date</code> не понимает, поэтому разбираем строку сами. Дальше каждый день периода получает номер <code>i</code>, и рабочий он, если <code>i % (рабочие + выходные) &lt; рабочие</code>.</p>
+<pre><code>function getWorkSchedule(period, countWorkDays, countOffDays) {
+  const DAY = 24 * 60 * 60 * 1000;
+  const parse = (s) =&gt; {
+    const [d, m, y] = s.split('-').map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  const format = (t) =&gt; {
+    const d = new Date(t);
+    const pad = (n) =&gt; String(n).padStart(2, '0');
+    return `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}-${d.getUTCFullYear()}`;
+  };
+  const start = parse(period.start);
+  const length = Math.round((parse(period.end) - start) / DAY) + 1;
+  const cycle = countWorkDays + countOffDays;
+  return Array.from({ length }, (_, i) =&gt; i)
+    .filter((i) =&gt; i % cycle &lt; countWorkDays)
+    .map((i) =&gt; format(start + i * DAY));
+}</code></pre>
+<p>Дни считаются в UTC и шагом ровно в сутки: в UTC нет переходов на летнее время, так что <code>start + i * DAY</code> всегда полночь нужного дня. В местном времени после перехода тот же шаг давал бы 23:00 предыдущего дня.</p>
+<h3 id="cjd-leap">14. isLeapYear — високосный год</h3>
+<pre><code>Date(2024, 2, 1) =&gt; true
+Date(2022, 2, 1) =&gt; false</code></pre>
+<p>Правило из условия переводится в код дословно.</p>
+<pre><code>function isLeapYear(date) {
+  const year = date.getFullYear();
+  return (year % 4 === 0 &amp;&amp; year % 100 !== 0) || year % 400 === 0;
+}</code></pre>
+<p>Альтернатива без формулы — спросить у <code>Date</code>, есть ли 29 февраля: <code>new Date(year, 1, 29).getDate() === 29</code>. 1900 год не високосный (делится на 100), 2000 — високосный (делится на 400).</p>
+</section>

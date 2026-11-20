@@ -1,0 +1,49 @@
+<section id="cjd-arith">
+<h2>Арифметика дат</h2>
+<h3 id="cjd-friday">4. getNextFriday — следующая пятница</h3>
+<pre><code>Date('2024-02-03T00:00:00Z') =&gt; Date('2024-02-09T00:00:00Z')
+Date('2024-02-16T00:00:00Z') =&gt; Date('2024-02-23T00:00:00Z')  (из пятницы — следующая)</code></pre>
+<p>Пятница — день 5. Сколько дней до неё: <code>(5 - день + 7) % 7</code>. Ноль означает «сегодня пятница», а нужна следующая, поэтому ноль заменяем на 7.</p>
+<pre><code>function getNextFriday(date) {
+  const result = new Date(date);
+  const daysToFriday = (5 - result.getUTCDay() + 7) % 7 || 7;
+  result.setUTCDate(result.getUTCDate() + daysToFriday);
+  return result;
+}</code></pre>
+<p>Копия <code>new Date(date)</code> обязательна: <code>setUTCDate</code> меняет объект на месте, и без копии функция испортила бы дату вызывающего. <code>setUTCDate</code> с числом больше дней в месяце сам переносит дату в следующий месяц.</p>
+<h3 id="cjd-days-month">5. getCountDaysInMonth — дней в месяце</h3>
+<pre><code>1, 2024 =&gt; 31
+2, 2024 =&gt; 29</code></pre>
+<p>Приём: день 0 следующего месяца — это последний день нужного. Месяц в задаче нумеруется с 1, а в <code>Date</code> с 0, поэтому <code>month</code> (с единицы) как раз указывает на следующий месяц.</p>
+<pre><code>function getCountDaysInMonth(month, year) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}</code></pre>
+<p>Високосность учитывается сама: в феврале 2024 года 29 дней, и никаких формул не нужно.</p>
+<h3 id="cjd-period">6. getCountDaysOnPeriod — дней в периоде включительно</h3>
+<pre><code>'2024-02-01T00:00:00.000Z', '2024-02-12T00:00:00.000Z' =&gt; 12</code></pre>
+<p>Разница timestamp в днях плюс один, потому что оба конца входят.</p>
+<pre><code>function getCountDaysOnPeriod(dateStart, dateEnd) {
+  const DAY = 24 * 60 * 60 * 1000;
+  return Math.round((Date.parse(dateEnd) - Date.parse(dateStart)) / DAY) + 1;
+}</code></pre>
+<p><code>Math.round</code> вместо простого деления — защита от перехода на летнее время. В местном времени, где такой переход есть, между полуночами 1 и 15 марта не ровно 14 суток: в Лос-Анджелесе получается 13,958, потому что одни сутки длятся 23 часа. Строки здесь в UTC, и там переходов нет, но привычка округлять спасает в соседних задачах.</p>
+<h3 id="cjd-in-period">7. isDateInPeriod — дата внутри периода</h3>
+<pre><code>'2024-02-02', { start: '2024-02-02', end: '2024-03-02' } =&gt; true</code></pre>
+<p>Сравниваем timestamp. Строки только с датой разбираются как UTC все одинаково, поэтому сравнение честное.</p>
+<pre><code>function isDateInPeriod(date, period) {
+  const time = Date.parse(date);
+  return Date.parse(period.start) &lt;= time &amp;&amp; time &lt;= Date.parse(period.end);
+}</code></pre>
+<p>Любопытно, что строки <code>YYYY-MM-DD</code> можно сравнивать и напрямую: <code>'2024-02-02' &lt;= '2024-02-10'</code> — <code>true</code>, потому что ISO-формат идёт от старшего разряда к младшему и дополнен нулями. Но это работает только при одинаковом формате у всех трёх строк, а <code>Date.parse</code> надёжнее.</p>
+<h3 id="cjd-weekends">9. getCountWeekendsInMonth — выходные в месяце</h3>
+<pre><code>5, 2022 =&gt; 9
+1, 2024 =&gt; 8</code></pre>
+<p>Создаём массив дней месяца, для каждого берём день недели и считаем субботы (6) и воскресенья (0). Количество дней берём из функции задачи 5.</p>
+<pre><code>function getCountWeekendsInMonth(month, year) {
+  const days = getCountDaysInMonth(month, year);
+  return Array.from({ length: days }, (_, i) =&gt;
+    new Date(Date.UTC(year, month - 1, i + 1)).getUTCDay()
+  ).filter((day) =&gt; day === 0 || day === 6).length;
+}</code></pre>
+<p>Считаем в UTC, чтобы на результат не влиял пояс компьютера. Аналитическое решение без перебора возможно — по дню недели первого числа и длине месяца, — но 31 итерация ничего не стоит, а перебор очевидно правилен.</p>
+</section>

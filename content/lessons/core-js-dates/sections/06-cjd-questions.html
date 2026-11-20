@@ -1,0 +1,7 @@
+<section id="cjd-questions">
+<h2>Вопросы</h2>
+<details class="q"><summary>Почему <code>new Date(2024, 1, 0)</code> — 31 января?</summary><div class="a"><p>Месяц 1 — февраль, а день 0 — это день перед первым числом, то есть последний день января.</p></div></details>
+<details class="q"><summary>Чем <code>new Date('2024-02-01')</code> отличается от <code>new Date('2024-02-01T00:00')</code>?</summary><div class="a"><p>Первая строка разбирается как полночь UTC, вторая — как полночь по местному времени.</p></div></details>
+<details class="q"><summary>Почему решение проходит дома и падает в RS App?</summary><div class="a"><p>Чаще всего из-за часового пояса: местные методы (<code>getDay</code>) там, где данные в UTC, или наоборот. Проверяйте запуском с <code>TZ=...</code>.</p></div></details>
+<details class="q"><summary>Почему в функции нельзя оставить комментарий?</summary><div class="a"><p>Тест читает текст функции и считает комментарий нарушением; сработает даже <code>//</code> внутри строки.</p></div></details>
+</section>

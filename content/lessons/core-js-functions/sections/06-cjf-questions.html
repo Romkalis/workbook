@@ -1,0 +1,7 @@
+<section id="cjf-questions">
+<h2>Вопросы</h2>
+<details class="q"><summary>Чему равно <code>((a, b = 2, c) =&gt; {}).length</code>?</summary><div class="a"><p>1. Длина считает параметры до первого со значением по умолчанию.</p></div></details>
+<details class="q"><summary>Почему <code>memoize</code> хранит флаг, а не проверяет <code>value === undefined</code>?</summary><div class="a"><p>Функция может вернуть <code>undefined</code> как настоящий результат, и проверка по значению вызывала бы её повторно.</p></div></details>
+<details class="q"><summary>Что такое замыкание в одном предложении?</summary><div class="a"><p>Функция вместе с переменными окружения, в котором она создана; она видит их и после того, как внешняя функция завершилась.</p></div></details>
+<details class="q"><summary>Почему исходный файл задания падает на <code>npm test</code>?</summary><div class="a"><p>Линтер находит лишние пустые строки (правило Prettier). Лечится <code>npm run lint:fix</code>.</p></div></details>
+</section>

@@ -1,0 +1,39 @@
+<section id="cjf-wrappers">
+<h2>Обёртки и генератор</h2>
+<h3 id="cjf-logger">8. logger — лог начала и конца вызова</h3>
+<pre><code>const cosLogger = logger(Math.cos, console.log);
+cosLogger(Math.PI) =&gt; -1
+лог: cos(3.141592653589793) starts
+     cos(3.141592653589793) ends</code></pre>
+<p>Тест проверяет три вещи: формат строк, порядок (запись <code>starts</code> уже есть в момент вызова исходной функции) и то, что результат возвращается без изменений. Аргументы печатаются через <code>JSON.stringify</code>: массив <code>['expected', 'test', 1]</code> должен выглядеть как <code>["expected","test",1]</code>.</p>
+<pre><code>function logger(func, logFunc) {
+  return (...args) =&gt; {
+    const call = `${func.name}(${args.map((a) =&gt; JSON.stringify(a)).join(',')})`;
+    logFunc(`${call} starts`);
+    const result = func(...args);
+    logFunc(`${call} ends`);
+    return result;
+  };
+}</code></pre>
+<p>Это <b>декоратор</b>: функция с тем же интерфейсом, которая добавляет поведение. Имя берётся из <code>func.name</code> — у <code>Math.cos</code> это <code>cos</code>. Если исходная функция бросит ошибку, строка <code>ends</code> не напишется; для настоящего логгера стоило бы обернуть вызов в <code>try...finally</code>, но условие этого не требует.</p>
+<h3 id="cjf-partial">9. partialUsingArguments — частичное применение</h3>
+<pre><code>const fn = (x1, x2, x3, x4) =&gt; x1 + x2 + x3 + x4;
+partialUsingArguments(fn, 'a')('b', 'c', 'd') =&gt; 'abcd'
+partialUsingArguments(fn, 'a', 'b', 'c', 'd')() =&gt; 'abcd'</code></pre>
+<p>Частичное применение фиксирует первые аргументы и возвращает функцию, которая ждёт остальные. Rest-параметры собирают обе порции, spread передаёт их вместе.</p>
+<pre><code>function partialUsingArguments(fn, ...args1) {
+  return (...args2) =&gt; fn(...args1, ...args2);
+}</code></pre>
+<p>Название задачи намекает на старый объект <code>arguments</code>, но airbnb запрещает его правилом <code>prefer-rest-params</code>, так что rest-параметры — единственный вариант, который пройдёт линтер. То же умеет встроенный <code>fn.bind(null, ...args)</code>. Отличие от каррирования: каррированная функция принимает аргументы строго по одному, <code>f(a)(b)(c)</code>.</p>
+<h3 id="cjf-id">10. getIdGeneratorFunction — генератор id</h3>
+<pre><code>const getId4 = getIdGenerator(4); getId4() =&gt; 4; getId4() =&gt; 5</code></pre>
+<pre><code>function getIdGeneratorFunction(startFrom) {
+  let next = startFrom;
+  return () =&gt; {
+    const id = next;
+    next += 1;
+    return id;
+  };
+}</code></pre>
+<p>Счётчик <code>next</code> живёт в замыкании, у каждого генератора свой. Снаружи до него не добраться иначе, чем вызовом функции: это простейшая инкапсуляция без классов. Ту же задачу решает генератор <code>function*</code> с бесконечным циклом и <code>yield</code>, но тогда пришлось бы вызывать <code>.next().value</code>, а тест ждёт обычную функцию.</p>
+</section>

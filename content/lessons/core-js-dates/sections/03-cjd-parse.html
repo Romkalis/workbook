@@ -1,0 +1,39 @@
+<section id="cjd-parse">
+<h2>Разбор и форматирование</h2>
+<h3 id="cjd-timestamp">1. dateToTimestamp — строка в timestamp</h3>
+<pre><code>'01 Jan 1970 00:00:00 UTC' =&gt; 0
+'04 Dec 1995 00:12:00 UTC' =&gt; 818035920000</code></pre>
+<p><code>Date.parse</code> возвращает timestamp, не создавая объект. Формат <code>'04 Dec 1995 00:12:00 UTC'</code> не входит в стандарт ISO, но все движки его понимают (его выводит <code>toUTCString()</code>).</p>
+<pre><code>function dateToTimestamp(date) {
+  return Date.parse(date);
+}</code></pre>
+<p>В условии написано «number of seconds», но пример и тесты ждут миллисекунды — верьте тестам. Для дат до 1970 года timestamp отрицательный: <code>'01 Jan 1900'</code> даёт −2208988800000.</p>
+<h3 id="cjd-time">2. getTime — время hh:mm:ss</h3>
+<pre><code>Date(2023, 5, 1, 8, 20, 55) =&gt; '08:20:55'</code></pre>
+<p>Дата создана в местном времени — значит, и часы берём местные. Каждую часть дополняем нулём слева до двух символов.</p>
+<pre><code>function getTime(date) {
+  const pad = (n) =&gt; String(n).padStart(2, '0');
+  return [date.getHours(), date.getMinutes(), date.getSeconds()]
+    .map(pad)
+    .join(':');
+}</code></pre>
+<p>Короче — <code>date.toTimeString().slice(0, 8)</code>, но такой код опирается на формат строки, который в стандарте описан нестрого. Явная сборка читается однозначно.</p>
+<h3 id="cjd-dayname">3. getDayName — название дня недели</h3>
+<pre><code>'01 Jan 1970 00:00:00 UTC' =&gt; 'Thursday'
+'25 Jun 2030 20:20:35 UTC' =&gt; 'Tuesday'</code></pre>
+<p>Строки с <code>UTC</code>, а время бывает и вечерним — значит, день недели нужен по UTC. Названия отдаёт <code>Intl</code> через <code>toLocaleDateString</code> с опциями.</p>
+<pre><code>function getDayName(date) {
+  return new Date(date).toLocaleDateString('en-US', {
+    weekday: 'long',
+    timeZone: 'UTC',
+  });
+}</code></pre>
+<p>Без <code>timeZone: 'UTC'</code> функция использовала бы пояс компьютера, и <code>'25 Jun 2030 20:20:35 UTC'</code> в Токио стала бы средой. Массив <code>['Sunday', 'Monday', ...][date.getUTCDay()]</code> тоже работает, а <code>Intl</code> заодно умеет любой язык: <code>'ru-RU'</code> даст «четверг».</p>
+<h3 id="cjd-format">8. formatDate — дата в формате США</h3>
+<pre><code>'2024-02-01T15:00:00.000Z' =&gt; '2/1/2024, 3:00:00 PM'</code></pre>
+<p>Формат <code>M/D/YYYY, h:mm:ss AM/PM</code> — ровно то, что выдаёт локаль <code>en-US</code>. Дата в UTC (<code>Z</code>), значит и форматируем в UTC.</p>
+<pre><code>function formatDate(date) {
+  return new Date(date).toLocaleString('en-US', { timeZone: 'UTC' });
+}</code></pre>
+<p>Проверено в Node.js 22: перед <code>PM</code> обычный пробел. В других версиях ICU (библиотеки, на которой работает <code>Intl</code>) там бывает узкий неразрывный пробел U+202F, и строковое сравнение падает при визуально одинаковом тексте (из общих знаний). Если тест «не сходится в одном пробеле» — дело в этом.</p>
+</section>

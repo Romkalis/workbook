@@ -1,0 +1,22 @@
+<section id="cjf-closures">
+<h2>Функции, которые возвращают функции</h2>
+<p>Следующие задачи возвращают новую функцию, которая «помнит» переменные места, где её создали. Это <b>замыкание</b>: функция плюс окружение, в котором она объявлена.</p>
+<h3 id="cjf-power">4. getPowerFunction — степень как функция</h3>
+<pre><code>const power2 = getPowerFunction(2); power2(4) =&gt; 16
+const power05 = getPowerFunction(0.5); power05(16) =&gt; 4</code></pre>
+<pre><code>function getPowerFunction(exponent) {
+  return (x) =&gt; x ** exponent;
+}</code></pre>
+<p>Возвращённая стрелка запомнила <code>exponent</code>. Каждый вызов <code>getPowerFunction</code> создаёт новое окружение, поэтому <code>power2</code> и <code>power05</code> не мешают друг другу. Оператор <code>**</code> — то же, что <code>Math.pow</code>, но короче.</p>
+<h3 id="cjf-polynom">5. getPolynom — многочлен по коэффициентам</h3>
+<pre><code>getPolynom(2, 3, 5) =&gt; y = 2*x^2 + 3*x + 5
+getPolynom(1, -3)   =&gt; y = x - 3
+getPolynom(8)       =&gt; y = 8
+getPolynom()        =&gt; null</code></pre>
+<p>Коэффициенты идут от старшей степени к младшей. Можно для каждого считать <code>c * x ** (n - 1 - i)</code>, но удобнее <b>схема Горнера</b>: <code>2x² + 3x + 5 = (2·x + 3)·x + 5</code>. Аккумулятор на каждом шаге умножается на <code>x</code>, затем прибавляется очередной коэффициент.</p>
+<pre><code>function getPolynom(...coefficients) {
+  if (coefficients.length === 0) return null;
+  return (x) =&gt; coefficients.reduce((acc, c) =&gt; acc * x + c, 0);
+}</code></pre>
+<p>Проверим на <code>x = 2</code>: <code>0·2 + 2 = 2</code>, <code>2·2 + 3 = 7</code>, <code>7·2 + 5 = 19</code>. Тест ожидает 19. Схема Горнера делает одно умножение на коэффициент и не возводит в степень, поэтому её используют и в вычислительной математике (из общих знаний). <code>null</code> для пустого списка — требование условия, хотя по смыслу естественнее был бы многочлен-ноль.</p>
+</section>
